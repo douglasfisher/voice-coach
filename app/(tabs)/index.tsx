@@ -1,19 +1,28 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
-import { Flame, Target, ChevronRight, MessageCircle } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Flame,
+  Target,
+  ChevronRight,
+  MessageCircle,
+  Zap,
+  TrendingUp,
+  Award,
+  Brain,
+  Sparkles,
+  Users,
+} from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
 import { usePersonaStore } from '../../stores/personaStore';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Avatar } from '../../components/ui/Avatar';
 
 export default function HomeScreen() {
   const { profile, user } = useAuthStore();
   const { conversations, fetchConversations } = useChatStore();
-  const { getPersonaById } = usePersonaStore();
+  const { getPersonaById, personas } = usePersonaStore();
 
   useEffect(() => {
     if (user?.id) {
@@ -27,147 +36,344 @@ export default function HomeScreen() {
   const greeting = getGreeting();
   const displayName = profile?.display_name ?? 'Thinker';
 
+  // Get a featured persona for the challenge card
+  const featuredPersona = personas[0];
+
   return (
-    <SafeAreaView className="flex-1 bg-bg-primary">
-      <ScrollView className="flex-1" contentContainerClassName="p-6">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
-        <View className="mb-6">
-          <Text className="text-text-muted text-lg">{greeting}</Text>
-          <Text className="text-text-primary text-2xl font-bold">
+        <View style={{ padding: 24, paddingBottom: 16 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>{greeting}</Text>
+          <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 4 }}>
             {displayName}
           </Text>
         </View>
 
         {/* Stats Row */}
-        <View className="flex-row gap-4 mb-6">
-          <Card variant="elevated" padding="md" className="flex-1">
-            <Text className="text-text-muted text-sm">Streak</Text>
-            <View className="flex-row items-center">
-              <Text className="text-accent-primary text-2xl font-bold mr-1">
-                {profile?.streak_days ?? 0}
-              </Text>
-              <Flame size={20} color="#F59E0B" />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
+          style={{ marginBottom: 24 }}
+        >
+          {/* Streak Card */}
+          <LinearGradient
+            colors={['#F59E0B', '#D97706']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 120,
+              padding: 16,
+              borderRadius: 20,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <Flame size={20} color="#fff" />
             </View>
-          </Card>
-          <Card variant="elevated" padding="md" className="flex-1">
-            <Text className="text-text-muted text-sm">Sessions</Text>
-            <Text className="text-text-primary text-2xl font-bold">
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+              Streak
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
+              {profile?.streak_days ?? 0}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>days</Text>
+          </LinearGradient>
+
+          {/* Sessions Card */}
+          <LinearGradient
+            colors={['#8B5CF6', '#7C3AED']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 120,
+              padding: 16,
+              borderRadius: 20,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <MessageCircle size={20} color="#fff" />
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+              Sessions
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
               {profile?.total_sessions ?? 0}
             </Text>
-          </Card>
-          <Card variant="elevated" padding="md" className="flex-1">
-            <Text className="text-text-muted text-sm">Level</Text>
-            <Text className="text-text-primary text-2xl font-bold">
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>completed</Text>
+          </LinearGradient>
+
+          {/* Level Card */}
+          <LinearGradient
+            colors={['#10B981', '#059669']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 120,
+              padding: 16,
+              borderRadius: 20,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <Award size={20} color="#fff" />
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+              Level
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
               {profile?.current_level ?? 1}
             </Text>
-          </Card>
-        </View>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>thinker</Text>
+          </LinearGradient>
+
+          {/* Growth Card */}
+          <LinearGradient
+            colors={['#EC4899', '#DB2777']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 120,
+              padding: 16,
+              borderRadius: 20,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <TrendingUp size={20} color="#fff" />
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+              Growth
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
+              +12
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>this week</Text>
+          </LinearGradient>
+        </ScrollView>
 
         {/* Daily Challenge */}
-        <Card variant="elevated" padding="lg" className="mb-6">
-          <View className="flex-row justify-between items-start mb-3">
-            <Text className="text-text-primary font-semibold text-lg">
-              Today's Challenge
-            </Text>
-            <Target size={24} color="#F59E0B" />
-          </View>
-          <Text className="text-text-secondary mb-4">
-            "Is it ever right to lie to protect someone's feelings?"
-          </Text>
-          <Button
-            onPress={() => router.push('/(tabs)/personas')}
-            size="md"
-          >
-            Take Challenge
-          </Button>
-        </Card>
+        <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+          <Pressable onPress={() => router.push('/(tabs)/personas')}>
+            <LinearGradient
+              colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                borderRadius: 24,
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'rgba(96, 165, 250, 0.3)',
+              }}
+            >
+              <View style={{ padding: 20 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: '#60a5fa',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 12,
+                    }}>
+                      <Target size={20} color="#0f0f12" />
+                    </View>
+                    <View>
+                      <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '600', letterSpacing: 1 }}>
+                        TODAY'S CHALLENGE
+                      </Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2 }}>
+                        Sharpen your thinking
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{
+                    backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                  }}>
+                    <Text style={{ color: '#60a5fa', fontSize: 11, fontWeight: '600' }}>NEW</Text>
+                  </View>
+                </View>
+
+                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 28, marginBottom: 16 }}>
+                  "Is it ever right to lie to protect someone's feelings?"
+                </Text>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Brain size={16} color="rgba(255,255,255,0.5)" />
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginLeft: 6 }}>
+                      Ethics • Relationships
+                    </Text>
+                  </View>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: '#60a5fa',
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    borderRadius: 14,
+                  }}>
+                    <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14 }}>Start</Text>
+                    <ChevronRight size={18} color="#0f0f12" style={{ marginLeft: 4 }} />
+                  </View>
+                </View>
+              </View>
+            </LinearGradient>
+          </Pressable>
+        </View>
 
         {/* Active Conversation */}
         {activeConversations.length > 0 && (
-          <View className="mb-6">
-            <Text className="text-text-primary font-semibold text-lg mb-3">
-              Continue Conversation
+          <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
+              CONTINUE WHERE YOU LEFT OFF
             </Text>
             {activeConversations.slice(0, 1).map((conv) => {
               const persona = getPersonaById(conv.persona_id);
+              const imageSource = persona?.avatarUrl
+                ? (typeof persona.avatarUrl === 'string' ? { uri: persona.avatarUrl } : persona.avatarUrl)
+                : null;
+
               return (
-                <Card
+                <Pressable
                   key={conv.id}
-                  variant="default"
-                  padding="md"
                   onPress={() => router.push(`/(tabs)/chat/${conv.id}`)}
+                  style={{
+                    borderRadius: 20,
+                    overflow: 'hidden',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                  }}
                 >
-                  <View className="flex-row items-center">
-                    <Avatar
-                      source={persona?.avatarUrl}
-                      fallback={persona?.name}
-                      size="md"
-                    />
-                    <View className="ml-3 flex-1">
-                      <Text className="text-text-primary font-medium">
+                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
+                    {imageSource && (
+                      <Image
+                        source={imageSource as ImageSourcePropType}
+                        style={{ width: 56, height: 56, borderRadius: 16 }}
+                        resizeMode="cover"
+                      />
+                    )}
+                    <View style={{ marginLeft: 14, flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
                         {persona?.name ?? 'Unknown'}
                       </Text>
-                      <Text className="text-text-muted text-sm">
-                        {conv.topic ?? 'Active conversation'}
+                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+                        {conv.topic ?? 'Conversation in progress'}
                       </Text>
                     </View>
-                    <ChevronRight size={24} color="#F59E0B" />
+                    <View style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: '#F59E0B',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <ChevronRight size={22} color="#0f0f12" />
+                    </View>
                   </View>
-                </Card>
+                </Pressable>
               );
             })}
           </View>
         )}
 
-        {/* Recent Conversations */}
+        {/* Recent Sessions */}
         {recentConversations.length > 0 && (
-          <View>
-            <Text className="text-text-primary font-semibold text-lg mb-3">
-              Recent Sessions
+          <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
+              RECENT SESSIONS
             </Text>
-            {recentConversations.map((conv) => {
+            {recentConversations.map((conv, index) => {
               const persona = getPersonaById(conv.persona_id);
+              const imageSource = persona?.avatarUrl
+                ? (typeof persona.avatarUrl === 'string' ? { uri: persona.avatarUrl } : persona.avatarUrl)
+                : null;
+
               return (
-                <Card
+                <Pressable
                   key={conv.id}
-                  variant="default"
-                  padding="sm"
-                  className="mb-2"
                   onPress={() => router.push(`/(tabs)/chat/${conv.id}`)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    borderBottomWidth: index < recentConversations.length - 1 ? 1 : 0,
+                    borderBottomColor: 'rgba(255,255,255,0.06)',
+                  }}
                 >
-                  <View className="flex-row items-center">
-                    <Avatar
-                      source={persona?.avatarUrl}
-                      fallback={persona?.name}
-                      size="sm"
+                  {imageSource && (
+                    <Image
+                      source={imageSource as ImageSourcePropType}
+                      style={{ width: 44, height: 44, borderRadius: 12 }}
+                      resizeMode="cover"
                     />
-                    <View className="ml-3 flex-1">
-                      <Text className="text-text-primary text-sm">
-                        {persona?.name}
-                      </Text>
-                      <Text className="text-text-muted text-xs">
-                        {formatDate(conv.created_at)}
-                      </Text>
-                    </View>
-                    <View
-                      className={`px-2 py-1 rounded-full ${
-                        conv.status === 'active'
-                          ? 'bg-success/20'
-                          : 'bg-bg-tertiary'
-                      }`}
-                    >
-                      <Text
-                        className={`text-xs ${
-                          conv.status === 'active'
-                            ? 'text-success'
-                            : 'text-text-muted'
-                        }`}
-                      >
-                        {conv.status}
-                      </Text>
-                    </View>
+                  )}
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                      {persona?.name}
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>
+                      {formatDate(conv.created_at)}
+                    </Text>
                   </View>
-                </Card>
+                  <View style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 10,
+                    backgroundColor: conv.status === 'active'
+                      ? 'rgba(74, 222, 128, 0.15)'
+                      : 'rgba(255,255,255,0.06)',
+                  }}>
+                    <Text style={{
+                      fontSize: 11,
+                      fontWeight: '500',
+                      color: conv.status === 'active' ? '#4ade80' : 'rgba(255,255,255,0.4)',
+                    }}>
+                      {conv.status === 'active' ? 'Active' : 'Completed'}
+                    </Text>
+                  </View>
+                </Pressable>
               );
             })}
           </View>
@@ -175,19 +381,52 @@ export default function HomeScreen() {
 
         {/* Empty State */}
         {recentConversations.length === 0 && (
-          <Card variant="elevated" padding="lg" className="items-center">
-            <MessageCircle size={48} color="#6E6E73" />
-            <Text className="text-text-primary font-semibold text-center mt-4">
-              No conversations yet
-            </Text>
-            <Text className="text-text-muted text-center mt-2 mb-4">
-              Start a conversation with one of our AI personas to begin sharpening
-              your thinking
-            </Text>
-            <Button onPress={() => router.push('/(tabs)/personas')}>
-              Meet the Personas
-            </Button>
-          </Card>
+          <View style={{ paddingHorizontal: 24 }}>
+            <LinearGradient
+              colors={['rgba(139, 92, 246, 0.15)', 'rgba(139, 92, 246, 0.05)', 'transparent']}
+              style={{
+                borderRadius: 24,
+                padding: 32,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: 'rgba(139, 92, 246, 0.2)',
+              }}
+            >
+              <View style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 20,
+              }}>
+                <Users size={36} color="#8B5CF6" />
+              </View>
+              <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
+                Ready to think sharper?
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+                Challenge your assumptions with our AI personas. Each one brings a unique perspective.
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(tabs)/personas')}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#8B5CF6',
+                  paddingHorizontal: 24,
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                }}
+              >
+                <Sparkles size={18} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
+                  Meet the Challengers
+                </Text>
+              </Pressable>
+            </LinearGradient>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
