@@ -73,35 +73,41 @@ export default function PersonasScreen() {
       </View>
 
       {/* Filter Pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="px-4 py-3"
-        contentContainerClassName="gap-2"
-      >
-        {STYLE_FILTERS.map((filter) => {
-          const isActive = activeFilter === filter.key;
-          return (
-            <Pressable
-              key={filter.key}
-              onPress={() => setActiveFilter(filter.key)}
-              className="px-4 py-2 rounded-full"
-              style={{
-                backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
-                borderWidth: 1,
-                borderColor: isActive ? filter.color : 'rgba(255,255,255,0.1)',
-              }}
-            >
-              <Text
-                className="text-sm font-medium"
-                style={{ color: isActive ? filter.color : '#9A9A9E' }}
+      <View className="py-3">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+        >
+          {STYLE_FILTERS.map((filter) => {
+            const isActive = activeFilter === filter.key;
+            return (
+              <Pressable
+                key={filter.key}
+                onPress={() => setActiveFilter(filter.key)}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
+                  borderWidth: 1,
+                  borderColor: isActive ? filter.color : 'rgba(255,255,255,0.1)',
+                }}
               >
-                {filter.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '500',
+                    color: isActive ? filter.color : '#9A9A9E'
+                  }}
+                >
+                  {filter.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
@@ -165,7 +171,7 @@ export default function PersonasScreen() {
         <View className="absolute inset-0 bg-black/50 items-center justify-center">
           <LinearGradient
             colors={['#1a1a2e', '#16213e', '#0f3460']}
-            className="rounded-2xl p-6 items-center"
+            style={{ borderRadius: 16, padding: 24, alignItems: 'center' }}
           >
             <ActivityIndicator size="large" color="#F59E0B" />
             <Text className="text-text-primary mt-4">

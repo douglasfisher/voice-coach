@@ -84,25 +84,34 @@ export function PersonaModal({
           colors={theme.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          className="pb-8"
+          style={{ paddingBottom: 32 }}
         >
           {/* Close Button */}
-          <View className="flex-row justify-end p-4">
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 16 }}>
             <Pressable
               onPress={onClose}
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+              }}
             >
               <X size={24} color="#fff" />
             </Pressable>
           </View>
 
           {/* Avatar and Name */}
-          <View className="items-center px-6">
-            <View className="relative">
+          <View style={{ alignItems: 'center', paddingHorizontal: 24 }}>
+            <View style={{ position: 'relative' }}>
               <View
-                className="w-28 h-28 rounded-2xl overflow-hidden"
                 style={{
+                  width: 112,
+                  height: 112,
+                  borderRadius: 16,
+                  overflow: 'hidden',
                   borderWidth: 3,
                   borderColor: theme.accent,
                   shadowColor: theme.accent,
@@ -113,24 +122,33 @@ export function PersonaModal({
               >
                 <Image
                   source={imageSource as ImageSourcePropType}
-                  className="w-full h-full"
+                  style={{ width: '100%', height: '100%' }}
                   resizeMode="cover"
                 />
               </View>
               <View
-                className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full items-center justify-center"
-                style={{ backgroundColor: theme.accent }}
+                style={{
+                  position: 'absolute',
+                  bottom: -8,
+                  right: -8,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: theme.accent,
+                }}
               >
                 <StyleIcon size={20} color="#0f0f12" />
               </View>
             </View>
 
-            <Text className="text-white text-2xl font-bold mt-4">
+            <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginTop: 16 }}>
               {persona.name}
             </Text>
 
             {persona.tagline && (
-              <Text className="text-gray-300 text-center mt-1">
+              <Text style={{ color: '#d1d5db', textAlign: 'center', marginTop: 4 }}>
                 {persona.tagline}
               </Text>
             )}
@@ -139,15 +157,24 @@ export function PersonaModal({
             {onPlayVoice && (
               <Pressable
                 onPress={onPlayVoice}
-                className="flex-row items-center mt-4 px-4 py-2 rounded-full"
-                style={{ backgroundColor: `${theme.accent}20`, borderWidth: 1, borderColor: theme.accent }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginTop: 16,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  backgroundColor: `${theme.accent}20`,
+                  borderWidth: 1,
+                  borderColor: theme.accent,
+                }}
               >
                 {isPlayingVoice ? (
                   <Volume2 size={18} color={theme.accent} />
                 ) : (
                   <Play size={18} color={theme.accent} />
                 )}
-                <Text className="ml-2 font-medium" style={{ color: theme.accent }}>
+                <Text style={{ marginLeft: 8, fontWeight: '500', color: theme.accent }}>
                   {isPlayingVoice ? 'Playing...' : 'Hear my voice'}
                 </Text>
               </Pressable>
@@ -158,12 +185,18 @@ export function PersonaModal({
         <ScrollView className="flex-1" contentContainerClassName="p-6">
           {/* Challenge Style */}
           <View
-            className="rounded-2xl p-4 mb-4"
-            style={{ backgroundColor: `${theme.accent}10`, borderWidth: 1, borderColor: `${theme.accent}30` }}
+            style={{
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 16,
+              backgroundColor: `${theme.accent}10`,
+              borderWidth: 1,
+              borderColor: `${theme.accent}30`,
+            }}
           >
-            <View className="flex-row items-center mb-2">
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
               <StyleIcon size={18} color={theme.accent} />
-              <Text className="ml-2 font-semibold" style={{ color: theme.accent }}>
+              <Text style={{ marginLeft: 8, fontWeight: '600', color: theme.accent }}>
                 {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
               </Text>
             </View>
@@ -175,14 +208,18 @@ export function PersonaModal({
           {/* Specialty Areas */}
           <View className="bg-bg-secondary rounded-2xl p-4 mb-4">
             <Text className="text-text-secondary text-sm mb-3">Specialty Areas</Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {persona.specialtyAreas.map((area, index) => (
                 <View
                   key={index}
-                  className="px-3 py-1.5 rounded-lg"
-                  style={{ backgroundColor: `${theme.accent}15` }}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    backgroundColor: `${theme.accent}15`,
+                  }}
                 >
-                  <Text style={{ color: theme.accent }} className="text-sm">{area}</Text>
+                  <Text style={{ color: theme.accent, fontSize: 14 }}>{area}</Text>
                 </View>
               ))}
             </View>
@@ -210,14 +247,18 @@ export function PersonaModal({
         {/* CTA Button */}
         <LinearGradient
           colors={['transparent', '#0f0f12']}
-          className="px-6 pb-8 pt-4"
+          style={{ paddingHorizontal: 24, paddingBottom: 32, paddingTop: 16 }}
         >
           <Pressable
             onPress={() => onChallenge(persona)}
-            className="py-4 rounded-xl items-center"
-            style={{ backgroundColor: theme.accent }}
+            style={{
+              paddingVertical: 16,
+              borderRadius: 12,
+              alignItems: 'center',
+              backgroundColor: theme.accent,
+            }}
           >
-            <Text className="text-bg-primary font-bold text-lg">Challenge Me</Text>
+            <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18 }}>Challenge Me</Text>
           </Pressable>
         </LinearGradient>
       </View>
@@ -227,15 +268,19 @@ export function PersonaModal({
 
 function PersonalityBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <View className="mb-3">
-      <View className="flex-row justify-between mb-1.5">
+    <View style={{ marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
         <Text className="text-text-muted text-sm">{label}</Text>
         <Text className="text-text-muted text-sm">{value}%</Text>
       </View>
       <View className="h-2 rounded-full bg-bg-tertiary overflow-hidden">
         <View
-          className="h-full rounded-full"
-          style={{ width: `${value}%`, backgroundColor: color }}
+          style={{
+            width: `${value}%`,
+            height: '100%',
+            borderRadius: 100,
+            backgroundColor: color,
+          }}
         />
       </View>
     </View>

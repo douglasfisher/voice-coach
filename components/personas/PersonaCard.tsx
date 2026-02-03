@@ -57,52 +57,65 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
 
   if (variant === 'featured') {
     return (
-      <Pressable onPress={onPress} className="mb-6">
+      <Pressable onPress={onPress} style={{ marginBottom: 24 }}>
         <LinearGradient
           colors={theme.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          className="rounded-3xl overflow-hidden"
+          style={{ borderRadius: 24, overflow: 'hidden' }}
         >
-          <View className="flex-row p-5">
-            <View className="flex-1 pr-4 justify-center">
-              <View className="flex-row items-center mb-2">
+          <View style={{ flexDirection: 'row', padding: 20 }}>
+            <View style={{ flex: 1, paddingRight: 16, justifyContent: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <View
-                  className="px-3 py-1 rounded-full flex-row items-center"
-                  style={{ backgroundColor: `${theme.accent}20` }}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 4,
+                    borderRadius: 20,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: `${theme.accent}20`,
+                  }}
                 >
                   <StyleIcon size={12} color={theme.accent} />
-                  <Text className="text-xs font-medium ml-1" style={{ color: theme.accent }}>
+                  <Text style={{ fontSize: 12, fontWeight: '500', marginLeft: 4, color: theme.accent }}>
                     {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
                   </Text>
                 </View>
               </View>
 
-              <Text className="text-white text-2xl font-bold mb-1">
+              <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 4 }}>
                 {persona.name}
               </Text>
 
-              <Text className="text-gray-400 text-sm mb-3">
+              <Text style={{ color: '#9ca3af', fontSize: 14, marginBottom: 12 }}>
                 {persona.tagline}
               </Text>
 
-              <View className="flex-row flex-wrap gap-2">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {persona.specialtyAreas.slice(0, 3).map((area, index) => (
                   <View
                     key={index}
-                    className="px-3 py-1.5 rounded-lg"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                    }}
                   >
-                    <Text className="text-gray-300 text-xs">{area}</Text>
+                    <Text style={{ color: '#d1d5db', fontSize: 12 }}>{area}</Text>
                   </View>
                 ))}
               </View>
             </View>
 
-            <View className="relative">
+            <View style={{ position: 'relative' }}>
               <View
-                className="w-32 h-32 rounded-2xl overflow-hidden"
                 style={{
+                  width: 128,
+                  height: 128,
+                  borderRadius: 16,
+                  overflow: 'hidden',
                   borderWidth: 2,
                   borderColor: theme.accent,
                   shadowColor: theme.accent,
@@ -113,13 +126,22 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
               >
                 <Image
                   source={imageSource as ImageSourcePropType}
-                  className="w-full h-full"
+                  style={{ width: '100%', height: '100%' }}
                   resizeMode="cover"
                 />
               </View>
               <View
-                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full items-center justify-center"
-                style={{ backgroundColor: theme.accent }}
+                style={{
+                  position: 'absolute',
+                  bottom: -4,
+                  right: -4,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: theme.accent,
+                }}
               >
                 <StyleIcon size={16} color="#0f0f12" />
               </View>
@@ -133,53 +155,82 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
   return (
     <Pressable
       onPress={onPress}
-      className={`rounded-2xl overflow-hidden ${selected ? 'ring-2 ring-amber-500' : ''}`}
+      style={{
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: selected ? 2 : 0,
+        borderColor: selected ? '#F59E0B' : 'transparent',
+      }}
     >
       <LinearGradient
         colors={theme.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        className="p-4"
+        style={{ padding: 16 }}
       >
-        <View className="items-center">
-          <View className="relative mb-3">
+        <View style={{ alignItems: 'center' }}>
+          <View style={{ position: 'relative', marginBottom: 12 }}>
             <View
-              className="w-20 h-20 rounded-xl overflow-hidden"
               style={{
+                width: 80,
+                height: 80,
+                borderRadius: 12,
+                overflow: 'hidden',
                 borderWidth: 2,
                 borderColor: `${theme.accent}80`,
               }}
             >
               <Image
                 source={imageSource as ImageSourcePropType}
-                className="w-full h-full"
+                style={{ width: '100%', height: '100%' }}
                 resizeMode="cover"
               />
             </View>
             <View
-              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full items-center justify-center"
-              style={{ backgroundColor: theme.accent }}
+              style={{
+                position: 'absolute',
+                bottom: -4,
+                right: -4,
+                width: 24,
+                height: 24,
+                borderRadius: 12,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.accent,
+              }}
             >
               <StyleIcon size={12} color="#0f0f12" />
             </View>
           </View>
 
-          <Text className="text-white font-bold text-center">
+          <Text style={{ color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
             {persona.name}
           </Text>
 
           <View
-            className="px-2 py-0.5 rounded-full mt-1.5 flex-row items-center"
-            style={{ backgroundColor: `${theme.accent}20` }}
+            style={{
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 20,
+              marginTop: 6,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: `${theme.accent}20`,
+            }}
           >
-            <Text className="text-xs" style={{ color: theme.accent }}>
+            <Text style={{ fontSize: 12, color: theme.accent }}>
               {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
             </Text>
           </View>
 
           {persona.tagline && (
             <Text
-              className="text-gray-400 text-xs text-center mt-2"
+              style={{
+                color: '#9ca3af',
+                fontSize: 12,
+                textAlign: 'center',
+                marginTop: 8,
+              }}
               numberOfLines={2}
             >
               {persona.tagline}
@@ -187,14 +238,18 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
           )}
         </View>
 
-        <View className="flex-row flex-wrap gap-1 mt-3 justify-center">
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 12, justifyContent: 'center' }}>
           {persona.specialtyAreas.slice(0, 2).map((area, index) => (
             <View
               key={index}
-              className="px-2 py-1 rounded-md"
-              style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 6,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+              }}
             >
-              <Text className="text-gray-400 text-xs">{area}</Text>
+              <Text style={{ color: '#9ca3af', fontSize: 12 }}>{area}</Text>
             </View>
           ))}
         </View>
