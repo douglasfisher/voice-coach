@@ -1,12 +1,25 @@
-import { View, Text, ScrollView, Switch, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Switch, Pressable, Alert, Image } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import Slider from '@react-native-community/slider';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  User,
+  Settings,
+  Volume2,
+  Bell,
+  Zap,
+  Info,
+  Shield,
+  FileText,
+  LogOut,
+  ChevronRight,
+  Award,
+  MessageSquare,
+  Flame,
+} from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
-import { Card } from '../../components/ui/Card';
-import { Avatar } from '../../components/ui/Avatar';
-import { Button } from '../../components/ui/Button';
 
 export default function ProfileScreen() {
   const { profile, preferences, user, signOut, updatePreferences, updateProfile } =
@@ -54,129 +67,414 @@ export default function ProfileScreen() {
 
   const intensityLabels = ['Gentle', 'Moderate', 'Challenging', 'Intense'];
   const intensityLabel = intensityLabels[Math.min(Math.floor((intensity - 1) / 2.5), 3)];
+  const intensityColor =
+    intensity <= 3 ? '#4ade80' : intensity <= 6 ? '#fbbf24' : '#f472b6';
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-primary">
-      <ScrollView className="flex-1" contentContainerClassName="p-6">
-        <Text className="text-text-primary text-2xl font-bold mb-6">Settings</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+          <View
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: 'rgba(245, 158, 11, 0.15)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}
+          >
+            <Settings size={24} color="#F59E0B" />
+          </View>
+          <Text style={{ color: '#fff', fontSize: 28, fontWeight: '700' }}>
+            Settings
+          </Text>
+        </View>
 
-        {/* Profile Section */}
-        <Card variant="elevated" padding="lg" className="mb-4">
-          <View className="flex-row items-center">
-            <Avatar
-              source={profile?.avatar_url}
-              fallback={profile?.display_name ?? user?.email}
-              size="lg"
-            />
-            <View className="ml-4 flex-1">
-              <Text className="text-text-primary text-lg font-semibold">
-                {profile?.display_name ?? 'Anonymous Thinker'}
-              </Text>
-              <Text className="text-text-muted text-sm">{user?.email}</Text>
-              <View className="flex-row mt-2">
-                <View className="bg-bg-tertiary rounded-full px-3 py-1 mr-2">
-                  <Text className="text-text-secondary text-xs">
-                    Level {profile?.current_level ?? 1}
-                  </Text>
-                </View>
-                <View className="bg-bg-tertiary rounded-full px-3 py-1">
-                  <Text className="text-text-secondary text-xs">
-                    {profile?.total_sessions ?? 0} sessions
-                  </Text>
+        {/* Profile Card */}
+        <View
+          style={{
+            borderRadius: 24,
+            overflow: 'hidden',
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: 'rgba(245, 158, 11, 0.3)',
+          }}
+        >
+          <LinearGradient
+            colors={['rgba(245, 158, 11, 0.15)', 'rgba(245, 158, 11, 0.05)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 20 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* Avatar */}
+              <View
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
+                  backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 3,
+                  borderColor: '#F59E0B',
+                  marginRight: 16,
+                }}
+              >
+                {profile?.avatar_url ? (
+                  <Image
+                    source={{ uri: profile.avatar_url }}
+                    style={{ width: 66, height: 66, borderRadius: 33 }}
+                  />
+                ) : (
+                  <User size={32} color="#F59E0B" />
+                )}
+              </View>
+
+              {/* Info */}
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700' }}>
+                  {profile?.display_name ?? 'Anonymous Thinker'}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 2 }}>
+                  {user?.email}
+                </Text>
+
+                {/* Stats badges */}
+                <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(192, 132, 252, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(192, 132, 252, 0.3)',
+                    }}
+                  >
+                    <Award size={14} color="#c084fc" />
+                    <Text style={{ color: '#c084fc', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>
+                      Level {profile?.current_level ?? 1}
+                    </Text>
+                  </View>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(96, 165, 250, 0.15)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(96, 165, 250, 0.3)',
+                    }}
+                  >
+                    <MessageSquare size={14} color="#60a5fa" />
+                    <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>
+                      {profile?.total_sessions ?? 0} sessions
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
-        </Card>
+          </LinearGradient>
+        </View>
+
+        {/* Preferences Section */}
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: 12,
+            fontWeight: '600',
+            letterSpacing: 1,
+            marginBottom: 12,
+            marginLeft: 4,
+          }}
+        >
+          PREFERENCES
+        </Text>
 
         {/* Challenge Intensity */}
-        <Card variant="elevated" padding="lg" className="mb-4">
-          <Text className="text-text-primary font-semibold mb-1">
-            Challenge Intensity
-          </Text>
-          <Text className="text-text-muted text-sm mb-4">
-            How hard should personas push you?
-          </Text>
+        <View
+          style={{
+            borderRadius: 20,
+            overflow: 'hidden',
+            marginBottom: 12,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+          }}
+        >
+          <LinearGradient
+            colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 18 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  backgroundColor: `${intensityColor}15`,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <Zap size={20} color={intensityColor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                  Challenge Intensity
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+                  How hard should personas push you?
+                </Text>
+              </View>
+              <View
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  backgroundColor: `${intensityColor}15`,
+                  borderWidth: 1,
+                  borderColor: `${intensityColor}40`,
+                }}
+              >
+                <Text style={{ color: intensityColor, fontSize: 13, fontWeight: '700' }}>
+                  {intensityLabel}
+                </Text>
+              </View>
+            </View>
 
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-text-muted">Gentle</Text>
-            <Text className="text-accent-primary font-semibold">{intensityLabel}</Text>
-            <Text className="text-text-muted">Intense</Text>
-          </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Gentle</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Intense</Text>
+            </View>
 
-          <Slider
-            value={intensity}
-            onValueChange={setIntensity}
-            onSlidingComplete={saveIntensity}
-            minimumValue={1}
-            maximumValue={10}
-            step={1}
-            minimumTrackTintColor="#F59E0B"
-            maximumTrackTintColor="#252529"
-            thumbTintColor="#F59E0B"
-          />
-        </Card>
+            <Slider
+              value={intensity}
+              onValueChange={setIntensity}
+              onSlidingComplete={saveIntensity}
+              minimumValue={1}
+              maximumValue={10}
+              step={1}
+              minimumTrackTintColor={intensityColor}
+              maximumTrackTintColor="rgba(255,255,255,0.1)"
+              thumbTintColor={intensityColor}
+            />
+          </LinearGradient>
+        </View>
 
         {/* Voice Settings */}
-        <Card variant="elevated" padding="lg" className="mb-4">
-          <View className="flex-row justify-between items-center">
-            <View className="flex-1 mr-4">
-              <Text className="text-text-primary font-semibold">Voice Responses</Text>
-              <Text className="text-text-muted text-sm mt-1">
-                Hear personas speak their responses
-              </Text>
-            </View>
-            <Switch
-              value={ttsEnabled}
-              onValueChange={toggleTTS}
-              trackColor={{ false: '#252529', true: '#F59E0B' }}
-              thumbColor="#F5F5F7"
-            />
-          </View>
-        </Card>
+        <SettingToggle
+          icon={Volume2}
+          iconColor="#60a5fa"
+          title="Voice Responses"
+          description="Hear personas speak their responses"
+          value={ttsEnabled}
+          onValueChange={toggleTTS}
+        />
 
         {/* Notifications */}
-        <Card variant="elevated" padding="lg" className="mb-4">
-          <View className="flex-row justify-between items-center">
-            <View className="flex-1 mr-4">
-              <Text className="text-text-primary font-semibold">Daily Challenge</Text>
-              <Text className="text-text-muted text-sm mt-1">
-                Remind me about daily challenges
-              </Text>
-            </View>
-            <Switch
-              value={notifications}
-              onValueChange={toggleNotifications}
-              trackColor={{ false: '#252529', true: '#F59E0B' }}
-              thumbColor="#F5F5F7"
-            />
-          </View>
-        </Card>
+        <SettingToggle
+          icon={Bell}
+          iconColor="#fbbf24"
+          title="Daily Challenge"
+          description="Remind me about daily challenges"
+          value={notifications}
+          onValueChange={toggleNotifications}
+        />
 
         {/* About Section */}
-        <Card variant="default" padding="md" className="mb-4">
-          <Pressable className="py-2">
-            <Text className="text-text-primary">About Dialectica</Text>
-          </Pressable>
-          <View className="h-px bg-bg-tertiary my-2" />
-          <Pressable className="py-2">
-            <Text className="text-text-primary">Privacy Policy</Text>
-          </Pressable>
-          <View className="h-px bg-bg-tertiary my-2" />
-          <Pressable className="py-2">
-            <Text className="text-text-primary">Terms of Service</Text>
-          </Pressable>
-        </Card>
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: 12,
+            fontWeight: '600',
+            letterSpacing: 1,
+            marginTop: 8,
+            marginBottom: 12,
+            marginLeft: 4,
+          }}
+        >
+          ABOUT
+        </Text>
+
+        <View
+          style={{
+            borderRadius: 20,
+            overflow: 'hidden',
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+          }}
+        >
+          <LinearGradient
+            colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <SettingLink icon={Info} iconColor="#4ade80" title="About Dialectica" />
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 18 }} />
+            <SettingLink icon={Shield} iconColor="#c084fc" title="Privacy Policy" />
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 18 }} />
+            <SettingLink icon={FileText} iconColor="#60a5fa" title="Terms of Service" />
+          </LinearGradient>
+        </View>
 
         {/* Sign Out */}
-        <Button onPress={handleSignOut} variant="danger" fullWidth size="lg">
-          Sign Out
-        </Button>
+        <Pressable
+          onPress={handleSignOut}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            borderRadius: 16,
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            borderWidth: 1,
+            borderColor: 'rgba(239, 68, 68, 0.3)',
+          }}
+        >
+          <LogOut size={20} color="#ef4444" />
+          <Text style={{ color: '#ef4444', fontSize: 16, fontWeight: '600', marginLeft: 8 }}>
+            Sign Out
+          </Text>
+        </Pressable>
 
-        <Text className="text-text-muted text-xs text-center mt-6">
+        {/* Version */}
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.3)',
+            fontSize: 12,
+            textAlign: 'center',
+            marginTop: 24,
+            marginBottom: 20,
+          }}
+        >
           Dialectica v1.0.0
         </Text>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function SettingToggle({
+  icon: Icon,
+  iconColor,
+  title,
+  description,
+  value,
+  onValueChange,
+}: {
+  icon: typeof Volume2;
+  iconColor: string;
+  title: string;
+  description: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+}) {
+  return (
+    <View
+      style={{
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+      }}
+    >
+      <LinearGradient
+        colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: 18,
+        }}
+      >
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            backgroundColor: `${iconColor}15`,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+          }}
+        >
+          <Icon size={20} color={iconColor} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+            {title}
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+            {description}
+          </Text>
+        </View>
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: 'rgba(255,255,255,0.1)', true: `${iconColor}60` }}
+          thumbColor={value ? iconColor : 'rgba(255,255,255,0.5)'}
+          ios_backgroundColor="rgba(255,255,255,0.1)"
+        />
+      </LinearGradient>
+    </View>
+  );
+}
+
+function SettingLink({
+  icon: Icon,
+  iconColor,
+  title,
+  onPress,
+}: {
+  icon: typeof Info;
+  iconColor: string;
+  title: string;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 18,
+      }}
+    >
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: `${iconColor}15`,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 12,
+        }}
+      >
+        <Icon size={18} color={iconColor} />
+      </View>
+      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500', flex: 1 }}>
+        {title}
+      </Text>
+      <ChevronRight size={20} color="rgba(255,255,255,0.3)" />
+    </Pressable>
   );
 }
