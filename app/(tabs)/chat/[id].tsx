@@ -42,7 +42,7 @@ export default function ChatScreen() {
 
   const [latestAnalysis, setLatestAnalysis] = useState<{
     messageId: string;
-    analysis: unknown;
+    analysis: AnalysisResult;
   } | null>(null);
 
   const handleSend = async (content: string) => {
