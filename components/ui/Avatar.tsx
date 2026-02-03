@@ -1,37 +1,33 @@
-import { View, Text, Image } from 'react-native';
+import { View, Text, Image, ImageSourcePropType } from 'react-native';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
+export type AvatarSource = string | ImageSourcePropType | null;
+
 interface AvatarProps {
-  source?: string | null;
+  source?: AvatarSource;
   fallback?: string;
   size?: AvatarSize;
-  emoji?: string;
 }
 
-const sizeStyles: Record<AvatarSize, { container: string; text: string; emoji: string }> = {
-  xs: { container: 'w-6 h-6 rounded-full', text: 'text-xs', emoji: 'text-sm' },
-  sm: { container: 'w-8 h-8 rounded-full', text: 'text-sm', emoji: 'text-lg' },
-  md: { container: 'w-12 h-12 rounded-xl', text: 'text-lg', emoji: 'text-2xl' },
-  lg: { container: 'w-16 h-16 rounded-xl', text: 'text-xl', emoji: 'text-3xl' },
-  xl: { container: 'w-24 h-24 rounded-2xl', text: 'text-3xl', emoji: 'text-5xl' },
+const sizeStyles: Record<AvatarSize, { container: string; text: string }> = {
+  xs: { container: 'w-6 h-6 rounded-full', text: 'text-xs' },
+  sm: { container: 'w-8 h-8 rounded-full', text: 'text-sm' },
+  md: { container: 'w-12 h-12 rounded-xl', text: 'text-lg' },
+  lg: { container: 'w-16 h-16 rounded-xl', text: 'text-xl' },
+  xl: { container: 'w-24 h-24 rounded-2xl', text: 'text-3xl' },
 };
 
-export function Avatar({ source, fallback, size = 'md', emoji }: AvatarProps) {
+export function Avatar({ source, fallback, size = 'md' }: AvatarProps) {
   const styles = sizeStyles[size];
 
-  if (emoji) {
-    return (
-      <View className={`${styles.container} bg-bg-tertiary items-center justify-center`}>
-        <Text className={styles.emoji}>{emoji}</Text>
-      </View>
-    );
-  }
-
   if (source) {
+    // Handle both local images (require) and remote URLs (string)
+    const imageSource = typeof source === 'string' ? { uri: source } : source;
+
     return (
       <Image
-        source={{ uri: source }}
+        source={imageSource}
         className={styles.container}
         resizeMode="cover"
       />

@@ -1,4 +1,5 @@
 import { View, Text, Pressable } from 'react-native';
+import { Info } from 'lucide-react-native';
 import { Avatar } from '../ui/Avatar';
 import { PersonaDisplay, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 
@@ -28,7 +29,7 @@ export function PersonaHeader({ persona, onInfoPress }: PersonaHeaderProps) {
       </View>
       {onInfoPress && (
         <View className="w-8 h-8 rounded-full bg-bg-tertiary items-center justify-center">
-          <Text className="text-text-secondary">i</Text>
+          <Info size={16} color="#9A9A9E" />
         </View>
       )}
     </Pressable>

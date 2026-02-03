@@ -24,12 +24,16 @@ export interface PersonalityTraits {
   formality: number;
 }
 
+import { ImageSourcePropType } from 'react-native';
+
+export type AvatarSource = string | ImageSourcePropType;
+
 export interface PersonaDisplay {
   id: string;
   name: string;
   tagline: string | null;
-  avatarUrl: string;
-  avatarThumbnailUrl: string | null;
+  avatarUrl: AvatarSource;
+  avatarThumbnailUrl: AvatarSource | null;
   challengeStyle: ChallengeStyle;
   specialtyAreas: string[];
   culturalBackground: string | null;
