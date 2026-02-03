@@ -1,17 +1,25 @@
 {
   "name": "dialectica",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "prebuild": "expo prebuild",
+    "build:ios": "eas build --platform ios",
+    "build:android": "eas build --platform android",
+    "submit:ios": "eas submit --platform ios",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/slider": "^5.1.2",
     "@supabase/supabase-js": "^2.93.3",
     "expo": "~54.0.33",
+    "expo-apple-authentication": "~8.0.8",
     "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
     "expo-linking": "~8.0.11",
@@ -25,6 +33,7 @@
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-svg": "15.12.1",
+    "react-native-url-polyfill": "^3.0.0",
     "tailwindcss": "3.3.2",
     "zustand": "^5.0.11"
   },
