@@ -1,6 +1,7 @@
 import { View, Text } from 'react-native';
-import Svg, { Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
-import { Card } from '../ui/Card';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Polygon, Circle, Line, Text as SvgText, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import { Brain, Eye, Heart, Lightbulb } from 'lucide-react-native';
 
 interface BiasRadarProps {
   logical: number | null;
@@ -9,10 +10,16 @@ interface BiasRadarProps {
   emotional: number | null;
 }
 
-const LABELS = ['Logic', 'Bias Aware', 'Perspective', 'Emotional IQ'];
-const SIZE = 200;
+const DIMENSIONS = [
+  { key: 'logical', label: 'Logic', color: '#60a5fa', Icon: Brain },
+  { key: 'biasAwareness', label: 'Bias Aware', color: '#c084fc', Icon: Eye },
+  { key: 'perspective', label: 'Perspective', color: '#f472b6', Icon: Lightbulb },
+  { key: 'emotional', label: 'Emotional IQ', color: '#4ade80', Icon: Heart },
+];
+
+const SIZE = 220;
 const CENTER = SIZE / 2;
-const RADIUS = 70;
+const RADIUS = 75;
 
 function polarToCartesian(
   angle: number,
@@ -45,98 +52,174 @@ export function BiasRadar({
 
   const dataPolygon = dataPoints.map((p) => `${p.x},${p.y}`).join(' ');
 
-  // Grid lines (25%, 50%, 75%, 100%)
+  // Grid levels
   const gridLevels = [0.25, 0.5, 0.75, 1];
 
   return (
-    <Card variant="elevated" padding="md">
-      <Text className="text-text-primary font-semibold mb-4">
-        Thinking Dimensions
-      </Text>
+    <View
+      style={{
+        borderRadius: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+      }}
+    >
+      <LinearGradient
+        colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ padding: 20 }}
+      >
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(96, 165, 250, 0.15)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}
+          >
+            <Brain size={20} color="#60a5fa" />
+          </View>
+          <View>
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>
+              Thinking Dimensions
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+              Your cognitive profile
+            </Text>
+          </View>
+        </View>
 
-      <View className="items-center">
-        <Svg width={SIZE} height={SIZE}>
-          {/* Grid circles */}
-          {gridLevels.map((level, i) => (
-            <Circle
-              key={i}
-              cx={CENTER}
-              cy={CENTER}
-              r={RADIUS * level}
-              fill="none"
-              stroke="#252529"
-              strokeWidth={1}
-            />
-          ))}
+        {/* Radar Chart */}
+        <View style={{ alignItems: 'center' }}>
+          <Svg width={SIZE} height={SIZE}>
+            <Defs>
+              <SvgGradient id="dataFill" x1="0%" y1="0%" x2="100%" y2="100%">
+                <Stop offset="0%" stopColor="#F59E0B" stopOpacity={0.4} />
+                <Stop offset="100%" stopColor="#F59E0B" stopOpacity={0.1} />
+              </SvgGradient>
+            </Defs>
 
-          {/* Axis lines */}
-          {angles.map((angle, i) => {
-            const end = polarToCartesian(angle, RADIUS, CENTER);
-            return (
-              <Line
-                key={i}
-                x1={CENTER}
-                y1={CENTER}
-                x2={end.x}
-                y2={end.y}
-                stroke="#252529"
-                strokeWidth={1}
-              />
-            );
-          })}
-
-          {/* Data polygon */}
-          {hasData && (
-            <Polygon
-              points={dataPolygon}
-              fill="#F59E0B"
-              fillOpacity={0.3}
-              stroke="#F59E0B"
-              strokeWidth={2}
-            />
-          )}
-
-          {/* Data points */}
-          {hasData &&
-            dataPoints.map((point, i) => (
+            {/* Grid circles */}
+            {gridLevels.map((level, i) => (
               <Circle
                 key={i}
-                cx={point.x}
-                cy={point.y}
-                r={4}
-                fill="#F59E0B"
+                cx={CENTER}
+                cy={CENTER}
+                r={RADIUS * level}
+                fill="none"
+                stroke="rgba(255,255,255,0.1)"
+                strokeWidth={1}
               />
             ))}
 
-          {/* Labels */}
-          {angles.map((angle, i) => {
-            const labelPos = polarToCartesian(angle, RADIUS + 20, CENTER);
+            {/* Axis lines */}
+            {angles.map((angle, i) => {
+              const end = polarToCartesian(angle, RADIUS, CENTER);
+              return (
+                <Line
+                  key={i}
+                  x1={CENTER}
+                  y1={CENTER}
+                  x2={end.x}
+                  y2={end.y}
+                  stroke="rgba(255,255,255,0.1)"
+                  strokeWidth={1}
+                />
+              );
+            })}
+
+            {/* Data polygon */}
+            {hasData && (
+              <Polygon
+                points={dataPolygon}
+                fill="url(#dataFill)"
+                stroke="#F59E0B"
+                strokeWidth={2}
+              />
+            )}
+
+            {/* Data points with glow */}
+            {hasData &&
+              dataPoints.map((point, i) => (
+                <Circle
+                  key={i}
+                  cx={point.x}
+                  cy={point.y}
+                  r={6}
+                  fill="#F59E0B"
+                  stroke="#0a0a0f"
+                  strokeWidth={2}
+                />
+              ))}
+
+            {/* Dimension icons (positioned at corners) */}
+            {angles.map((angle, i) => {
+              const iconPos = polarToCartesian(angle, RADIUS + 28, CENTER);
+              return (
+                <SvgText
+                  key={i}
+                  x={iconPos.x}
+                  y={iconPos.y + 4}
+                  fill={DIMENSIONS[i].color}
+                  fontSize={11}
+                  fontWeight="600"
+                  textAnchor="middle"
+                >
+                  {values[i]}%
+                </SvgText>
+              );
+            })}
+          </Svg>
+        </View>
+
+        {/* Legend */}
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: 12,
+            marginTop: 16,
+          }}
+        >
+          {DIMENSIONS.map((dim, i) => {
+            const DimIcon = dim.Icon;
             return (
-              <SvgText
-                key={i}
-                x={labelPos.x}
-                y={labelPos.y}
-                fill="#A1A1A6"
-                fontSize={10}
-                textAnchor="middle"
-                alignmentBaseline="middle"
+              <View
+                key={dim.key}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  backgroundColor: `${dim.color}10`,
+                  borderWidth: 1,
+                  borderColor: `${dim.color}30`,
+                }}
               >
-                {LABELS[i]}
-              </SvgText>
+                <DimIcon size={14} color={dim.color} />
+                <Text
+                  style={{
+                    color: dim.color,
+                    fontSize: 11,
+                    fontWeight: '600',
+                    marginLeft: 6,
+                  }}
+                >
+                  {dim.label}
+                </Text>
+              </View>
             );
           })}
-        </Svg>
-      </View>
-
-      {/* Legend */}
-      <View className="flex-row flex-wrap justify-center gap-4 mt-4">
-        {LABELS.map((label, i) => (
-          <View key={i} className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-accent-primary mr-2" />
-            <Text className="text-text-muted text-xs">{label}: {values[i]}%</Text>
-          </View>
-        ))}
-      </View>
-    </Card>
+        </View>
+      </LinearGradient>
+    </View>
   );
 }

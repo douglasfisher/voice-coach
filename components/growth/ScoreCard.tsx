@@ -1,5 +1,6 @@
 import { View, Text } from 'react-native';
-import { Card } from '../ui/Card';
+import { LinearGradient } from 'expo-linear-gradient';
+import { TrendingUp, TrendingDown, Minus, HelpCircle } from 'lucide-react-native';
 
 interface ScoreCardProps {
   score: number | null;
@@ -7,20 +8,30 @@ interface ScoreCardProps {
   trend?: 'improving' | 'stable' | 'declining' | 'insufficient_data';
   color?: string;
   size?: 'sm' | 'md' | 'lg';
+  gradient?: [string, string];
 }
 
-const trendIcons = {
-  improving: '↑',
-  stable: '→',
-  declining: '↓',
-  insufficient_data: '•',
-};
-
-const trendColors = {
-  improving: '#34D399',
-  stable: '#FBBF24',
-  declining: '#F87171',
-  insufficient_data: '#6E6E73',
+const trendConfig = {
+  improving: {
+    Icon: TrendingUp,
+    color: '#4ade80',
+    label: 'Improving',
+  },
+  stable: {
+    Icon: Minus,
+    color: '#fbbf24',
+    label: 'Stable',
+  },
+  declining: {
+    Icon: TrendingDown,
+    color: '#f87171',
+    label: 'Declining',
+  },
+  insufficient_data: {
+    Icon: HelpCircle,
+    color: '#6E6E73',
+    label: 'Need more data',
+  },
 };
 
 export function ScoreCard({
@@ -29,53 +40,126 @@ export function ScoreCard({
   trend,
   color = '#F59E0B',
   size = 'md',
+  gradient,
 }: ScoreCardProps) {
-  const scoreSize = {
-    sm: 'text-2xl',
-    md: 'text-4xl',
-    lg: 'text-6xl',
+  const sizeConfig = {
+    sm: {
+      padding: 14,
+      scoreSize: 32,
+      labelSize: 12,
+      trendSize: 10,
+    },
+    md: {
+      padding: 18,
+      scoreSize: 42,
+      labelSize: 14,
+      trendSize: 11,
+    },
+    lg: {
+      padding: 24,
+      scoreSize: 56,
+      labelSize: 16,
+      trendSize: 12,
+    },
   };
 
-  const containerSize = {
-    sm: 'p-3',
-    md: 'p-4',
-    lg: 'p-6',
-  };
+  const config = sizeConfig[size];
+  const trendInfo = trend ? trendConfig[trend] : null;
+  const TrendIcon = trendInfo?.Icon;
+
+  // Default gradient based on color
+  const cardGradient: [string, string] = gradient || [
+    `${color}15`,
+    `${color}08`,
+  ];
 
   return (
-    <Card variant="elevated" padding="none" className={containerSize[size]}>
-      <View className="items-center">
-        <View className="flex-row items-end">
+    <View
+      style={{
+        borderRadius: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: `${color}30`,
+      }}
+    >
+      <LinearGradient
+        colors={cardGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{
+          padding: config.padding,
+          alignItems: 'center',
+        }}
+      >
+        {/* Score */}
+        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
           <Text
-            className={`${scoreSize[size]} font-bold`}
-            style={{ color }}
+            style={{
+              fontSize: config.scoreSize,
+              fontWeight: '800',
+              color: color,
+              includeFontPadding: false,
+            }}
           >
             {score ?? '--'}
           </Text>
           {score !== null && (
-            <Text className="text-text-muted text-lg mb-1 ml-1">/100</Text>
+            <Text
+              style={{
+                fontSize: config.scoreSize * 0.35,
+                fontWeight: '500',
+                color: 'rgba(255,255,255,0.4)',
+                marginLeft: 4,
+                marginBottom: 4,
+              }}
+            >
+              /100
+            </Text>
           )}
         </View>
 
-        <Text className="text-text-secondary mt-2">{label}</Text>
+        {/* Label */}
+        <Text
+          style={{
+            fontSize: config.labelSize,
+            fontWeight: '500',
+            color: 'rgba(255,255,255,0.7)',
+            marginTop: 8,
+            textAlign: 'center',
+          }}
+        >
+          {label}
+        </Text>
 
-        {trend && (
+        {/* Trend badge */}
+        {trendInfo && TrendIcon && (
           <View
-            className="flex-row items-center mt-2 px-3 py-1 rounded-full"
-            style={{ backgroundColor: trendColors[trend] + '20' }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: 10,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 12,
+              backgroundColor: `${trendInfo.color}15`,
+              borderWidth: 1,
+              borderColor: `${trendInfo.color}30`,
+            }}
           >
-            <Text style={{ color: trendColors[trend] }}>
-              {trendIcons[trend]}
-            </Text>
+            <TrendIcon size={config.trendSize + 2} color={trendInfo.color} />
             <Text
-              className="text-sm ml-1 capitalize"
-              style={{ color: trendColors[trend] }}
+              style={{
+                fontSize: config.trendSize,
+                fontWeight: '600',
+                color: trendInfo.color,
+                marginLeft: 4,
+              }}
             >
-              {trend.replace('_', ' ')}
+              {trendInfo.label}
             </Text>
           </View>
         )}
-      </View>
-    </Card>
+      </LinearGradient>
+    </View>
   );
 }
