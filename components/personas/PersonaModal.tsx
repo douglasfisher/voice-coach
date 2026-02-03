@@ -1,6 +1,6 @@
-import { View, Text, ScrollView, Modal, Pressable, Image, ImageSourcePropType } from 'react-native';
+import { View, Text, ScrollView, Modal, Pressable, Image, ImageSourcePropType, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X, Sparkles, Zap, Brain, Heart, Scale, Eye, Play, Volume2 } from 'lucide-react-native';
+import { X, Sparkles, Zap, Brain, Heart, Scale, Eye, Play, Volume2, ChevronRight } from 'lucide-react-native';
 import {
   PersonaDisplay,
   ChallengeStyle,
@@ -8,39 +8,42 @@ import {
   CHALLENGE_STYLE_DESCRIPTIONS,
 } from '../../types/persona';
 
-// Challenge style colors and gradients (same as PersonaCard)
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HERO_HEIGHT = SCREEN_HEIGHT * 0.45;
+
+// Challenge style colors and gradients
 const STYLE_THEMES: Record<ChallengeStyle, {
   gradient: [string, string, string];
   accent: string;
   Icon: typeof Sparkles;
 }> = {
   steelman: {
-    gradient: ['#1a1a2e', '#16213e', '#0f3460'],
+    gradient: ['transparent', 'rgba(16, 52, 96, 0.6)', '#0a0a0f'],
     accent: '#4ade80',
     Icon: Scale,
   },
   devils_advocate: {
-    gradient: ['#1a1a2e', '#2d1b3d', '#4a1942'],
+    gradient: ['transparent', 'rgba(74, 25, 66, 0.6)', '#0a0a0f'],
     accent: '#f472b6',
     Icon: Zap,
   },
   socratic: {
-    gradient: ['#1a1a2e', '#1e293b', '#1e3a5f'],
+    gradient: ['transparent', 'rgba(30, 58, 95, 0.6)', '#0a0a0f'],
     accent: '#60a5fa',
     Icon: Brain,
   },
   empathetic_probe: {
-    gradient: ['#1a1a2e', '#2d2b1b', '#3d3520'],
+    gradient: ['transparent', 'rgba(61, 53, 32, 0.6)', '#0a0a0f'],
     accent: '#fbbf24',
     Icon: Heart,
   },
   logical_surgeon: {
-    gradient: ['#1a1a2e', '#1b2d2d', '#0d4444'],
+    gradient: ['transparent', 'rgba(13, 68, 68, 0.6)', '#0a0a0f'],
     accent: '#2dd4bf',
     Icon: Sparkles,
   },
   perspective_shifter: {
-    gradient: ['#1a1a2e', '#2e1a2e', '#4c1d4c'],
+    gradient: ['transparent', 'rgba(76, 29, 76, 0.6)', '#0a0a0f'],
     accent: '#c084fc',
     Icon: Eye,
   },
@@ -75,96 +78,73 @@ export function PersonaModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-bg-primary">
-        {/* Header with gradient */}
-        <LinearGradient
-          colors={theme.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ paddingBottom: 32 }}
+      <View style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
         >
-          {/* Close Button */}
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', padding: 16 }}>
+          {/* Hero Image Section */}
+          <View style={{ height: HERO_HEIGHT, position: 'relative' }}>
+            {/* Full bleed image */}
+            <Image
+              source={imageSource as ImageSourcePropType}
+              style={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+              }}
+              resizeMode="cover"
+            />
+
+            {/* Gradient overlay */}
+            <LinearGradient
+              colors={theme.gradient}
+              locations={[0, 0.6, 1]}
+              style={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+              }}
+            />
+
+            {/* Close button */}
             <Pressable
               onPress={onClose}
               style={{
+                position: 'absolute',
+                top: 60,
+                right: 20,
                 width: 40,
                 height: 40,
                 borderRadius: 20,
+                backgroundColor: 'rgba(0,0,0,0.5)',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.2)',
               }}
             >
-              <X size={24} color="#fff" />
+              <X size={22} color="#fff" />
             </Pressable>
-          </View>
 
-          {/* Avatar and Name */}
-          <View style={{ alignItems: 'center', paddingHorizontal: 24 }}>
-            <View style={{ position: 'relative' }}>
-              <View
-                style={{
-                  width: 112,
-                  height: 112,
-                  borderRadius: 16,
-                  overflow: 'hidden',
-                  borderWidth: 3,
-                  borderColor: theme.accent,
-                  shadowColor: theme.accent,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.6,
-                  shadowRadius: 20,
-                }}
-              >
-                <Image
-                  source={imageSource as ImageSourcePropType}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
-              </View>
-              <View
-                style={{
-                  position: 'absolute',
-                  bottom: -8,
-                  right: -8,
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: theme.accent,
-                }}
-              >
-                <StyleIcon size={20} color="#0f0f12" />
-              </View>
-            </View>
-
-            <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginTop: 16 }}>
-              {persona.name}
-            </Text>
-
-            {persona.tagline && (
-              <Text style={{ color: '#d1d5db', textAlign: 'center', marginTop: 4 }}>
-                {persona.tagline}
-              </Text>
-            )}
-
-            {/* Voice Preview Button */}
+            {/* Voice preview floating button */}
             {onPlayVoice && (
               <Pressable
                 onPress={onPlayVoice}
                 style={{
+                  position: 'absolute',
+                  top: 60,
+                  left: 20,
                   flexDirection: 'row',
                   alignItems: 'center',
-                  marginTop: 16,
                   paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: `${theme.accent}20`,
+                  paddingVertical: 10,
+                  borderRadius: 24,
+                  backgroundColor: 'rgba(0,0,0,0.5)',
                   borderWidth: 1,
                   borderColor: theme.accent,
                 }}
@@ -174,91 +154,163 @@ export function PersonaModal({
                 ) : (
                   <Play size={18} color={theme.accent} />
                 )}
-                <Text style={{ marginLeft: 8, fontWeight: '500', color: theme.accent }}>
-                  {isPlayingVoice ? 'Playing...' : 'Hear my voice'}
+                <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: theme.accent }}>
+                  {isPlayingVoice ? 'Playing...' : 'Hear Voice'}
                 </Text>
               </Pressable>
             )}
-          </View>
-        </LinearGradient>
 
-        <ScrollView className="flex-1" contentContainerClassName="p-6">
-          {/* Challenge Style */}
-          <View
-            style={{
-              borderRadius: 16,
-              padding: 16,
-              marginBottom: 16,
-              backgroundColor: `${theme.accent}10`,
-              borderWidth: 1,
-              borderColor: `${theme.accent}30`,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <StyleIcon size={18} color={theme.accent} />
-              <Text style={{ marginLeft: 8, fontWeight: '600', color: theme.accent }}>
-                {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
-              </Text>
-            </View>
-            <Text className="text-text-secondary text-sm">
-              {CHALLENGE_STYLE_DESCRIPTIONS[persona.challengeStyle]}
-            </Text>
-          </View>
-
-          {/* Specialty Areas */}
-          <View className="bg-bg-secondary rounded-2xl p-4 mb-4">
-            <Text className="text-text-secondary text-sm mb-3">Specialty Areas</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {persona.specialtyAreas.map((area, index) => (
+            {/* Hero text content */}
+            <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }}>
+              {/* Challenge style badge */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                 <View
-                  key={index}
                   style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                    backgroundColor: `${theme.accent}15`,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: theme.accent,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                    shadowColor: theme.accent,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.6,
+                    shadowRadius: 12,
                   }}
                 >
-                  <Text style={{ color: theme.accent, fontSize: 14 }}>{area}</Text>
+                  <StyleIcon size={20} color="#0f0f12" />
                 </View>
-              ))}
+                <View>
+                  <Text style={{ color: theme.accent, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 }}>
+                    {CHALLENGE_STYLE_LABELS[persona.challengeStyle].toUpperCase()}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 }}>
+                    {CHALLENGE_STYLE_DESCRIPTIONS[persona.challengeStyle]}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Name */}
+              <Text style={{ color: '#fff', fontSize: 36, fontWeight: 'bold', marginBottom: 4 }}>
+                {persona.name}
+              </Text>
+
+              {/* Tagline */}
+              {persona.tagline && (
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 18, fontStyle: 'italic' }}>
+                  "{persona.tagline}"
+                </Text>
+              )}
             </View>
           </View>
 
-          {/* Background */}
-          {persona.culturalBackground && (
-            <View className="bg-bg-secondary rounded-2xl p-4 mb-4">
-              <Text className="text-text-secondary text-sm mb-1">Background</Text>
-              <Text className="text-text-primary">{persona.culturalBackground}</Text>
+          {/* Content Section */}
+          <View style={{ padding: 24 }}>
+            {/* Specialty Areas */}
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
+                EXPERTISE
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {persona.specialtyAreas.map((area, index) => (
+                  <View
+                    key={index}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 16,
+                      backgroundColor: `${theme.accent}15`,
+                      borderWidth: 1,
+                      borderColor: `${theme.accent}40`,
+                    }}
+                  >
+                    <Text style={{ color: theme.accent, fontSize: 14, fontWeight: '500' }}>{area}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          )}
 
-          {/* Personality Traits */}
-          <View className="bg-bg-secondary rounded-2xl p-4 mb-4">
-            <Text className="text-text-secondary text-sm mb-4">Personality</Text>
-            <PersonalityBar label="Warmth" value={persona.personality.warmth} color={theme.accent} />
-            <PersonalityBar label="Directness" value={persona.personality.directness} color={theme.accent} />
-            <PersonalityBar label="Patience" value={persona.personality.patience} color={theme.accent} />
-            <PersonalityBar label="Humor" value={persona.personality.humor} color={theme.accent} />
-            <PersonalityBar label="Formality" value={persona.personality.formality} color={theme.accent} />
+            {/* Background */}
+            {persona.culturalBackground && (
+              <View
+                style={{
+                  marginBottom: 24,
+                  padding: 20,
+                  borderRadius: 20,
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.08)',
+                }}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 8 }}>
+                  BACKGROUND
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 16, lineHeight: 24 }}>
+                  {persona.culturalBackground}
+                </Text>
+              </View>
+            )}
+
+            {/* Personality Traits */}
+            <View
+              style={{
+                marginBottom: 24,
+                padding: 20,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.08)',
+              }}
+            >
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 16 }}>
+                PERSONALITY PROFILE
+              </Text>
+              <PersonalityBar label="Warmth" value={persona.personality.warmth} color={theme.accent} />
+              <PersonalityBar label="Directness" value={persona.personality.directness} color={theme.accent} />
+              <PersonalityBar label="Patience" value={persona.personality.patience} color={theme.accent} />
+              <PersonalityBar label="Humor" value={persona.personality.humor} color={theme.accent} />
+              <PersonalityBar label="Formality" value={persona.personality.formality} color={theme.accent} isLast />
+            </View>
+
+            {/* Spacer for button */}
+            <View style={{ height: 100 }} />
           </View>
         </ScrollView>
 
-        {/* CTA Button */}
+        {/* Fixed CTA Button */}
         <LinearGradient
-          colors={['transparent', '#0f0f12']}
-          style={{ paddingHorizontal: 24, paddingBottom: 32, paddingTop: 16 }}
+          colors={['transparent', 'rgba(10,10,15,0.95)', '#0a0a0f']}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            paddingHorizontal: 24,
+            paddingTop: 40,
+            paddingBottom: 40,
+          }}
         >
           <Pressable
             onPress={() => onChallenge(persona)}
             style={{
-              paddingVertical: 16,
-              borderRadius: 12,
+              flexDirection: 'row',
               alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 18,
+              borderRadius: 16,
               backgroundColor: theme.accent,
+              shadowColor: theme.accent,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4,
+              shadowRadius: 12,
             }}
           >
-            <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18 }}>Challenge Me</Text>
+            <StyleIcon size={22} color="#0f0f12" />
+            <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18, marginLeft: 10 }}>
+              Start Challenge
+            </Text>
+            <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
           </Pressable>
         </LinearGradient>
       </View>
@@ -266,20 +318,37 @@ export function PersonaModal({
   );
 }
 
-function PersonalityBar({ label, value, color }: { label: string; value: number; color: string }) {
+function PersonalityBar({
+  label,
+  value,
+  color,
+  isLast = false
+}: {
+  label: string;
+  value: number;
+  color: string;
+  isLast?: boolean;
+}) {
   return (
-    <View style={{ marginBottom: 12 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-        <Text className="text-text-muted text-sm">{label}</Text>
-        <Text className="text-text-muted text-sm">{value}%</Text>
+    <View style={{ marginBottom: isLast ? 0 : 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>{label}</Text>
+        <Text style={{ color: color, fontSize: 14, fontWeight: '600' }}>{value}%</Text>
       </View>
-      <View className="h-2 rounded-full bg-bg-tertiary overflow-hidden">
-        <View
+      <View style={{
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        overflow: 'hidden',
+      }}>
+        <LinearGradient
+          colors={[color, `${color}80`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
           style={{
             width: `${value}%`,
             height: '100%',
-            borderRadius: 100,
-            backgroundColor: color,
+            borderRadius: 4,
           }}
         />
       </View>
