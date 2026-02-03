@@ -130,20 +130,23 @@ export default function PersonasScreen() {
 
           {/* Section Header */}
           {otherPersonas.length > 0 && (
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-text-secondary text-sm font-medium">
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
                 {activeFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[activeFilter]}
               </Text>
-              <Text className="text-text-muted text-xs">
-                {otherPersonas.length + 1} available
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', marginRight: 6 }} />
+                <Text style={{ color: '#6E6E73', fontSize: 12 }}>
+                  {otherPersonas.length + 1} available
+                </Text>
+              </View>
             </View>
           )}
 
           {/* Grid of Personas */}
-          <View className="flex-row flex-wrap" style={{ marginHorizontal: -6 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8 }}>
             {otherPersonas.map((persona) => (
-              <View key={persona.id} className="w-1/2 p-1.5">
+              <View key={persona.id} style={{ width: '50%', padding: 8 }}>
                 <PersonaCard
                   persona={persona}
                   onPress={() => setSelectedPersona(persona)}
