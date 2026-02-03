@@ -209,23 +209,23 @@ export function PersonaModal({
           <View style={{ padding: 24 }}>
             {/* Specialty Areas */}
             <View style={{ marginBottom: 24 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 10 }}>
                 EXPERTISE
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {persona.specialtyAreas.map((area, index) => (
                   <View
                     key={index}
                     style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 10,
-                      borderRadius: 16,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 12,
                       backgroundColor: `${theme.accent}15`,
                       borderWidth: 1,
                       borderColor: `${theme.accent}40`,
                     }}
                   >
-                    <Text style={{ color: theme.accent, fontSize: 14, fontWeight: '500' }}>{area}</Text>
+                    <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '500' }}>{area}</Text>
                   </View>
                 ))}
               </View>
