@@ -1,7 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { useState } from 'react';
-import { Lightbulb, ChevronDown, ChevronRight } from 'lucide-react-native';
-import { Card } from '../ui/Card';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Lightbulb, ChevronDown, ChevronRight, Brain, TrendingUp } from 'lucide-react-native';
 import { AnalysisBadge } from '../ui/Badge';
 import { AnalysisResult, AnalysisItemResult, AnalysisItemType } from '../../types/analysis';
 
@@ -16,93 +16,258 @@ export function AnalysisCard({ analysis, expanded: initialExpanded = false }: An
   const strengths = analysis.items.filter((i) => i.type === 'strength');
   const issues = analysis.items.filter((i) => i.type !== 'strength');
 
+  // Determine color based on quality score
+  const getQualityColor = (score: number) => {
+    if (score >= 80) return '#4ade80'; // green
+    if (score >= 60) return '#fbbf24'; // amber
+    return '#f472b6'; // pink
+  };
+
+  const qualityColor = getQualityColor(analysis.overall_quality);
+
   return (
-    <Card variant="elevated" padding="md">
-      <Pressable onPress={() => setExpanded(!expanded)}>
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-text-primary font-semibold">Analysis</Text>
-          <View className="flex-row items-center">
-            <View className="w-8 h-8 rounded-full bg-bg-secondary items-center justify-center mr-2">
-              <Text className="text-accent-primary font-bold">
-                {analysis.overall_quality}
+    <View
+      style={{
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+      }}
+    >
+      <LinearGradient
+        colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ padding: 16 }}
+      >
+        <Pressable onPress={() => setExpanded(!expanded)}>
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(96, 165, 250, 0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                }}
+              >
+                <Brain size={18} color="#60a5fa" />
+              </View>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                Thinking Analysis
               </Text>
             </View>
-            {expanded ? (
-              <ChevronDown size={20} color="#6E6E73" />
-            ) : (
-              <ChevronRight size={20} color="#6E6E73" />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* Quality score */}
+              <View
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  backgroundColor: `${qualityColor}15`,
+                  borderWidth: 1,
+                  borderColor: `${qualityColor}40`,
+                  marginRight: 8,
+                }}
+              >
+                <Text style={{ color: qualityColor, fontSize: 14, fontWeight: '700' }}>
+                  {analysis.overall_quality}
+                </Text>
+              </View>
+              {expanded ? (
+                <ChevronDown size={20} color="#9A9A9E" />
+              ) : (
+                <ChevronRight size={20} color="#9A9A9E" />
+              )}
+            </View>
+          </View>
+
+          {/* Encouragement */}
+          <Text
+            style={{
+              color: '#4ade80',
+              fontSize: 14,
+              lineHeight: 20,
+              marginBottom: 12,
+            }}
+          >
+            {analysis.encouragement}
+          </Text>
+
+          {/* Badges preview */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {analysis.items.slice(0, expanded ? undefined : 4).map((item, index) => (
+              <AnalysisBadge
+                key={index}
+                type={item.type as AnalysisItemType}
+                label={item.label}
+                size="sm"
+              />
+            ))}
+            {!expanded && analysis.items.length > 4 && (
+              <View
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                }}
+              >
+                <Text style={{ fontSize: 11, color: '#9A9A9E' }}>
+                  +{analysis.items.length - 4} more
+                </Text>
+              </View>
             )}
           </View>
-        </View>
+        </Pressable>
 
-        <Text className="text-success text-sm mb-3">{analysis.encouragement}</Text>
+        {/* Expanded content */}
+        {expanded && (
+          <View
+            style={{
+              marginTop: 16,
+              paddingTop: 16,
+              borderTopWidth: 1,
+              borderTopColor: 'rgba(255,255,255,0.1)',
+            }}
+          >
+            {/* Issues / Areas for growth */}
+            {issues.length > 0 && (
+              <View style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <TrendingUp size={14} color="#fbbf24" />
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.6)',
+                      fontSize: 12,
+                      fontWeight: '600',
+                      letterSpacing: 0.5,
+                      marginLeft: 6,
+                    }}
+                  >
+                    AREAS FOR GROWTH
+                  </Text>
+                </View>
+                {issues.map((item, index) => (
+                  <AnalysisItemDetail key={index} item={item} />
+                ))}
+              </View>
+            )}
 
-        <View className="flex-row flex-wrap gap-1">
-          {analysis.items.slice(0, expanded ? undefined : 4).map((item, index) => (
-            <AnalysisBadge
-              key={index}
-              type={item.type as AnalysisItemType}
-              label={item.label}
-              size="sm"
-            />
-          ))}
-          {!expanded && analysis.items.length > 4 && (
-            <View className="px-2 py-0.5 rounded-md bg-bg-secondary">
-              <Text className="text-xs text-text-muted">
-                +{analysis.items.length - 4} more
-              </Text>
-            </View>
-          )}
-        </View>
-      </Pressable>
-
-      {expanded && (
-        <View className="mt-4 pt-4 border-t border-bg-secondary">
-          {issues.length > 0 && (
-            <View className="mb-4">
-              <Text className="text-text-secondary text-sm font-medium mb-2">
-                Areas for Growth
-              </Text>
-              {issues.map((item, index) => (
-                <AnalysisItemDetail key={index} item={item} />
-              ))}
-            </View>
-          )}
-
-          {strengths.length > 0 && (
-            <View>
-              <Text className="text-text-secondary text-sm font-medium mb-2">
-                Strengths
-              </Text>
-              {strengths.map((item, index) => (
-                <AnalysisItemDetail key={index} item={item} />
-              ))}
-            </View>
-          )}
-        </View>
-      )}
-    </Card>
+            {/* Strengths */}
+            {strengths.length > 0 && (
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                  <Lightbulb size={14} color="#4ade80" />
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.6)',
+                      fontSize: 12,
+                      fontWeight: '600',
+                      letterSpacing: 0.5,
+                      marginLeft: 6,
+                    }}
+                  >
+                    STRENGTHS
+                  </Text>
+                </View>
+                {strengths.map((item, index) => (
+                  <AnalysisItemDetail key={index} item={item} />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </LinearGradient>
+    </View>
   );
 }
 
 function AnalysisItemDetail({ item }: { item: AnalysisItemResult }) {
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'strength':
+        return '#4ade80';
+      case 'bias':
+        return '#fbbf24';
+      case 'fallacy':
+        return '#f472b6';
+      default:
+        return '#60a5fa';
+    }
+  };
+
+  const typeColor = getTypeColor(item.type);
+
   return (
-    <View className="mb-3 p-3 rounded-xl bg-bg-secondary">
-      <View className="flex-row items-center mb-2">
-        <AnalysisBadge type={item.type} size="sm" />
-        <Text className="text-text-primary font-medium ml-2">{item.label}</Text>
+    <View
+      style={{
+        marginBottom: 12,
+        padding: 14,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: `${typeColor}20`,
+      }}
+    >
+      {/* Header */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+        <AnalysisBadge type={item.type as AnalysisItemType} size="sm" />
+        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14, marginLeft: 8 }}>
+          {item.label}
+        </Text>
       </View>
 
+      {/* Excerpt */}
       {item.excerpt && (
-        <Text className="text-text-muted text-sm italic mb-2">"{item.excerpt}"</Text>
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: 13,
+            fontStyle: 'italic',
+            marginBottom: 10,
+            paddingLeft: 12,
+            borderLeftWidth: 2,
+            borderLeftColor: 'rgba(255,255,255,0.2)',
+          }}
+        >
+          "{item.excerpt}"
+        </Text>
       )}
 
-      <Text className="text-text-secondary text-sm mb-2">{item.explanation}</Text>
+      {/* Explanation */}
+      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 20, marginBottom: 10 }}>
+        {item.explanation}
+      </Text>
 
+      {/* Coaching tip */}
       {item.coaching && (
-        <View className="p-2 rounded-lg bg-accent-muted/20 flex-row items-start">
-          <Lightbulb size={16} color="#F59E0B" />
-          <Text className="text-accent-primary text-sm flex-1 ml-2">{item.coaching}</Text>
+        <View
+          style={{
+            padding: 12,
+            borderRadius: 12,
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            borderWidth: 1,
+            borderColor: 'rgba(245, 158, 11, 0.2)',
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+          }}
+        >
+          <Lightbulb size={16} color="#F59E0B" style={{ marginTop: 2 }} />
+          <Text style={{ color: '#F59E0B', fontSize: 13, flex: 1, marginLeft: 10, lineHeight: 19 }}>
+            {item.coaching}
+          </Text>
         </View>
       )}
     </View>
