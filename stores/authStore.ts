@@ -3,6 +3,44 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { UserProfile, UserPreferences } from '../types/database';
 
+// Dev mode: set to true to use mock data without Supabase
+const DEV_MODE = true;
+
+const MOCK_USER: User = {
+  id: 'dev-user-123',
+  email: 'dev@dialectica.app',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+};
+
+const MOCK_PROFILE: UserProfile = {
+  id: 'dev-user-123',
+  display_name: 'Developer',
+  avatar_url: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  onboarding_completed: true,
+  current_level: 1,
+  total_sessions: 5,
+  streak_days: 3,
+  last_session_at: new Date().toISOString(),
+};
+
+const MOCK_PREFERENCES: UserPreferences = {
+  user_id: 'dev-user-123',
+  preferred_challenge_intensity: 5,
+  tts_enabled: false,
+  voice_input_enabled: false,
+  notification_daily_challenge: true,
+  notification_time: '09:00',
+  theme: 'dark',
+  preferred_persona_ids: null,
+  avoided_topics: null,
+  updated_at: new Date().toISOString(),
+};
+
 interface AuthState {
   session: Session | null;
   user: User | null;
@@ -34,6 +72,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
 
   initialize: async () => {
+    // Dev mode: use mock data
+    if (DEV_MODE) {
+      set({
+        user: MOCK_USER,
+        profile: MOCK_PROFILE,
+        preferences: MOCK_PREFERENCES,
+        isLoading: false,
+        isInitialized: true,
+      });
+      return;
+    }
+
     try {
       const {
         data: { session },

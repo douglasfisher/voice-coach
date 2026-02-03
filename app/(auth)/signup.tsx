@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Brain } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -54,8 +55,8 @@ export default function SignupScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View className="items-center mb-10">
-          <Text className="text-5xl mb-4">🧠</Text>
-          <Text className="text-text-primary text-3xl font-bold">Join Dialectica</Text>
+          <Brain size={64} color="#F59E0B" />
+          <Text className="text-text-primary text-3xl font-bold mt-4">Join Dialectica</Text>
           <Text className="text-text-secondary text-center mt-2">
             Begin your journey to clearer thinking
           </Text>

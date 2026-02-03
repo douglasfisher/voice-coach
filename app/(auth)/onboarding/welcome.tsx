@@ -1,6 +1,7 @@
 import { View, Text } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Target, User, MessageCircle, BarChart3, LucideIcon } from 'lucide-react-native';
 import { Button } from '../../../components/ui/Button';
 
 export default function WelcomeScreen() {
@@ -8,8 +9,8 @@ export default function WelcomeScreen() {
     <SafeAreaView className="flex-1 bg-bg-primary">
       <View className="flex-1 p-6 justify-center">
         <View className="items-center mb-12">
-          <Text className="text-6xl mb-6">🎯</Text>
-          <Text className="text-text-primary text-3xl font-bold text-center">
+          <Target size={64} color="#F59E0B" />
+          <Text className="text-text-primary text-3xl font-bold text-center mt-6">
             Welcome to Dialectica
           </Text>
           <Text className="text-text-secondary text-center text-lg mt-4 leading-7">
@@ -25,17 +26,17 @@ export default function WelcomeScreen() {
 
           <View className="space-y-4">
             <FeatureItem
-              emoji="👤"
+              Icon={User}
               title="Choose a Challenger"
               description="Pick from diverse AI personas, each with unique perspectives"
             />
             <FeatureItem
-              emoji="💬"
+              Icon={MessageCircle}
               title="Engage in Dialogue"
               description="Discuss ideas through Socratic questioning"
             />
             <FeatureItem
-              emoji="📊"
+              Icon={BarChart3}
               title="Track Growth"
               description="See your thinking patterns improve over time"
             />
@@ -55,17 +56,19 @@ export default function WelcomeScreen() {
 }
 
 function FeatureItem({
-  emoji,
+  Icon,
   title,
   description,
 }: {
-  emoji: string;
+  Icon: LucideIcon;
   title: string;
   description: string;
 }) {
   return (
-    <View className="flex-row mb-3">
-      <Text className="text-2xl mr-4">{emoji}</Text>
+    <View className="flex-row mb-3 items-start">
+      <View className="mr-4 mt-1">
+        <Icon size={24} color="#F59E0B" />
+      </View>
       <View className="flex-1">
         <Text className="text-text-primary font-medium">{title}</Text>
         <Text className="text-text-muted text-sm mt-1">{description}</Text>

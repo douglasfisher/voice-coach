@@ -3,6 +3,7 @@ import { View, Text, Switch, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
+import { Lightbulb } from 'lucide-react-native';
 import { useAuthStore } from '../../../stores/authStore';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
@@ -101,9 +102,10 @@ export default function PreferencesScreen() {
           </View>
         </Card>
 
-        <View className="bg-bg-secondary rounded-2xl p-4 mt-4">
-          <Text className="text-text-secondary text-sm text-center">
-            💡 We recommend starting with moderate intensity and adjusting based
+        <View className="bg-bg-secondary rounded-2xl p-4 mt-4 flex-row items-center">
+          <Lightbulb size={20} color="#F59E0B" />
+          <Text className="text-text-secondary text-sm flex-1 ml-3">
+            We recommend starting with moderate intensity and adjusting based
             on your comfort level.
           </Text>
         </View>

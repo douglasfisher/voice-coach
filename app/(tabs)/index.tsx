@@ -1,7 +1,8 @@
-import { View, Text, ScrollView, Pressable, FlatList } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect } from 'react';
+import { Flame, Target, ChevronRight, MessageCircle } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
 import { usePersonaStore } from '../../stores/personaStore';
@@ -11,7 +12,7 @@ import { Avatar } from '../../components/ui/Avatar';
 
 export default function HomeScreen() {
   const { profile, user } = useAuthStore();
-  const { conversations, fetchConversations, isLoading } = useChatStore();
+  const { conversations, fetchConversations } = useChatStore();
   const { getPersonaById } = usePersonaStore();
 
   useEffect(() => {
@@ -41,9 +42,12 @@ export default function HomeScreen() {
         <View className="flex-row gap-4 mb-6">
           <Card variant="elevated" padding="md" className="flex-1">
             <Text className="text-text-muted text-sm">Streak</Text>
-            <Text className="text-accent-primary text-2xl font-bold">
-              {profile?.streak_days ?? 0} 🔥
-            </Text>
+            <View className="flex-row items-center">
+              <Text className="text-accent-primary text-2xl font-bold mr-1">
+                {profile?.streak_days ?? 0}
+              </Text>
+              <Flame size={20} color="#F59E0B" />
+            </View>
           </Card>
           <Card variant="elevated" padding="md" className="flex-1">
             <Text className="text-text-muted text-sm">Sessions</Text>
@@ -65,7 +69,7 @@ export default function HomeScreen() {
             <Text className="text-text-primary font-semibold text-lg">
               Today's Challenge
             </Text>
-            <Text className="text-2xl">🎯</Text>
+            <Target size={24} color="#F59E0B" />
           </View>
           <Text className="text-text-secondary mb-4">
             "Is it ever right to lie to protect someone's feelings?"
@@ -107,7 +111,7 @@ export default function HomeScreen() {
                         {conv.topic ?? 'Active conversation'}
                       </Text>
                     </View>
-                    <Text className="text-accent-primary text-2xl">→</Text>
+                    <ChevronRight size={24} color="#F59E0B" />
                   </View>
                 </Card>
               );
@@ -172,8 +176,8 @@ export default function HomeScreen() {
         {/* Empty State */}
         {recentConversations.length === 0 && (
           <Card variant="elevated" padding="lg" className="items-center">
-            <Text className="text-4xl mb-4">💭</Text>
-            <Text className="text-text-primary font-semibold text-center">
+            <MessageCircle size={48} color="#6E6E73" />
+            <Text className="text-text-primary font-semibold text-center mt-4">
               No conversations yet
             </Text>
             <Text className="text-text-muted text-center mt-2 mb-4">

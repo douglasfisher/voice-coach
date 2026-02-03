@@ -1,19 +1,21 @@
 import { Tabs } from 'expo-router';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Home, Users, TrendingUp, Settings } from 'lucide-react-native';
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    index: '🏠',
-    personas: '👤',
-    growth: '📊',
-    profile: '⚙️',
+  const color = focused ? '#F59E0B' : '#6E6E73';
+  const size = 24;
+
+  const icons: Record<string, React.ReactNode> = {
+    index: <Home size={size} color={color} />,
+    personas: <Users size={size} color={color} />,
+    growth: <TrendingUp size={size} color={color} />,
+    profile: <Settings size={size} color={color} />,
   };
 
   return (
     <View className="items-center">
-      <Text className={`text-xl ${focused ? '' : 'opacity-60'}`}>
-        {icons[name] ?? '•'}
-      </Text>
+      {icons[name]}
     </View>
   );
 }

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ChevronLeft, MessageSquare } from 'lucide-react-native';
 import { useConversation } from '../../../hooks/useConversation';
 import { useTTS } from '../../../hooks/useTTS';
 import { useAuthStore } from '../../../stores/authStore';
@@ -121,7 +122,7 @@ export default function ChatScreen() {
             onPress={() => router.back()}
             className="p-4"
           >
-            <Text className="text-accent-primary text-lg">←</Text>
+            <ChevronLeft size={24} color="#F59E0B" />
           </Pressable>
           <View className="flex-1">
             <PersonaHeader persona={persona} />
@@ -164,8 +165,8 @@ export default function ChatScreen() {
           }
           ListEmptyComponent={
             <View className="items-center py-12">
-              <Text className="text-4xl mb-4">👋</Text>
-              <Text className="text-text-primary text-lg font-medium text-center">
+              <MessageSquare size={48} color="#6E6E73" />
+              <Text className="text-text-primary text-lg font-medium text-center mt-4">
                 Start a conversation with {persona.name}
               </Text>
               <Text className="text-text-muted text-center mt-2 px-8">

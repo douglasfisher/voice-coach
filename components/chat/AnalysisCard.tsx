@@ -1,5 +1,6 @@
 import { View, Text, Pressable } from 'react-native';
 import { useState } from 'react';
+import { Lightbulb, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { Card } from '../ui/Card';
 import { AnalysisBadge } from '../ui/Badge';
 import { AnalysisResult, AnalysisItemResult, AnalysisItemType } from '../../types/analysis';
@@ -26,9 +27,11 @@ export function AnalysisCard({ analysis, expanded: initialExpanded = false }: An
                 {analysis.overall_quality}
               </Text>
             </View>
-            <Text className="text-text-muted text-lg">
-              {expanded ? '▼' : '▶'}
-            </Text>
+            {expanded ? (
+              <ChevronDown size={20} color="#6E6E73" />
+            ) : (
+              <ChevronRight size={20} color="#6E6E73" />
+            )}
           </View>
         </View>
 
@@ -97,8 +100,9 @@ function AnalysisItemDetail({ item }: { item: AnalysisItemResult }) {
       <Text className="text-text-secondary text-sm mb-2">{item.explanation}</Text>
 
       {item.coaching && (
-        <View className="p-2 rounded-lg bg-accent-muted/20">
-          <Text className="text-accent-primary text-sm">💡 {item.coaching}</Text>
+        <View className="p-2 rounded-lg bg-accent-muted/20 flex-row items-start">
+          <Lightbulb size={16} color="#F59E0B" />
+          <Text className="text-accent-primary text-sm flex-1 ml-2">{item.coaching}</Text>
         </View>
       )}
     </View>

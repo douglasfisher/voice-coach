@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, Platform } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { Brain } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -63,8 +64,8 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View className="items-center mb-10">
-          <Text className="text-5xl mb-4">🧠</Text>
-          <Text className="text-text-primary text-3xl font-bold">Dialectica</Text>
+          <Brain size={64} color="#F59E0B" />
+          <Text className="text-text-primary text-3xl font-bold mt-4">Dialectica</Text>
           <Text className="text-text-secondary text-center mt-2">
             Sharpen your mind through Socratic dialogue
           </Text>
