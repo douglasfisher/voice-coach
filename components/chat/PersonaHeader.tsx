@@ -44,14 +44,64 @@ const STYLE_THEMES: Record<ChallengeStyle, {
 interface PersonaHeaderProps {
   persona: PersonaDisplay;
   onInfoPress?: () => void;
+  compact?: boolean;
 }
 
-export function PersonaHeader({ persona, onInfoPress }: PersonaHeaderProps) {
+export function PersonaHeader({ persona, onInfoPress, compact = false }: PersonaHeaderProps) {
   const theme = STYLE_THEMES[persona.challengeStyle];
   const StyleIcon = theme.Icon;
   const imageSource = typeof persona.avatarUrl === 'string'
     ? { uri: persona.avatarUrl }
     : persona.avatarUrl;
+
+  // Compact mode: name + badge only, no avatar
+  if (compact) {
+    return (
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 12,
+          paddingHorizontal: 4,
+        }}
+      >
+        <Text
+          style={{
+            color: '#fff',
+            fontSize: 17,
+            fontWeight: '600',
+            marginRight: 10,
+          }}
+        >
+          {persona.name}
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 12,
+            backgroundColor: `${theme.accent}20`,
+            borderWidth: 1,
+            borderColor: `${theme.accent}40`,
+          }}
+        >
+          <StyleIcon size={12} color={theme.accent} />
+          <Text
+            style={{
+              color: theme.accent,
+              fontSize: 11,
+              fontWeight: '600',
+              marginLeft: 4,
+            }}
+          >
+            {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <Pressable onPress={onInfoPress}>

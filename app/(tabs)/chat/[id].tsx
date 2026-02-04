@@ -7,12 +7,9 @@ import {
   Platform,
   ActivityIndicator,
   Pressable,
-  Image,
-  ImageSourcePropType,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronLeft,
   MessageSquare,
@@ -35,10 +32,11 @@ import {
   MessageBubble,
   TypingIndicator,
   ChatInput,
+  ChatHeroEmptyState,
 } from '../../../components/chat';
 import { AnalysisCard } from '../../../components/chat/AnalysisCard';
 import { AnalysisResult } from '../../../types/analysis';
-import { ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../../types/persona';
+import { ChallengeStyle } from '../../../types/persona';
 
 // Challenge style themes
 const STYLE_THEMES: Record<ChallengeStyle, {
@@ -120,12 +118,6 @@ export default function ChatScreen() {
   const chatStarted = messages.length > 0;
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
-  const StyleIcon = theme?.Icon || Sparkles;
-  const imageSource = persona
-    ? typeof persona.avatarUrl === 'string'
-      ? { uri: persona.avatarUrl }
-      : persona.avatarUrl
-    : null;
 
   const handleSend = async (content: string) => {
     const result = await send(content);
@@ -256,15 +248,15 @@ export default function ChatScreen() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
-        {/* Header */}
+        {/* Header - minimal when pre-chat, compact when active */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             paddingRight: 16,
-            borderBottomWidth: 1,
+            borderBottomWidth: chatStarted ? 1 : 0,
             borderBottomColor: 'rgba(255,255,255,0.08)',
-            backgroundColor: 'rgba(10, 10, 15, 0.95)',
+            backgroundColor: chatStarted ? 'rgba(10, 10, 15, 0.95)' : 'transparent',
           }}
         >
           <Pressable
@@ -276,9 +268,12 @@ export default function ChatScreen() {
           >
             <ChevronLeft size={24} color={theme?.accent || '#F59E0B'} />
           </Pressable>
-          <View style={{ flex: 1 }}>
-            <PersonaHeader persona={persona} />
-          </View>
+          {chatStarted && (
+            <View style={{ flex: 1 }}>
+              <PersonaHeader persona={persona} compact />
+            </View>
+          )}
+          {!chatStarted && <View style={{ flex: 1 }} />}
           {conversation.status === 'active' && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               {/* Clear Chat Button - only show when there are messages */}
@@ -344,103 +339,11 @@ export default function ChatScreen() {
             (isSending || isStartingChat) ? <TypingIndicator persona={persona} /> : null
           }
           ListEmptyComponent={
-            <View style={{ alignItems: 'center', paddingVertical: 60 }}>
-              {/* Large persona image */}
-              <View
-                style={{
-                  width: 120,
-                  height: 120,
-                  borderRadius: 60,
-                  overflow: 'hidden',
-                  borderWidth: 3,
-                  borderColor: theme?.accent || '#F59E0B',
-                  marginBottom: 24,
-                  shadowColor: theme?.accent || '#F59E0B',
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.5,
-                  shadowRadius: 20,
-                }}
-              >
-                <Image
-                  source={imageSource as ImageSourcePropType}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
-              </View>
-
-              {/* Challenge style badge */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: `${theme?.accent || '#F59E0B'}15`,
-                  borderWidth: 1,
-                  borderColor: `${theme?.accent || '#F59E0B'}40`,
-                  marginBottom: 16,
-                }}
-              >
-                <StyleIcon size={16} color={theme?.accent || '#F59E0B'} />
-                <Text
-                  style={{
-                    color: theme?.accent || '#F59E0B',
-                    fontSize: 13,
-                    fontWeight: '600',
-                    marginLeft: 8,
-                  }}
-                >
-                  {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
-                </Text>
-              </View>
-
-              <Text
-                style={{
-                  color: '#fff',
-                  fontSize: 22,
-                  fontWeight: '700',
-                  textAlign: 'center',
-                  marginBottom: 8,
-                }}
-              >
-                Start a conversation with {persona.name}
-              </Text>
-
-              <Text
-                style={{
-                  color: 'rgba(255,255,255,0.5)',
-                  fontSize: 15,
-                  textAlign: 'center',
-                  paddingHorizontal: 40,
-                  lineHeight: 22,
-                  marginBottom: 24,
-                }}
-              >
-                {persona.tagline}
-              </Text>
-
-              {/* Start Chat Button */}
-              <Pressable
-                onPress={handleStartChat}
-                disabled={isStartingChat}
-                style={{
-                  paddingHorizontal: 32,
-                  paddingVertical: 16,
-                  borderRadius: 16,
-                  backgroundColor: theme?.accent || '#F59E0B',
-                  opacity: isStartingChat ? 0.7 : 1,
-                }}
-              >
-                {isStartingChat ? (
-                  <ActivityIndicator color="#0f0f12" />
-                ) : (
-                  <Text style={{ color: '#0f0f12', fontWeight: '700', fontSize: 18 }}>
-                    Start Chat
-                  </Text>
-                )}
-              </Pressable>
-            </View>
+            <ChatHeroEmptyState
+              persona={persona}
+              onStartChat={handleStartChat}
+              isStarting={isStartingChat}
+            />
           }
         />
 
