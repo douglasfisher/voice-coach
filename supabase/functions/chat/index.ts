@@ -43,6 +43,7 @@ interface DbPersona {
   title: string | null;
   ai_config: {
     model?: string;
+    fallback_model?: string;
     temperature?: number;
     top_p?: number;
     max_completion_tokens?: number;
@@ -51,6 +52,9 @@ interface DbPersona {
     cost_per_million_output?: number;
   } | null;
 }
+
+// Default fallback model if persona's model fails
+const SYSTEM_FALLBACK_MODEL = 'llama-3.1-8b-instant';
 
 
 serve(async (req) => {
@@ -88,29 +92,21 @@ serve(async (req) => {
     const persona = dbPersona as DbPersona;
     const systemPrompt = persona.system_prompt;
 
-    // Model must be configured in database
-    if (!persona.ai_config?.model) {
-      return errorResponse('Persona AI model not configured in database', 500);
+    // Build list of models to try: primary -> fallback -> system fallback
+    const modelsToTry: string[] = [];
+    if (persona.ai_config?.model) {
+      modelsToTry.push(persona.ai_config.model);
     }
-
-    const modelId = persona.ai_config.model;
-
-    // Validate model exists in ai_models table
-    const { data: validModel } = await supabase
-      .from('ai_models')
-      .select('id, name')
-      .eq('id', modelId)
-      .eq('active', true)
-      .single();
-
-    if (!validModel) {
-      console.error(`Invalid model: ${modelId}`);
-      return errorResponse(`Model "${modelId}" is not available. Please update the persona's AI configuration.`, 400);
+    if (persona.ai_config?.fallback_model) {
+      modelsToTry.push(persona.ai_config.fallback_model);
     }
+    modelsToTry.push(SYSTEM_FALLBACK_MODEL);
 
-    // Build settings from database ai_config
-    const settings: Partial<GroqCompletionSettings> = {
-      model: modelId as GroqCompletionSettings['model'],
+    // Remove duplicates
+    const uniqueModels = [...new Set(modelsToTry)];
+
+    // Base settings from database ai_config
+    const baseSettings = {
       temperature: persona.ai_config?.temperature ?? 0.7,
       top_p: persona.ai_config?.top_p ?? 0.9,
       max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
@@ -120,6 +116,33 @@ serve(async (req) => {
     // Cost config from database (cents per million tokens)
     const costPerMillionInput = persona.ai_config?.cost_per_million_input ?? 0;
     const costPerMillionOutput = persona.ai_config?.cost_per_million_output ?? 0;
+
+    // Helper to try models with fallback
+    async function tryWithFallback<T>(
+      operation: (model: string) => Promise<T>
+    ): Promise<{ result: T; modelUsed: string }> {
+      let lastError: Error | null = null;
+
+      for (const model of uniqueModels) {
+        try {
+          console.log(`Trying model: ${model}`);
+          const result = await operation(model);
+          return { result, modelUsed: model };
+        } catch (error) {
+          console.warn(`Model ${model} failed:`, error);
+          lastError = error instanceof Error ? error : new Error(String(error));
+          // Continue to next model
+        }
+      }
+
+      throw lastError || new Error('All models failed');
+    }
+
+    // Settings will be built per-attempt with the current model
+    const buildSettings = (model: string): Partial<GroqCompletionSettings> => ({
+      model: model as GroqCompletionSettings['model'],
+      ...baseSettings,
+    });
 
     // Handle greeting generation
     if (generateGreeting) {
@@ -166,12 +189,15 @@ ${introStyle}${userGreeting}
 
 Keep it short and natural. Do NOT ask any questions or propose topics yet.`;
 
-      const { content: intro, usage: introUsage } = await groq.completeWithHistoryAndUsage(
-        systemPrompt,
-        [],
-        introPrompt,
-        { ...settings, temperature: 0.9 }
-      );
+      const { result: introResult, modelUsed } = await tryWithFallback(async (model) => {
+        return await groq.completeWithHistoryAndUsage(
+          systemPrompt,
+          [],
+          introPrompt,
+          { ...buildSettings(model), temperature: 0.9 }
+        );
+      });
+      const { content: intro, usage: introUsage } = introResult;
 
       // Generate the opening question as a separate message
       const questionPrompt = `You just introduced yourself. Now propose a specific thought-provoking topic and ask an engaging opening question related to your expertise and challenge style.
@@ -182,12 +208,15 @@ Write ONLY the topic introduction and question (2-3 sentences max). Do NOT re-in
 
 Do NOT ask the user what they want to talk about - YOU choose the topic and question.`;
 
-      const { content: question, usage: questionUsage } = await groq.completeWithHistoryAndUsage(
-        systemPrompt,
-        [{ role: 'assistant', content: intro }],
-        questionPrompt,
-        { ...settings, temperature: 0.9 }
-      );
+      const { result: questionResult } = await tryWithFallback(async (model) => {
+        return await groq.completeWithHistoryAndUsage(
+          systemPrompt,
+          [{ role: 'assistant', content: intro }],
+          questionPrompt,
+          { ...buildSettings(model), temperature: 0.9 }
+        );
+      });
+      const { content: question, usage: questionUsage } = questionResult;
 
       // Save both messages as separate bubbles
       const { error: saveIntroError } = await supabase
@@ -232,7 +261,7 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
           user_id: conversation?.user_id || null,
           conversation_id: conversationId,
           persona_id: personaId,
-          model: settings.model,
+          model: modelUsed,
           prompt_tokens: totalUsage.prompt_tokens,
           completion_tokens: totalUsage.completion_tokens,
           total_tokens: totalUsage.total_tokens,
@@ -283,13 +312,16 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
       return errorResponse('Failed to save user message', 500);
     }
 
-    // Generate AI response with usage tracking
-    const { content: assistantMessage, usage } = await groq.completeWithHistoryAndUsage(
-      systemPrompt,
-      conversationMessages,
-      userMessage,
-      settings
-    );
+    // Generate AI response with usage tracking and fallback
+    const { result: chatResult, modelUsed: chatModelUsed } = await tryWithFallback(async (model) => {
+      return await groq.completeWithHistoryAndUsage(
+        systemPrompt,
+        conversationMessages,
+        userMessage,
+        buildSettings(model)
+      );
+    });
+    const { content: assistantMessage, usage } = chatResult;
 
     // Save assistant message
     const { error: saveAssistantError } = await supabase
@@ -323,7 +355,7 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
         user_id: conversation?.user_id || null,
         conversation_id: conversationId,
         persona_id: personaId,
-        model: settings.model,
+        model: chatModelUsed,
         prompt_tokens: usage.prompt_tokens,
         completion_tokens: usage.completion_tokens,
         total_tokens: usage.total_tokens,

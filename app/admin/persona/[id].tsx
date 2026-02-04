@@ -29,6 +29,12 @@ import {
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
 import { Persona } from '../../../types/database';
 import { PersonaFormData } from '../../../types/admin';
+import { supabase } from '../../../lib/supabase';
+
+interface AIModelOption {
+  id: string;
+  name: string;
+}
 
 const CHALLENGE_STYLES = [
   { value: 'socratic', label: 'Socratic' },
@@ -218,6 +224,7 @@ export default function AdminPersonaEditScreen() {
 
   const [form, setForm] = useState<PersonaFormData>({
     name: '',
+    title: null,
     tagline: '',
     avatar_url: '',
     avatar_thumbnail_url: null,
@@ -238,7 +245,28 @@ export default function AdminPersonaEditScreen() {
     is_active: true,
     is_premium: false,
     sort_order: 0,
+    ai_config: {
+      model: 'llama-3.1-8b-instant',
+      fallback_model: 'llama-3.1-8b-instant',
+      temperature: 0.7,
+      max_completion_tokens: 1024,
+    },
   });
+
+  const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
+
+  // Fetch available AI models
+  useEffect(() => {
+    const fetchModels = async () => {
+      const { data } = await supabase
+        .from('ai_models')
+        .select('id, name')
+        .eq('active', true)
+        .order('name');
+      setAiModels(data || []);
+    };
+    fetchModels();
+  }, []);
 
   useEffect(() => {
     if (!isNew && id) {
@@ -251,6 +279,7 @@ export default function AdminPersonaEditScreen() {
     if (selectedPersona && !isNew) {
       setForm({
         name: selectedPersona.name,
+        title: selectedPersona.title,
         tagline: selectedPersona.tagline || '',
         avatar_url: selectedPersona.avatar_url,
         avatar_thumbnail_url: selectedPersona.avatar_thumbnail_url,
@@ -271,6 +300,12 @@ export default function AdminPersonaEditScreen() {
         is_active: selectedPersona.is_active,
         is_premium: selectedPersona.is_premium,
         sort_order: selectedPersona.sort_order,
+        ai_config: selectedPersona.ai_config || {
+          model: 'llama-3.1-8b-instant',
+          fallback_model: 'llama-3.1-8b-instant',
+          temperature: 0.7,
+          max_completion_tokens: 1024,
+        },
       });
     }
   }, [selectedPersona, isNew]);
@@ -501,6 +536,42 @@ export default function AdminPersonaEditScreen() {
             label="Voice Stability"
             value={form.voice_stability * 100}
             onValueChange={(value) => updateForm('voice_stability', value / 100)}
+          />
+
+          {/* AI Configuration */}
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: 12,
+              fontWeight: '600',
+              letterSpacing: 1,
+              marginTop: 8,
+              marginBottom: 16,
+            }}
+          >
+            AI CONFIGURATION
+          </Text>
+
+          <SelectInput
+            label="Primary AI Model"
+            value={form.ai_config?.model || ''}
+            options={aiModels.map(m => ({ value: m.id, label: m.name }))}
+            onValueChange={(value) => updateForm('ai_config', { ...form.ai_config, model: value })}
+          />
+
+          <SelectInput
+            label="Fallback AI Model"
+            value={form.ai_config?.fallback_model || ''}
+            options={aiModels.map(m => ({ value: m.id, label: m.name }))}
+            onValueChange={(value) => updateForm('ai_config', { ...form.ai_config, fallback_model: value })}
+          />
+
+          <SliderInput
+            label={`Temperature: ${(form.ai_config?.temperature || 0.7).toFixed(2)}`}
+            value={(form.ai_config?.temperature || 0.7) * 100}
+            onValueChange={(value) => updateForm('ai_config', { ...form.ai_config, temperature: value / 100 })}
+            min={0}
+            max={100}
           />
 
           {/* System Prompt */}

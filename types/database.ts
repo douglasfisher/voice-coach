@@ -92,6 +92,7 @@ export interface Database {
         Row: {
           id: string;
           name: string;
+          title: string | null;
           tagline: string | null;
           avatar_url: string;
           avatar_thumbnail_url: string | null;
@@ -112,11 +113,22 @@ export interface Database {
           is_active: boolean;
           is_premium: boolean;
           sort_order: number;
+          ai_config: {
+            model?: string;
+            fallback_model?: string;
+            temperature?: number;
+            top_p?: number;
+            max_completion_tokens?: number;
+            stop?: string[];
+            cost_per_million_input?: number;
+            cost_per_million_output?: number;
+          } | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           name: string;
+          title?: string | null;
           tagline?: string | null;
           avatar_url: string;
           avatar_thumbnail_url?: string | null;
@@ -137,11 +149,22 @@ export interface Database {
           is_active?: boolean;
           is_premium?: boolean;
           sort_order?: number;
+          ai_config?: {
+            model?: string;
+            fallback_model?: string;
+            temperature?: number;
+            top_p?: number;
+            max_completion_tokens?: number;
+            stop?: string[];
+            cost_per_million_input?: number;
+            cost_per_million_output?: number;
+          } | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           name?: string;
+          title?: string | null;
           tagline?: string | null;
           avatar_url?: string;
           avatar_thumbnail_url?: string | null;
@@ -162,6 +185,16 @@ export interface Database {
           is_active?: boolean;
           is_premium?: boolean;
           sort_order?: number;
+          ai_config?: {
+            model?: string;
+            fallback_model?: string;
+            temperature?: number;
+            top_p?: number;
+            max_completion_tokens?: number;
+            stop?: string[];
+            cost_per_million_input?: number;
+            cost_per_million_output?: number;
+          } | null;
           created_at?: string;
         };
       };

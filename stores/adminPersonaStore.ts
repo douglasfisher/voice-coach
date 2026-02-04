@@ -133,6 +133,12 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
         is_active: data.is_active ?? true,
         is_premium: data.is_premium ?? false,
         sort_order: maxSortOrder + 1,
+        ai_config: data.ai_config || {
+          model: 'llama-3.1-8b-instant',
+          fallback_model: 'llama-3.1-8b-instant',
+          temperature: 0.7,
+          max_completion_tokens: 1024,
+        },
       };
 
       const { data: newPersona, error } = await supabase
