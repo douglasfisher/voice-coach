@@ -25,6 +25,7 @@ interface ChatState {
   ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string; analysis: AnalysisResult | null } | null>;
   endConversation: () => Promise<void>;
+  clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
 }
 
