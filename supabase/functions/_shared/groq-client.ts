@@ -56,6 +56,11 @@ export class GroqClient {
       throw new Error('Model must be specified - configure in database ai_config');
     }
 
+    console.log('=== Groq API Request ===');
+    console.log('Model:', mergedSettings.model);
+    console.log('API Key (first 10):', this.apiKey?.slice(0, 10));
+    console.log('Messages count:', messages.length);
+
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
