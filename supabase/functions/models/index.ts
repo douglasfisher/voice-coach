@@ -79,23 +79,33 @@ serve(async (req) => {
 
       const groqData: GroqModelsResponse = await response.json();
 
-      // Filter to chat models only (exclude whisper, etc.)
-      const chatModels = groqData.data.filter(m =>
-        m.active &&
-        !m.id.includes('whisper') &&
-        !m.id.includes('guard') &&
-        !m.id.includes('tool-use') &&
-        m.context_window > 0
-      );
+      // Filter to chat models only (exclude whisper, speech, etc.)
+      const chatModels = groqData.data.filter(m => {
+        const id = m.id.toLowerCase();
+        // Exclude non-chat models
+        if (id.includes('whisper')) return false;
+        if (id.includes('guard')) return false;
+        if (id.includes('tool-use')) return false;
+        if (id.includes('speech')) return false;
+        if (id.includes('tts')) return false;
+        // Include if it looks like a chat model
+        return true;
+      });
+
+      console.log(`Found ${chatModels.length} chat models from Groq API`);
+
+      if (chatModels.length === 0) {
+        return errorResponse('No chat models found from Groq API', 500);
+      }
 
       // Upsert models into database
       const modelsToUpsert = chatModels.map(m => ({
         id: m.id,
         name: formatModelName(m.id),
         provider: 'groq',
-        context_window: m.context_window,
-        active: m.active,
-        owned_by: m.owned_by,
+        context_window: m.context_window || null,
+        active: true, // Mark as active since it's in the API response
+        owned_by: m.owned_by || null,
         updated_at: new Date().toISOString(),
       }));
 
@@ -108,12 +118,17 @@ serve(async (req) => {
         return errorResponse('Failed to save models', 500);
       }
 
-      // Mark models not in the response as inactive
+      // Mark models NOT in the response as inactive (using correct Supabase syntax)
       const activeIds = chatModels.map(m => m.id);
-      await supabase
+      const { error: deactivateError } = await supabase
         .from('ai_models')
-        .update({ active: false })
-        .not('id', 'in', `(${activeIds.map(id => `'${id}'`).join(',')})`);
+        .update({ active: false, updated_at: new Date().toISOString() })
+        .not('id', 'in', `(${activeIds.join(',')})`);
+
+      if (deactivateError) {
+        console.warn('Failed to deactivate old models:', deactivateError);
+        // Don't fail the request, models were still updated
+      }
 
       return jsonResponse({
         message: 'Models refreshed successfully',
