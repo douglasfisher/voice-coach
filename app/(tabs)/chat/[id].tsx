@@ -30,7 +30,6 @@ import { useTTS } from '../../../hooks/useTTS';
 import { useVoiceInput } from '../../../hooks/useVoiceInput';
 import { useAuthStore } from '../../../stores/authStore';
 import { useChatStore } from '../../../stores/chatStore';
-import { supabase } from '../../../lib/supabase';
 import {
   PersonaHeader,
   MessageBubble,
@@ -117,7 +116,7 @@ export default function ChatScreen() {
 
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const { fetchMessages, clearMessages } = useChatStore();
+  const { fetchMessages, clearMessages, startChat } = useChatStore();
   const chatStarted = messages.length > 0;
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
@@ -168,27 +167,9 @@ export default function ChatScreen() {
       return;
     }
 
-    console.log('Starting chat...', conversation.id, conversation.persona_id);
     setIsStartingChat(true);
-
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('chat', {
-        body: {
-          conversationId: conversation.id,
-          personaId: conversation.persona_id,
-          generateGreeting: true,
-        },
-      });
-
-      console.log('Chat response:', data, 'Error:', invokeError);
-
-      if (invokeError) {
-        console.error('Function invoke error:', invokeError);
-        return;
-      }
-
-      // Refresh messages to show greeting
-      await fetchMessages(conversation.id);
+      await startChat();
     } catch (error) {
       console.error('Failed to start chat:', error);
     } finally {

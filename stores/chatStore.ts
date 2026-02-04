@@ -24,6 +24,7 @@ interface ChatState {
     topic?: string
   ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string; analysis: AnalysisResult | null } | null>;
+  startChat: () => Promise<boolean>;
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
@@ -172,6 +173,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (error) {
       set({ error: (error as Error).message });
       return null;
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  startChat: async () => {
+    const { activeConversation } = get();
+    if (!activeConversation) return false;
+
+    set({ isSending: true, error: null });
+    try {
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          conversationId: activeConversation.id,
+          personaId: activeConversation.persona_id,
+          generateGreeting: true,
+        },
+      });
+
+      if (error) {
+        console.error('Start chat error:', error);
+        throw error;
+      }
+
+      // Refresh messages to show greeting
+      await get().fetchMessages(activeConversation.id);
+      return true;
+    } catch (error) {
+      console.error('Start chat failed:', error);
+      set({ error: (error as Error).message });
+      return false;
     } finally {
       set({ isSending: false });
     }
