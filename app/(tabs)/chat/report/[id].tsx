@@ -5,6 +5,8 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +23,7 @@ import {
 } from 'lucide-react-native';
 import { supabase } from '../../../../lib/supabase';
 import { usePersonaStore } from '../../../../stores';
+import { PersonaDisplay } from '../../../../types/persona';
 
 interface SessionReport {
   tldr: string;
@@ -43,7 +46,8 @@ export default function ReportScreen() {
 
   const [report, setReport] = useState<SessionReport | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [personaName, setPersonaName] = useState('');
+  const [persona, setPersona] = useState<PersonaDisplay | null>(null);
+  const [sessionDate, setSessionDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
@@ -59,7 +63,7 @@ export default function ReportScreen() {
       // Fetch conversation with report
       const { data: conversation, error: convError } = await supabase
         .from('conversations')
-        .select('analysis_summary, overall_score, persona_id')
+        .select('analysis_summary, overall_score, persona_id, ended_at, created_at')
         .eq('id', id)
         .single();
 
@@ -69,10 +73,21 @@ export default function ReportScreen() {
         setReport(conversation.analysis_summary as SessionReport);
       }
 
-      // Get persona name
-      const persona = getPersonaById(conversation?.persona_id);
-      if (persona) {
-        setPersonaName(persona.name);
+      // Set session date
+      const dateStr = conversation?.ended_at || conversation?.created_at;
+      if (dateStr) {
+        setSessionDate(new Date(dateStr).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }));
+      }
+
+      // Get full persona
+      const personaData = getPersonaById(conversation?.persona_id);
+      if (personaData) {
+        setPersona(personaData);
       }
 
       // Fetch messages for transcript
@@ -161,6 +176,81 @@ export default function ReportScreen() {
         contentContainerStyle={{ padding: 20 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Persona Hero Card */}
+        {persona && (
+          <View
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderRadius: 20,
+              overflow: 'hidden',
+              marginBottom: 20,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.1)',
+            }}
+          >
+            {/* Persona Image */}
+            <View style={{ height: 160, position: 'relative' }}>
+              <Image
+                source={
+                  typeof persona.avatarUrl === 'string'
+                    ? { uri: persona.avatarUrl }
+                    : persona.avatarUrl as ImageSourcePropType
+                }
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.8)']}
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 80,
+                }}
+              />
+            </View>
+
+            {/* Persona Info */}
+            <View style={{ padding: 16, marginTop: -40 }}>
+              <Text style={{ color: '#fff', fontSize: 22, fontWeight: '700' }}>
+                {persona.name}
+              </Text>
+              {persona.tagline && (
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginTop: 4 }}>
+                  {persona.tagline}
+                </Text>
+              )}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginTop: 12,
+                  gap: 12,
+                }}
+              >
+                <View
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '500' }}>
+                    {persona.challengeStyle.replace('_', ' ').toUpperCase()}
+                  </Text>
+                </View>
+                {sessionDate && (
+                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                    {sessionDate}
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* TLDR Card */}
         <View
           style={{
@@ -181,16 +271,11 @@ export default function ReportScreen() {
               marginBottom: 8,
             }}
           >
-            TLDR
+            SUMMARY
           </Text>
           <Text style={{ color: '#fff', fontSize: 16, lineHeight: 24 }}>
             {report.tldr}
           </Text>
-          {personaName && (
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 12 }}>
-              Session with {personaName}
-            </Text>
-          )}
         </View>
 
         {/* Score Card */}
