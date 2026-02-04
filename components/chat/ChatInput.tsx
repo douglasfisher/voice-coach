@@ -1,5 +1,6 @@
-import { View, Text, Pressable, GestureResponderEvent } from 'react-native';
-import { useRef, useCallback } from 'react';
+import { View, Text, Pressable, GestureResponderEvent, TextInput } from 'react-native';
+import { useRef, useCallback, useState } from 'react';
+import { Send } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -51,6 +52,16 @@ export function ChatInput({
 
   // Live transcription display
   const liveText = transcript || interimTranscript;
+
+  // Text input state
+  const [text, setText] = useState('');
+
+  const handleTextSend = () => {
+    if (text.trim() && !disabled) {
+      onSend(text.trim());
+      setText('');
+    }
+  };
 
   // Animation values
   const scale = useSharedValue(1);
@@ -168,126 +179,105 @@ export function ChatInput({
 
   const buttonDisabled = disabled || !voiceInputEnabled || !hasVoicePermission;
 
-  return (
-    <View
-      style={{
-        paddingHorizontal: 24,
-        paddingTop: 16,
-        paddingBottom: 28,
-        backgroundColor: 'rgba(10, 10, 15, 0.95)',
-        borderTopWidth: 1,
-        borderTopColor: showRecordingUI ? `${accentColor}40` : 'rgba(255, 255, 255, 0.08)',
-        alignItems: 'center',
-      }}
-    >
-      {/* Top area - either hint text OR transcription+waveform */}
-      {showRecordingUI ? (
-        <>
-          {/* Transcription */}
-          <View
-            style={{
-              width: '100%',
-              backgroundColor: 'rgba(255, 255, 255, 0.06)',
-              borderRadius: 16,
-              paddingHorizontal: 20,
-              paddingVertical: 16,
-              marginBottom: 16,
-              minHeight: 56,
-              justifyContent: 'center',
-            }}
-          >
-            <Text
-              style={{
-                color: liveText ? '#fff' : 'rgba(255, 255, 255, 0.4)',
-                fontSize: 17,
-                lineHeight: 24,
-                textAlign: 'center',
-                fontStyle: liveText ? 'normal' : 'italic',
-              }}
-              numberOfLines={4}
-            >
-              {liveText || 'Listening...'}
-            </Text>
-          </View>
-
-          {/* Waveform */}
-          <View style={{ marginBottom: 16 }}>
-            <AudioWaveform
-              audioLevel={audioLevel}
-              color={accentColor}
-              barCount={16}
-              width={200}
-              height={40}
-            />
-          </View>
-        </>
-      ) : (
-        /* Hint text - shown when NOT recording */
-        <Text
+  // When recording, show the full-screen recording UI
+  if (showRecordingUI) {
+    return (
+      <View
+        style={{
+          paddingHorizontal: 24,
+          paddingTop: 16,
+          paddingBottom: 28,
+          backgroundColor: 'rgba(10, 10, 15, 0.95)',
+          borderTopWidth: 1,
+          borderTopColor: `${accentColor}40`,
+          alignItems: 'center',
+        }}
+      >
+        {/* Transcription */}
+        <View
           style={{
-            color: 'rgba(255, 255, 255, 0.35)',
-            fontSize: 13,
+            width: '100%',
+            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+            borderRadius: 16,
+            paddingHorizontal: 20,
+            paddingVertical: 16,
             marginBottom: 16,
+            minHeight: 56,
+            justifyContent: 'center',
           }}
         >
-          Hold to speak
-        </Text>
-      )}
+          <Text
+            style={{
+              color: liveText ? '#fff' : 'rgba(255, 255, 255, 0.4)',
+              fontSize: 17,
+              lineHeight: 24,
+              textAlign: 'center',
+              fontStyle: liveText ? 'normal' : 'italic',
+            }}
+            numberOfLines={4}
+          >
+            {liveText || 'Listening...'}
+          </Text>
+        </View>
 
-      {/* Big Central Mic Button */}
-      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-        {/* Glow ring */}
-        <Animated.View
-          style={[
-            {
-              position: 'absolute',
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              borderWidth: 2,
-              borderColor: accentColor,
-            },
-            glowStyle,
-          ]}
-        />
+        {/* Waveform */}
+        <View style={{ marginBottom: 16 }}>
+          <AudioWaveform
+            audioLevel={audioLevel}
+            color={accentColor}
+            barCount={16}
+            width={200}
+            height={40}
+          />
+        </View>
 
-        <Pressable
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onTouchMove={handleMove}
-          disabled={buttonDisabled}
-        >
+        {/* Big Central Mic Button during recording */}
+        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
           <Animated.View
             style={[
               {
+                position: 'absolute',
                 width: 80,
                 height: 80,
                 borderRadius: 40,
-                shadowColor: accentColor,
-                shadowOffset: { width: 0, height: 6 },
-                shadowRadius: 16,
-                elevation: 10,
+                borderWidth: 2,
+                borderColor: accentColor,
               },
-              pulseStyle,
+              glowStyle,
             ]}
+          />
+          <Pressable
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            onTouchMove={handleMove}
+            disabled={buttonDisabled}
           >
-            <LinearGradient
-              colors={
-                buttonDisabled
-                  ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
-                  : [accentColor, darkenColor(accentColor)]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: 40,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <Animated.View
+              style={[
+                {
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  shadowColor: accentColor,
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowRadius: 16,
+                  elevation: 10,
+                },
+                pulseStyle,
+              ]}
             >
-              {showRecordingUI ? (
+              <LinearGradient
+                colors={[accentColor, darkenColor(accentColor)]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: 40,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
                 <AudioWaveform
                   audioLevel={audioLevel}
                   color="#0f0f12"
@@ -295,12 +285,128 @@ export function ChatInput({
                   width={36}
                   height={28}
                 />
-              ) : (
-                <Mic size={32} color={buttonDisabled ? 'rgba(255,255,255,0.3)' : '#0f0f12'} />
-              )}
-            </LinearGradient>
-          </Animated.View>
-        </Pressable>
+              </LinearGradient>
+            </Animated.View>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // Default: Text input + mic button side by side
+  return (
+    <View
+      style={{
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 28,
+        backgroundColor: 'rgba(10, 10, 15, 0.95)',
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.08)',
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        {/* Text Input */}
+        <View
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255,255,255,0.06)',
+            borderRadius: 24,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+          }}
+        >
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            onSubmitEditing={handleTextSend}
+            placeholder="Type a message..."
+            placeholderTextColor="rgba(255,255,255,0.4)"
+            style={{
+              flex: 1,
+              paddingHorizontal: 20,
+              paddingVertical: 14,
+              color: '#fff',
+              fontSize: 16,
+            }}
+            returnKeyType="send"
+            editable={!disabled}
+          />
+          {text.trim() && (
+            <Pressable
+              onPress={handleTextSend}
+              disabled={disabled}
+              style={{
+                paddingRight: 16,
+                paddingLeft: 8,
+              }}
+            >
+              <Send size={22} color={accentColor} />
+            </Pressable>
+          )}
+        </View>
+
+        {/* Mic Button */}
+        {voiceInputEnabled && hasVoicePermission && (
+          <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute',
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  borderWidth: 2,
+                  borderColor: accentColor,
+                },
+                glowStyle,
+              ]}
+            />
+            <Pressable
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              onTouchMove={handleMove}
+              disabled={buttonDisabled}
+            >
+              <Animated.View
+                style={[
+                  {
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    shadowColor: accentColor,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowRadius: 12,
+                    shadowOpacity: 0.5,
+                    elevation: 8,
+                  },
+                  pulseStyle,
+                ]}
+              >
+                <LinearGradient
+                  colors={
+                    buttonDisabled
+                      ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
+                      : [accentColor, darkenColor(accentColor)]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 28,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Mic size={24} color={buttonDisabled ? 'rgba(255,255,255,0.3)' : '#0f0f12'} />
+                </LinearGradient>
+              </Animated.View>
+            </Pressable>
+          </View>
+        )}
       </View>
     </View>
   );

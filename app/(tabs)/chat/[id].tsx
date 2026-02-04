@@ -28,6 +28,8 @@ import { useConversation } from '../../../hooks/useConversation';
 import { useTTS } from '../../../hooks/useTTS';
 import { useVoiceInput } from '../../../hooks/useVoiceInput';
 import { useAuthStore } from '../../../stores/authStore';
+import { useChatStore } from '../../../stores/chatStore';
+import { supabase } from '../../../lib/supabase';
 import {
   PersonaHeader,
   MessageBubble,
@@ -112,6 +114,10 @@ export default function ChatScreen() {
     analysis: AnalysisResult;
   } | null>(null);
 
+  const [isStartingChat, setIsStartingChat] = useState(false);
+  const { fetchMessages } = useChatStore();
+  const chatStarted = messages.length > 0;
+
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
   const StyleIcon = theme?.Icon || Sparkles;
   const imageSource = persona
@@ -152,6 +158,26 @@ export default function ChatScreen() {
   const handleEndConversation = async () => {
     await end();
     router.back();
+  };
+
+  const handleStartChat = async () => {
+    if (!conversation) return;
+    setIsStartingChat(true);
+    try {
+      await supabase.functions.invoke('chat', {
+        body: {
+          conversationId: conversation.id,
+          personaId: conversation.persona_id,
+          generateGreeting: true,
+        },
+      });
+      // Refresh messages to show greeting
+      await fetchMessages(conversation.id);
+    } catch (error) {
+      console.error('Failed to start chat:', error);
+    } finally {
+      setIsStartingChat(false);
+    }
   };
 
   useEffect(() => {
@@ -287,7 +313,7 @@ export default function ChatScreen() {
             />
           )}
           ListFooterComponent={
-            isSending ? <TypingIndicator persona={persona} /> : null
+            (isSending || isStartingChat) ? <TypingIndicator persona={persona} /> : null
           }
           ListEmptyComponent={
             <View style={{ alignItems: 'center', paddingVertical: 60 }}>
@@ -366,21 +392,26 @@ export default function ChatScreen() {
                 {persona.tagline}
               </Text>
 
-              {/* Suggestion pills */}
-              <View style={{ gap: 10, alignItems: 'center' }}>
-                <SuggestionPill
-                  text="Share a belief you hold strongly"
-                  color={theme?.accent || '#F59E0B'}
-                />
-                <SuggestionPill
-                  text="Discuss a recent decision"
-                  color={theme?.accent || '#F59E0B'}
-                />
-                <SuggestionPill
-                  text="Explore a controversial topic"
-                  color={theme?.accent || '#F59E0B'}
-                />
-              </View>
+              {/* Start Chat Button */}
+              <Pressable
+                onPress={handleStartChat}
+                disabled={isStartingChat}
+                style={{
+                  paddingHorizontal: 32,
+                  paddingVertical: 16,
+                  borderRadius: 16,
+                  backgroundColor: theme?.accent || '#F59E0B',
+                  opacity: isStartingChat ? 0.7 : 1,
+                }}
+              >
+                {isStartingChat ? (
+                  <ActivityIndicator color="#0f0f12" />
+                ) : (
+                  <Text style={{ color: '#0f0f12', fontWeight: '700', fontSize: 18 }}>
+                    Start Chat
+                  </Text>
+                )}
+              </Pressable>
             </View>
           }
         />
@@ -412,8 +443,8 @@ export default function ChatScreen() {
           </View>
         )}
 
-        {/* Input */}
-        {conversation.status === 'active' ? (
+        {/* Input - only show after chat has started */}
+        {conversation.status === 'active' && chatStarted ? (
           <ChatInput
             onSend={handleSend}
             disabled={isSending}
@@ -428,7 +459,7 @@ export default function ChatScreen() {
             onVoicePressOut={voiceHandlers.onPressOut}
             onVoiceCancel={voiceHandlers.onCancel}
           />
-        ) : (
+        ) : conversation.status !== 'active' ? (
           <View
             style={{
               padding: 16,
@@ -462,24 +493,5 @@ export default function ChatScreen() {
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
-}
-
-function SuggestionPill({ text, color }: { text: string; color: string }) {
-  return (
-    <View
-      style={{
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-      }}
-    >
-      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
-        "{text}"
-      </Text>
-    </View>
   );
 }
