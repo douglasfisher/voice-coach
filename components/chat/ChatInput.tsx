@@ -1,7 +1,7 @@
 import { View, TextInput, Pressable, Text } from 'react-native';
 import { useState, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Sparkles, X } from 'lucide-react-native';
+import { Send, Sparkles } from 'lucide-react-native';
 import { PushToTalkButton } from './PushToTalkButton';
 import { AudioWaveform } from './AudioWaveform';
 import { VoiceInputState } from '../../hooks/useVoiceInput';
@@ -72,98 +72,10 @@ export function ChatInput({
     onVoiceCancel?.();
   };
 
-  const canSend = message.trim().length > 0 && !disabled;
+  const canSend = message.trim().length > 0 && !disabled && !isRecording;
+  const showRecordingUI = isRecording || isProcessing;
 
-  // RECORDING MODE: Show recording UI instead of text input
-  if (isRecording || isProcessing) {
-    return (
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingTop: 12,
-          paddingBottom: 20,
-          backgroundColor: 'rgba(10, 10, 15, 0.95)',
-          borderTopWidth: 1,
-          borderTopColor: `${accentColor}30`,
-        }}
-      >
-        {/* Transcription display */}
-        <View
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-            borderRadius: 16,
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-            minHeight: 48,
-            marginBottom: 12,
-          }}
-        >
-          <Text
-            style={{
-              color: liveText ? '#fff' : 'rgba(255, 255, 255, 0.4)',
-              fontSize: 16,
-              lineHeight: 22,
-              fontStyle: liveText ? 'normal' : 'italic',
-            }}
-          >
-            {liveText || 'Listening...'}
-          </Text>
-        </View>
-
-        {/* Waveform + Cancel button row */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          {/* Cancel button */}
-          <Pressable
-            onPress={handleVoiceCancel}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 24,
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: 'rgba(239, 68, 68, 0.3)',
-            }}
-          >
-            <X size={22} color="#ef4444" />
-          </Pressable>
-
-          {/* Waveform in center */}
-          <AudioWaveform
-            audioLevel={audioLevel}
-            color={accentColor}
-            barCount={12}
-            width={140}
-            height={32}
-          />
-
-          {/* Recording indicator (pulsing mic) */}
-          <View style={{ marginRight: 4 }}>
-            <PushToTalkButton
-              onRecordingStart={handleVoiceRecordingStart}
-              onRecordingEnd={handleVoiceRecordingEnd}
-              onCancel={handleVoiceCancel}
-              isRecording={isRecording}
-              isProcessing={isProcessing}
-              disabled={false}
-              accentColor={accentColor}
-              audioLevel={audioLevel}
-              hasPermission={hasVoicePermission}
-            />
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  // NORMAL MODE: Show mic button + text input + send button
+  // Single unified layout - mic button stays in same position
   return (
     <View
       style={{
@@ -181,7 +93,7 @@ export function ChatInput({
           alignItems: 'flex-end',
         }}
       >
-        {/* Mic button */}
+        {/* Mic button - ALWAYS in same position on the left */}
         {voiceInputEnabled && (
           <View style={{ marginRight: 12, marginBottom: 2 }}>
             <PushToTalkButton
@@ -198,14 +110,18 @@ export function ChatInput({
           </View>
         )}
 
-        {/* Text input with gradient border */}
+        {/* Middle area: Text input OR Transcription */}
         <View
           style={{
             flex: 1,
             marginRight: 12,
             borderRadius: 24,
             padding: 1,
-            backgroundColor: canSend ? accentColor : 'rgba(255, 255, 255, 0.1)',
+            backgroundColor: showRecordingUI
+              ? `${accentColor}30`
+              : canSend
+                ? accentColor
+                : 'rgba(255, 255, 255, 0.1)',
           }}
         >
           <View
@@ -214,72 +130,112 @@ export function ChatInput({
               borderRadius: 23,
               paddingHorizontal: 18,
               paddingVertical: 12,
+              minHeight: 48,
+              justifyContent: 'center',
             }}
           >
-            <TextInput
-              ref={inputRef}
-              value={message}
-              onChangeText={setMessage}
-              placeholder={placeholder}
-              placeholderTextColor="rgba(255, 255, 255, 0.35)"
-              multiline
-              maxLength={2000}
-              editable={!disabled}
-              style={{
-                color: '#fff',
-                fontSize: 16,
-                lineHeight: 22,
-                maxHeight: 120,
-                minHeight: 24,
-              }}
-            />
+            {showRecordingUI ? (
+              // Show live transcription when recording
+              <Text
+                style={{
+                  color: liveText ? '#fff' : 'rgba(255, 255, 255, 0.4)',
+                  fontSize: 16,
+                  lineHeight: 22,
+                  fontStyle: liveText ? 'normal' : 'italic',
+                }}
+                numberOfLines={3}
+              >
+                {liveText || 'Listening...'}
+              </Text>
+            ) : (
+              // Show text input when not recording
+              <TextInput
+                ref={inputRef}
+                value={message}
+                onChangeText={setMessage}
+                placeholder={placeholder}
+                placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                multiline
+                maxLength={2000}
+                editable={!disabled}
+                style={{
+                  color: '#fff',
+                  fontSize: 16,
+                  lineHeight: 22,
+                  maxHeight: 120,
+                  minHeight: 24,
+                }}
+              />
+            )}
           </View>
         </View>
 
-        {/* Send button */}
-        <Pressable
-          onPress={handleSend}
-          disabled={!canSend}
-          style={{
-            marginBottom: 2,
-          }}
-        >
-          {canSend ? (
-            <LinearGradient
-              colors={[accentColor, darkenColor(accentColor)]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                alignItems: 'center',
-                justifyContent: 'center',
-                shadowColor: accentColor,
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.4,
-                shadowRadius: 8,
-              }}
-            >
-              <Send size={20} color="#0f0f12" style={{ marginLeft: -2, marginTop: -2 }} />
-            </LinearGradient>
-          ) : (
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              <Sparkles size={20} color="rgba(255, 255, 255, 0.3)" />
-            </View>
-          )}
-        </Pressable>
+        {/* Right side: Send button OR Waveform */}
+        {showRecordingUI ? (
+          // Show waveform when recording
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 2,
+            }}
+          >
+            <AudioWaveform
+              audioLevel={audioLevel}
+              color={accentColor}
+              barCount={5}
+              width={40}
+              height={28}
+            />
+          </View>
+        ) : (
+          // Show send button when not recording
+          <Pressable
+            onPress={handleSend}
+            disabled={!canSend}
+            style={{
+              marginBottom: 2,
+            }}
+          >
+            {canSend ? (
+              <LinearGradient
+                colors={[accentColor, darkenColor(accentColor)]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: accentColor,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 8,
+                }}
+              >
+                <Send size={20} color="#0f0f12" style={{ marginLeft: -2, marginTop: -2 }} />
+              </LinearGradient>
+            ) : (
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+              >
+                <Sparkles size={20} color="rgba(255, 255, 255, 0.3)" />
+              </View>
+            )}
+          </Pressable>
+        )}
       </View>
 
       {/* Character count when typing */}
