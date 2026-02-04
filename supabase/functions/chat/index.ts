@@ -93,9 +93,24 @@ serve(async (req) => {
       return errorResponse('Persona AI model not configured in database', 500);
     }
 
+    const modelId = persona.ai_config.model;
+
+    // Validate model exists in ai_models table
+    const { data: validModel } = await supabase
+      .from('ai_models')
+      .select('id, name')
+      .eq('id', modelId)
+      .eq('active', true)
+      .single();
+
+    if (!validModel) {
+      console.error(`Invalid model: ${modelId}`);
+      return errorResponse(`Model "${modelId}" is not available. Please update the persona's AI configuration.`, 400);
+    }
+
     // Build settings from database ai_config
     const settings: Partial<GroqCompletionSettings> = {
-      model: persona.ai_config.model as GroqCompletionSettings['model'],
+      model: modelId as GroqCompletionSettings['model'],
       temperature: persona.ai_config?.temperature ?? 0.7,
       top_p: persona.ai_config?.top_p ?? 0.9,
       max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
@@ -344,8 +359,22 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
 
   } catch (error) {
     console.error('Chat error:', error);
-    return errorResponse(
-      error instanceof Error ? error.message : 'Unknown error'
-    );
+
+    // Extract detailed error message
+    let errorMessage = 'Unknown error';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      // Check for Groq API errors which include responseBody
+      if ('responseBody' in error) {
+        try {
+          const body = JSON.parse((error as any).responseBody);
+          errorMessage = body.error?.message || error.message;
+        } catch {
+          // Use original message if can't parse
+        }
+      }
+    }
+
+    return errorResponse(errorMessage);
   }
 });
