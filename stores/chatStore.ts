@@ -182,10 +182,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { activeConversation } = get();
     if (!activeConversation) return false;
 
-    // Debug: check session
+    // Get session for auth token
     const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
     console.log('Session check:', sessionData?.session ? 'Active' : 'No session');
-    console.log('Access token exists:', !!sessionData?.session?.access_token);
+
+    if (!accessToken) {
+      console.error('No access token available');
+      set({ error: 'Not authenticated' });
+      return false;
+    }
 
     set({ isSending: true, error: null });
     try {
@@ -194,6 +201,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           conversationId: activeConversation.id,
           personaId: activeConversation.persona_id,
           generateGreeting: true,
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 

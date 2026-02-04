@@ -27,6 +27,26 @@ import {
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { AdminPersonaView } from '../../types/admin';
 
+// Local avatar images - mapped by persona name (case-insensitive partial match)
+const LOCAL_AVATARS: Record<string, any> = {
+  'sarah mitchell': require('../../assets/images-1.jpg'),
+  'marcus webb': require('../../assets/images-2.jpg'),
+  "father thomas o'brien": require('../../assets/images-3.jpg'),
+  'thomas o\'brien': require('../../assets/images-3.jpg'),
+  'dr. raj patel': require('../../assets/images-4.jpg'),
+  'raj patel': require('../../assets/images-4.jpg'),
+  'kofi asante': require('../../assets/images-5.jpg'),
+  'professor elena volkov': require('../../assets/images-7.jpg'),
+  'elena volkov': require('../../assets/images-7.jpg'),
+  'dr. maya chen': require('../../assets/images-8.jpg'),
+  'maya chen': require('../../assets/images-8.jpg'),
+};
+
+function getLocalAvatar(name: string): any | null {
+  const normalizedName = name.toLowerCase().trim();
+  return LOCAL_AVATARS[normalizedName] ?? null;
+}
+
 interface PersonaListItemProps {
   persona: AdminPersonaView;
   onToggleActive: (id: string) => void;
@@ -35,6 +55,10 @@ interface PersonaListItemProps {
 }
 
 function PersonaListItem({ persona, onToggleActive, onEdit, isSaving }: PersonaListItemProps) {
+  // Use local avatar if available
+  const localAvatar = getLocalAvatar(persona.name);
+  const avatarSource = localAvatar ?? (persona.avatar_url ? { uri: persona.avatar_url } : null);
+
   return (
     <Pressable
       onPress={() => onEdit(persona.id)}
@@ -65,11 +89,12 @@ function PersonaListItem({ persona, onToggleActive, onEdit, isSaving }: PersonaL
               marginRight: 14,
               borderWidth: 2,
               borderColor: persona.is_active ? '#4ade80' : 'rgba(255,255,255,0.2)',
+              overflow: 'hidden',
             }}
           >
-            {persona.avatar_url ? (
+            {avatarSource ? (
               <Image
-                source={{ uri: persona.avatar_url }}
+                source={avatarSource}
                 style={{ width: 52, height: 52, borderRadius: 26 }}
               />
             ) : (
