@@ -125,35 +125,9 @@ serve(async (req) => {
       return response.json();
     }
 
-    // Helper to get user name for personalization
-    async function getUserName(): Promise<string> {
-      const { data: conv } = await supabase
-        .from('conversations')
-        .select('user_id')
-        .eq('id', conversationId)
-        .single();
-
-      if (conv?.user_id) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('display_name')
-          .eq('id', conv.user_id)
-          .single();
-        return profile?.display_name || '';
-      }
-      return '';
-    }
-
     // Helper to generate opening question content (no intro, just the question)
-    async function generateQuestion(userName: string) {
-      const formality = persona.formality ?? 50;
-      const addressStyle = userName
-        ? formality >= 60
-          ? ` Address the user as "${userName}".`
-          : ` Feel free to address the user as "${userName}" casually.`
-        : '';
-
-      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max, under 30 words total).${addressStyle} Be direct and intriguing. No introduction or preamble needed - just ask the question.`;
+    async function generateQuestion() {
+      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max, under 30 words total). Be direct and intriguing. No introduction or preamble needed - just ask the question.`;
 
       return callGroq([
         { role: 'system', content: systemPrompt },
@@ -163,8 +137,7 @@ serve(async (req) => {
 
     // Handle regenerate question only (preview mode)
     if (regenerateQuestion) {
-      const userName = await getUserName();
-      const questionResponse = await generateQuestion(userName);
+      const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
       return new Response(
@@ -175,8 +148,7 @@ serve(async (req) => {
 
     // Handle preview greeting (generate but don't save) - now only generates question
     if (previewGreeting) {
-      const userName = await getUserName();
-      const questionResponse = await generateQuestion(userName);
+      const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
       return new Response(
@@ -193,8 +165,7 @@ serve(async (req) => {
         .eq('id', conversationId)
         .single();
 
-      const userName = await getUserName();
-      const questionResponse = await generateQuestion(userName);
+      const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
       // Save only the question message
