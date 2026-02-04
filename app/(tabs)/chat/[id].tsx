@@ -33,7 +33,6 @@ import {
   MessageBubble,
   TypingIndicator,
   ChatInput,
-  VoiceInputOverlay,
 } from '../../../components/chat';
 import { AnalysisCard } from '../../../components/chat/AnalysisCard';
 import { AnalysisResult } from '../../../types/analysis';
@@ -413,24 +412,16 @@ export default function ChatScreen() {
           </View>
         )}
 
-        {/* Voice Input Overlay */}
-        <VoiceInputOverlay
-          isVisible={isRecording}
-          transcript={voiceTranscript}
-          interimTranscript={interimTranscript}
-          audioLevel={audioLevel}
-          accentColor={theme?.accent || '#F59E0B'}
-        />
-
         {/* Input */}
         {conversation.status === 'active' ? (
           <ChatInput
             onSend={handleSend}
-            disabled={isSending || isRecording}
+            disabled={isSending}
             placeholder={`Share your thoughts with ${persona.name}...`}
             accentColor={theme?.accent}
             voiceInputEnabled={voiceInputEnabled}
             voiceState={voiceState}
+            transcript={voiceTranscript}
             interimTranscript={interimTranscript}
             audioLevel={audioLevel}
             hasVoicePermission={hasVoicePermission}

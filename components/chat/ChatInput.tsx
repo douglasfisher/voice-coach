@@ -1,8 +1,9 @@
 import { View, TextInput, Pressable, Text } from 'react-native';
-import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useState, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Sparkles } from 'lucide-react-native';
+import { Send, Sparkles, X } from 'lucide-react-native';
 import { PushToTalkButton } from './PushToTalkButton';
+import { AudioWaveform } from './AudioWaveform';
 import { VoiceInputState } from '../../hooks/useVoiceInput';
 
 interface ChatInputProps {
@@ -13,6 +14,7 @@ interface ChatInputProps {
   // Voice input props
   voiceInputEnabled?: boolean;
   voiceState?: VoiceInputState;
+  transcript?: string;
   interimTranscript?: string;
   audioLevel?: number;
   hasVoicePermission?: boolean;
@@ -28,6 +30,7 @@ export function ChatInput({
   accentColor = '#F59E0B',
   voiceInputEnabled = false,
   voiceState = 'idle',
+  transcript = '',
   interimTranscript = '',
   audioLevel = 0,
   hasVoicePermission = false,
@@ -39,6 +42,9 @@ export function ChatInput({
   const inputRef = useRef<TextInput>(null);
   const isRecording = voiceState === 'recording';
   const isProcessing = voiceState === 'processing';
+
+  // Live transcription display (what's being spoken)
+  const liveText = transcript || interimTranscript;
 
   const handleSend = () => {
     if (!message.trim() || disabled) return;
@@ -52,10 +58,10 @@ export function ChatInput({
 
   const handleVoiceRecordingEnd = async () => {
     if (onVoicePressOut) {
-      const transcript = await onVoicePressOut();
-      if (transcript.trim()) {
+      const finalTranscript = await onVoicePressOut();
+      if (finalTranscript.trim()) {
         // Populate the input field with the transcript
-        setMessage((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        setMessage(finalTranscript);
         // Focus the input so user can edit
         inputRef.current?.focus();
       }
@@ -68,6 +74,96 @@ export function ChatInput({
 
   const canSend = message.trim().length > 0 && !disabled;
 
+  // RECORDING MODE: Show recording UI instead of text input
+  if (isRecording || isProcessing) {
+    return (
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 20,
+          backgroundColor: 'rgba(10, 10, 15, 0.95)',
+          borderTopWidth: 1,
+          borderTopColor: `${accentColor}30`,
+        }}
+      >
+        {/* Transcription display */}
+        <View
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+            borderRadius: 16,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            minHeight: 48,
+            marginBottom: 12,
+          }}
+        >
+          <Text
+            style={{
+              color: liveText ? '#fff' : 'rgba(255, 255, 255, 0.4)',
+              fontSize: 16,
+              lineHeight: 22,
+              fontStyle: liveText ? 'normal' : 'italic',
+            }}
+          >
+            {liveText || 'Listening...'}
+          </Text>
+        </View>
+
+        {/* Waveform + Cancel button row */}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          {/* Cancel button */}
+          <Pressable
+            onPress={handleVoiceCancel}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(239, 68, 68, 0.3)',
+            }}
+          >
+            <X size={22} color="#ef4444" />
+          </Pressable>
+
+          {/* Waveform in center */}
+          <AudioWaveform
+            audioLevel={audioLevel}
+            color={accentColor}
+            barCount={12}
+            width={140}
+            height={32}
+          />
+
+          {/* Recording indicator (pulsing mic) */}
+          <View style={{ marginRight: 4 }}>
+            <PushToTalkButton
+              onRecordingStart={handleVoiceRecordingStart}
+              onRecordingEnd={handleVoiceRecordingEnd}
+              onCancel={handleVoiceCancel}
+              isRecording={isRecording}
+              isProcessing={isProcessing}
+              disabled={false}
+              accentColor={accentColor}
+              audioLevel={audioLevel}
+              hasPermission={hasVoicePermission}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // NORMAL MODE: Show mic button + text input + send button
   return (
     <View
       style={{
@@ -79,7 +175,6 @@ export function ChatInput({
         borderTopColor: 'rgba(255, 255, 255, 0.08)',
       }}
     >
-      {/* Input container */}
       <View
         style={{
           flexDirection: 'row',

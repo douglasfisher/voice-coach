@@ -82,23 +82,17 @@ export function useSTT(): UseSTTReturn {
     const results = event.results;
     if (!results || results.length === 0) return;
 
-    let finalText = '';
-    let interimText = '';
+    // Get the most recent/complete result (last in array)
+    const latestResult = results[results.length - 1];
+    const text = latestResult.transcript;
 
-    for (const result of results) {
-      const text = result.transcript;
-      if (result.isFinal) {
-        finalText += text;
-      } else {
-        interimText += text;
-      }
+    if (latestResult.isFinal) {
+      finalTranscriptRef.current = text;
+      setTranscript(text);
+      setInterimTranscript('');
+    } else {
+      setInterimTranscript(text);
     }
-
-    if (finalText) {
-      finalTranscriptRef.current = finalText;
-      setTranscript(finalText);
-    }
-    setInterimTranscript(interimText);
   });
 
   useSpeechRecognitionEvent('volumechange', (event: { value: number }) => {
