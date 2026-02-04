@@ -6,23 +6,34 @@ import { PersonaDisplay, ChallengeStyle, VoiceConfig } from '../types/persona';
 // Dev mode: set to true to use mock data without Supabase
 const DEV_MODE = false;
 
-// Local avatar images
-const AVATARS = {
-  sarah: require('../assets/images-1.jpg'),
-  marcus: require('../assets/images-2.jpg'),
-  thomas: require('../assets/images-3.jpg'),
-  raj: require('../assets/images-4.jpg'),
-  kofi: require('../assets/images-5.jpg'),
-  elena: require('../assets/images-7.jpg'),
-  james: require('../assets/images-8.jpg'),
+// Local avatar images - mapped by persona name (case-insensitive partial match)
+const LOCAL_AVATARS: Record<string, any> = {
+  'sarah mitchell': require('../assets/images-1.jpg'),
+  'marcus webb': require('../assets/images-2.jpg'),
+  "father thomas o'brien": require('../assets/images-3.jpg'),
+  'thomas o\'brien': require('../assets/images-3.jpg'),
+  'dr. raj patel': require('../assets/images-4.jpg'),
+  'raj patel': require('../assets/images-4.jpg'),
+  'kofi asante': require('../assets/images-5.jpg'),
+  'professor elena volkov': require('../assets/images-7.jpg'),
+  'elena volkov': require('../assets/images-7.jpg'),
+  'dr. maya chen': require('../assets/images-8.jpg'),
+  'maya chen': require('../assets/images-8.jpg'),
+  'yuki tanaka': require('../assets/images-8.jpg'), // fallback to same as Maya for now
 };
+
+// Get local avatar by persona name
+function getLocalAvatar(name: string): any | null {
+  const normalizedName = name.toLowerCase().trim();
+  return LOCAL_AVATARS[normalizedName] ?? null;
+}
 
 const MOCK_PERSONAS: PersonaDisplay[] = [
   {
     id: '1',
     name: 'Sarah Mitchell',
     tagline: 'The Steelman Builder',
-    avatarUrl: AVATARS.sarah,
+    avatarUrl: LOCAL_AVATARS['sarah mitchell'],
     avatarThumbnailUrl: null,
     challengeStyle: 'steelman',
     specialtyAreas: ['business decisions', 'practical ethics', 'strategy'],
@@ -34,7 +45,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '2',
     name: 'Marcus Webb',
     tagline: "The Devil's Advocate",
-    avatarUrl: AVATARS.marcus,
+    avatarUrl: LOCAL_AVATARS['marcus webb'],
     avatarThumbnailUrl: null,
     challengeStyle: 'devils_advocate',
     specialtyAreas: ['politics', 'ethics', 'social issues'],
@@ -46,7 +57,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '3',
     name: "Father Thomas O'Brien",
     tagline: 'The Moral Excavator',
-    avatarUrl: AVATARS.thomas,
+    avatarUrl: LOCAL_AVATARS["father thomas o'brien"],
     avatarThumbnailUrl: null,
     challengeStyle: 'socratic',
     specialtyAreas: ['ethics', 'meaning', 'moral foundations'],
@@ -58,7 +69,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '4',
     name: 'Dr. Raj Patel',
     tagline: 'The Assumption Hunter',
-    avatarUrl: AVATARS.raj,
+    avatarUrl: LOCAL_AVATARS['dr. raj patel'],
     avatarThumbnailUrl: null,
     challengeStyle: 'socratic',
     specialtyAreas: ['science', 'medicine', 'epistemology'],
@@ -70,7 +81,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '5',
     name: 'Kofi Asante',
     tagline: 'The Perspective Shifter',
-    avatarUrl: AVATARS.kofi,
+    avatarUrl: LOCAL_AVATARS['kofi asante'],
     avatarThumbnailUrl: null,
     challengeStyle: 'perspective_shifter',
     specialtyAreas: ['cultural assumptions', 'globalisation', 'identity'],
@@ -82,7 +93,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '6',
     name: 'Professor Elena Volkov',
     tagline: 'The Logical Surgeon',
-    avatarUrl: AVATARS.elena,
+    avatarUrl: LOCAL_AVATARS['professor elena volkov'],
     avatarThumbnailUrl: null,
     challengeStyle: 'logical_surgeon',
     specialtyAreas: ['logic', 'fallacies', 'scientific reasoning'],
@@ -92,15 +103,27 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
   },
   {
     id: '7',
-    name: 'Dr. James Chen',
+    name: 'Dr. Maya Chen',
     tagline: 'The Empathetic Challenger',
-    avatarUrl: AVATARS.james,
+    avatarUrl: LOCAL_AVATARS['dr. maya chen'],
     avatarThumbnailUrl: null,
     challengeStyle: 'empathetic_probe',
     specialtyAreas: ['personal beliefs', 'relationships', 'self-perception'],
     culturalBackground: 'Asian-American, Clinical Psychologist',
     personality: { warmth: 85, directness: 40, patience: 80, humor: 30, formality: 60 },
     voiceConfig: { provider: 'elevenlabs', voiceId: 'EXAVITQu4vr4xnSDxMaL', speed: 1, pitch: 1, stability: 0.7 },
+  },
+  {
+    id: '8',
+    name: 'Yuki Tanaka',
+    tagline: 'The Uncomfortable Truth',
+    avatarUrl: LOCAL_AVATARS['yuki tanaka'],
+    avatarThumbnailUrl: null,
+    challengeStyle: 'devils_advocate',
+    specialtyAreas: ['gender dynamics', 'generational issues', 'tech ethics'],
+    culturalBackground: 'Japanese-American, Tech Ethics Researcher',
+    personality: { warmth: 40, directness: 95, patience: 35, humor: 45, formality: 30 },
+    voiceConfig: { provider: 'elevenlabs', voiceId: 'D38z5RcWu1voky8WS1ja', speed: 1, pitch: 1, stability: 0.6 },
   },
 ];
 
@@ -115,11 +138,14 @@ interface PersonaState {
 }
 
 function transformPersona(persona: Persona): PersonaDisplay {
+  // Use local avatar if available, otherwise fall back to database URL
+  const localAvatar = getLocalAvatar(persona.name);
+
   return {
     id: persona.id,
     name: persona.name,
     tagline: persona.tagline,
-    avatarUrl: persona.avatar_url,
+    avatarUrl: localAvatar ?? persona.avatar_url,
     avatarThumbnailUrl: persona.avatar_thumbnail_url,
     challengeStyle: persona.challenge_style as ChallengeStyle,
     specialtyAreas: persona.specialty_areas ?? [],
