@@ -179,6 +179,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       supabase.from('user_preferences').select('*').eq('user_id', user.id).single(),
     ]);
 
+    // If profile doesn't exist, create it (handles users created outside the app)
+    if (!profileResult.data && profileResult.error?.code === 'PGRST116') {
+      const { data: newProfile } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: user.id,
+          display_name: user.email?.split('@')[0] ?? 'User',
+        })
+        .select()
+        .single();
+
+      if (newProfile) {
+        await supabase.from('user_preferences').insert({ user_id: user.id });
+        const { data: prefs } = await supabase
+          .from('user_preferences')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        set({ profile: newProfile, preferences: prefs });
+        return;
+      }
+    }
+
     set({
       profile: profileResult.data,
       preferences: preferencesResult.data,
