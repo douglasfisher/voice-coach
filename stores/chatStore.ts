@@ -206,7 +206,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isSending: true, error: null });
     try {
       // Use direct fetch to avoid Supabase client auto-attaching potentially invalid JWT
-      // The edge function has verify_jwt = false, so we only need the apikey
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -215,6 +214,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         headers: {
           'Content-Type': 'application/json',
           'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
         },
         body: JSON.stringify({
           conversationId: activeConversation.id,
@@ -262,6 +262,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         headers: {
           'Content-Type': 'application/json',
           'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
         },
         body: JSON.stringify({
           conversationId: activeConversation.id,
@@ -309,6 +310,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         headers: {
           'Content-Type': 'application/json',
           'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
         },
         body: JSON.stringify({
           conversationId: activeConversation.id,
