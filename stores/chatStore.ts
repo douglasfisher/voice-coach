@@ -2,12 +2,10 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
 import { AnalysisResult } from '../types/analysis';
-import { PersonaDisplay } from '../types/persona';
 
 interface ChatMessage extends Omit<Message, 'analysis'> {
   analysis: AnalysisResult | null;
 }
-
 
 interface ChatState {
   conversations: Conversation[];
@@ -23,7 +21,6 @@ interface ChatState {
   createConversation: (
     userId: string,
     personaId: string,
-    persona: PersonaDisplay,
     topic?: string
   ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string; analysis: AnalysisResult | null } | null>;
@@ -103,7 +100,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messages });
   },
 
-  createConversation: async (userId, personaId, persona, topic) => {
+  createConversation: async (userId, personaId, topic) => {
     set({ isLoading: true, error: null });
     try {
       const { data, error } = await supabase
@@ -120,27 +117,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (error) throw error;
 
       set({ activeConversation: data, messages: [] });
-
-      // Call AI to generate a dynamic greeting
-      const { data: aiResponse, error: aiError } = await supabase.functions.invoke('chat', {
-        body: {
-          conversationId: data.id,
-          personaId: personaId,
-          generateGreeting: true,
-        },
-      });
-
-      if (aiError) {
-        console.error('Failed to generate AI greeting:', aiError);
-        // Don't throw - conversation was created, greeting just failed
-        // User can still use the chat
-      }
-
-      // Fetch the greeting message that was saved by the edge function
-      if (aiResponse?.response) {
-        await get().fetchMessages(data.id);
-      }
-
       return data.id;
     } catch (error) {
       console.error('createConversation error:', error);
@@ -157,9 +133,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ isSending: true, error: null });
     try {
-      // Get the max sequence from existing messages
-      const maxSequence = messages.reduce((max, msg) => Math.max(max, msg.sequence), 0);
-      const sequence = maxSequence + 1;
+      const sequence = messages.length + 1;
 
       // Add user message to local state immediately
       const userMessage: ChatMessage = {
