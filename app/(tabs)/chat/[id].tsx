@@ -9,7 +9,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
   MessageSquare,
@@ -80,6 +80,7 @@ export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const flatListRef = useRef<FlatList>(null);
   const { preferences } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
   const {
     conversation,
@@ -293,6 +294,7 @@ export default function ChatScreen() {
             flexDirection: 'row',
             alignItems: 'center',
             paddingRight: 16,
+            paddingTop: chatStarted ? 0 : insets.top,
             borderBottomWidth: chatStarted ? 1 : 0,
             borderBottomColor: 'rgba(255,255,255,0.08)',
             backgroundColor: chatStarted ? 'rgba(10, 10, 15, 0.95)' : 'transparent',
