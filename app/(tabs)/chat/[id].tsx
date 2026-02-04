@@ -163,16 +163,30 @@ export default function ChatScreen() {
   };
 
   const handleStartChat = async () => {
-    if (!conversation) return;
+    if (!conversation) {
+      console.error('No conversation found');
+      return;
+    }
+
+    console.log('Starting chat...', conversation.id, conversation.persona_id);
     setIsStartingChat(true);
+
     try {
-      await supabase.functions.invoke('chat', {
+      const { data, error: invokeError } = await supabase.functions.invoke('chat', {
         body: {
           conversationId: conversation.id,
           personaId: conversation.persona_id,
           generateGreeting: true,
         },
       });
+
+      console.log('Chat response:', data, 'Error:', invokeError);
+
+      if (invokeError) {
+        console.error('Function invoke error:', invokeError);
+        return;
+      }
+
       // Refresh messages to show greeting
       await fetchMessages(conversation.id);
     } catch (error) {
