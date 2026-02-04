@@ -70,10 +70,10 @@ export default function ReportScreen() {
     if (!id) return;
 
     try {
-      // Fetch conversation with report and timing metrics
+      // Fetch conversation with report (timing_metrics may not exist until migration is run)
       const { data: conversation, error: convError } = await supabase
         .from('conversations')
-        .select('analysis_summary, overall_score, persona_id, ended_at, created_at, timing_metrics')
+        .select('analysis_summary, overall_score, persona_id, ended_at, created_at')
         .eq('id', id)
         .single();
 
@@ -83,8 +83,19 @@ export default function ReportScreen() {
         setReport(conversation.analysis_summary as SessionReport);
       }
 
-      if (conversation?.timing_metrics) {
-        setTimingMetrics(conversation.timing_metrics as TimingMetrics);
+      // Try to fetch timing_metrics separately (gracefully handle if column doesn't exist)
+      try {
+        const { data: timingData } = await supabase
+          .from('conversations')
+          .select('timing_metrics')
+          .eq('id', id)
+          .single();
+
+        if (timingData?.timing_metrics) {
+          setTimingMetrics(timingData.timing_metrics as TimingMetrics);
+        }
+      } catch {
+        // timing_metrics column may not exist yet - that's ok
       }
 
       // Set session date
