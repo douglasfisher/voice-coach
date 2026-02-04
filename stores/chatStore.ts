@@ -8,37 +8,46 @@ interface ChatMessage extends Omit<Message, 'analysis'> {
   analysis: AnalysisResult | null;
 }
 
+// Topics and questions for each challenge style
+const CONVERSATION_STARTERS: Record<ChallengeStyle, Array<{ intro: string; topic: string; question: string }>> = {
+  socratic: [
+    { intro: "I've been thinking about success lately.", topic: "success", question: "When you imagine a truly successful life, what does it actually look like? And more importantly — whose definition of success are you using?" },
+    { intro: "Here's something worth examining.", topic: "knowledge", question: "How do you decide what's true? When someone disagrees with you, what makes you confident that you're the one who's right?" },
+    { intro: "Let's explore something fundamental.", topic: "happiness", question: "Do you think happiness is something you find, something you create, or something you choose? What's shaped that view?" },
+  ],
+  devils_advocate: [
+    { intro: "Let me throw something at you.", topic: "work ethic", question: "Everyone praises hard work, but what if the cult of 'hustle' is actually making us miserable and less creative? Convince me that working hard is actually worth it." },
+    { intro: "Here's a position I'll challenge.", topic: "authenticity", question: "People say 'be yourself' like it's obviously good advice. But what if being yourself is overrated? What if adapting to situations is actually more valuable?" },
+    { intro: "Let's debate something.", topic: "technology", question: "Smartphones have made life objectively better in almost every way. Or have they? I'd argue we've lost more than we've gained. Change my mind." },
+  ],
+  steelman: [
+    { intro: "I want to help you build a strong case.", topic: "life choices", question: "Think of a major decision you've made that others questioned. What's the strongest possible justification for that choice — not just your reasons, but the best reasons?" },
+    { intro: "Let's strengthen an argument together.", topic: "beliefs", question: "What's an unpopular opinion you hold? Let's work together to make the most compelling, bulletproof version of that argument." },
+    { intro: "Here's an exercise in rigorous thinking.", topic: "values", question: "What do you value most in life? Now, let's build the strongest philosophical defense for why that should be anyone's top priority." },
+  ],
+  empathetic_probe: [
+    { intro: "I'd like to explore something personal with you.", topic: "change", question: "When you think about how you've changed over the past few years, what shift surprises you the most? What do you think drove that change?" },
+    { intro: "Let's go a bit deeper today.", topic: "fears", question: "What's something you want but are afraid to fully pursue? What do you think that fear is really protecting you from?" },
+    { intro: "I'm curious about your inner world.", topic: "identity", question: "If you had to describe who you are without mentioning your job, relationships, or achievements — just your inner self — what would you say?" },
+  ],
+  logical_surgeon: [
+    { intro: "Let's dissect a common assumption.", topic: "fairness", question: "Most people believe life should be fair. But what exactly do we mean by 'fair'? Equal outcomes? Equal opportunities? And is fairness even achievable or desirable?" },
+    { intro: "Here's a claim worth examining.", topic: "free will", question: "You made a decision today. But did you really 'choose' it, or was it the inevitable result of your genes, upbringing, and circumstances? Let's trace the logic." },
+    { intro: "Time for some precise analysis.", topic: "morality", question: "Is there such a thing as an objectively wrong action, or is morality just a social construct we've agreed upon? Walk me through your reasoning." },
+  ],
+  perspective_shifter: [
+    { intro: "Let's flip your viewpoint.", topic: "conflict", question: "Think of someone you disagree with strongly. Now — what would you believe if you had lived their exact life? Can you genuinely argue their position?" },
+    { intro: "Time to see things differently.", topic: "progress", question: "We often think our era is more enlightened than the past. But what might people 100 years from now find barbaric or foolish about how we live today?" },
+    { intro: "Let's challenge your lens.", topic: "self-perception", question: "How do you think your closest friend would describe you to a stranger? What about someone who doesn't like you? Which description is closer to the truth?" },
+  ],
+};
+
 // Generate persona intro message based on their style
 function generatePersonaGreeting(persona: PersonaDisplay): string {
-  const greetings: Record<ChallengeStyle, string[]> = {
-    socratic: [
-      `Hello, I'm ${persona.name}. I believe the best way to understand something deeply is through thoughtful questions. What's been on your mind lately that you'd like to explore together?`,
-      `Welcome! I'm ${persona.name}, and I'm here to help you discover insights through inquiry. What topic would you like to examine today?`,
-    ],
-    devils_advocate: [
-      `Hey there, I'm ${persona.name}. My job is to challenge your thinking and help you see the other side. So tell me — what's a belief you hold strongly that you'd like me to push back on?`,
-      `I'm ${persona.name}, your friendly contrarian. I'll question everything you say — not to frustrate you, but to strengthen your thinking. What position would you like to defend today?`,
-    ],
-    steelman: [
-      `Hi, I'm ${persona.name}. I specialize in building the strongest possible version of your arguments before we examine them together. What idea would you like to develop?`,
-      `Welcome! I'm ${persona.name}. I'll help you articulate your best thinking, then we'll explore its limits. What belief or argument would you like to strengthen?`,
-    ],
-    empathetic_probe: [
-      `Hello, I'm ${persona.name}. I'm here to help you explore not just what you think, but why you think it — including the emotions and experiences behind your beliefs. What's something meaningful you'd like to discuss?`,
-      `Hi there, I'm ${persona.name}. I believe our reasoning is deeply connected to our experiences and feelings. What's been weighing on your mind that you'd like to explore together?`,
-    ],
-    logical_surgeon: [
-      `Greetings, I'm ${persona.name}. I specialize in precisely analyzing the structure of arguments and ideas. What claim or reasoning would you like me to examine with you?`,
-      `Hello, I'm ${persona.name}. My approach is to carefully dissect arguments to find their strengths and weaknesses. What topic would you like to analyze together?`,
-    ],
-    perspective_shifter: [
-      `Hi, I'm ${persona.name}. I'll help you see your ideas through completely different lenses. What's a situation or belief you'd like to view from new angles?`,
-      `Welcome! I'm ${persona.name}. I love exploring how the same thing can look entirely different depending on your vantage point. What would you like to examine from fresh perspectives?`,
-    ],
-  };
+  const starters = CONVERSATION_STARTERS[persona.challengeStyle];
+  const starter = starters[Math.floor(Math.random() * starters.length)];
 
-  const options = greetings[persona.challengeStyle];
-  return options[Math.floor(Math.random() * options.length)];
+  return `Hi, I'm ${persona.name}. ${starter.intro}\n\n${starter.question}`;
 }
 
 interface ChatState {
