@@ -54,6 +54,7 @@ serve(async (req) => {
       generateGreeting,
       previewGreeting,
       regenerateQuestion,
+      generateChallenge,
     } = await req.json() as ChatRequest;
 
     // Handle challenge generation (doesn't require conversationId)
