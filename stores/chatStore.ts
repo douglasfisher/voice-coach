@@ -182,6 +182,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { activeConversation } = get();
     if (!activeConversation) return false;
 
+    // Debug: check session
+    const { data: sessionData } = await supabase.auth.getSession();
+    console.log('Session check:', sessionData?.session ? 'Active' : 'No session');
+    console.log('Access token exists:', !!sessionData?.session?.access_token);
+
     set({ isSending: true, error: null });
     try {
       const { data, error } = await supabase.functions.invoke('chat', {
