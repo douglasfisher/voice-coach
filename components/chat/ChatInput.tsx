@@ -1,4 +1,4 @@
-import { View, Text, Pressable, GestureResponderEvent, TextInput, ScrollView } from 'react-native';
+import { View, Text, Pressable, GestureResponderEvent, TextInput } from 'react-native';
 import { useRef, useCallback, useState } from 'react';
 import { Send } from 'lucide-react-native';
 import Animated, {
@@ -255,21 +255,17 @@ export function ChatInput({
       {showRecordingUI ? (
         <>
           {/* Transcription */}
-          <ScrollView
+          <View
             style={{
               width: '100%',
               backgroundColor: 'rgba(255, 255, 255, 0.06)',
               borderRadius: 16,
               marginBottom: 16,
-              maxHeight: 300,
-            }}
-            contentContainerStyle={{
               paddingHorizontal: 20,
               paddingVertical: 16,
               minHeight: 56,
               justifyContent: 'center',
             }}
-            showsVerticalScrollIndicator={false}
           >
             <Text
               style={{
@@ -282,7 +278,7 @@ export function ChatInput({
             >
               {liveText || 'Listening...'}
             </Text>
-          </ScrollView>
+          </View>
 
           {/* Waveform */}
           <View style={{ marginBottom: 16 }}>
