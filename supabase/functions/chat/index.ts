@@ -83,9 +83,13 @@ serve(async (req) => {
     const systemPrompt = persona.system_prompt;
 
     console.log('Chat request:', { conversationId, personaId, model, generateGreeting });
+    console.log('Model from DB:', modelSetting?.value);
+    console.log('Final model being used:', model);
 
     // Helper to call Groq
     async function callGroq(messages: GroqMessage[]) {
+      console.log('Calling Groq with model:', model);
+      console.log('API Key prefix:', groqApiKey?.slice(0, 15));
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -102,8 +106,10 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Groq error:', response.status, errorText);
-        throw new Error(`Groq API error: ${response.status}`);
+        console.error('Groq error status:', response.status);
+        console.error('Groq error body:', errorText);
+        console.error('Request model was:', model);
+        throw new Error(`Groq API error: ${response.status} - ${errorText}`);
       }
 
       return response.json();
