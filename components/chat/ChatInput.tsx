@@ -261,7 +261,7 @@ export function ChatInput({
               backgroundColor: 'rgba(255, 255, 255, 0.06)',
               borderRadius: 16,
               marginBottom: 16,
-              maxHeight: 150,
+              maxHeight: 300,
             }}
             contentContainerStyle={{
               paddingHorizontal: 20,
