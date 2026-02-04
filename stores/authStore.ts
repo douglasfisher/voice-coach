@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { UserProfile, UserPreferences } from '../types/database';
 
 // Dev mode: set to true to use mock data without Supabase
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 const MOCK_USER: User = {
   id: 'dev-user-123',
