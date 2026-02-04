@@ -117,74 +117,101 @@ serve(async (req) => {
 
     // Handle greeting generation for new conversations
     if (generateGreeting) {
-      // Get user info for personalized greeting
-      const { data: conv } = await supabase
-        .from('conversations')
-        .select('user_id')
-        .eq('id', conversationId)
-        .single();
+      console.log('Generating greeting for conversation:', conversationId);
 
-      let userName = '';
-      if (conv?.user_id) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('display_name')
-          .eq('id', conv.user_id)
+      try {
+        // Get user info for personalized greeting
+        const { data: conv, error: convError } = await supabase
+          .from('conversations')
+          .select('user_id')
+          .eq('id', conversationId)
           .single();
-        userName = profile?.display_name || '';
-      }
 
-      // Generate intro based on formality
-      const formality = persona.formality ?? 50;
-      const introStyle = formality >= 60
-        ? `Introduce yourself formally as "${persona.title || ''} ${persona.name}".`
-        : `Introduce yourself casually as "${persona.name}".`;
+        if (convError) {
+          console.error('Failed to get conversation:', convError);
+          return errorResponse('Failed to get conversation: ' + convError.message, 500);
+        }
 
-      const introPrompt = `Write ONLY a brief self-introduction (1-2 sentences).
+        let userName = '';
+        if (conv?.user_id) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('display_name')
+            .eq('id', conv.user_id)
+            .single();
+          userName = profile?.display_name || '';
+        }
+
+        console.log('User name:', userName, 'Persona:', persona.name);
+
+        // Generate intro based on formality
+        const formality = persona.formality ?? 50;
+        const introStyle = formality >= 60
+          ? `Introduce yourself formally as "${persona.title || ''} ${persona.name}".`
+          : `Introduce yourself casually as "${persona.name}".`;
+
+        const introPrompt = `Write ONLY a brief self-introduction (1-2 sentences).
 ${introStyle}${userName ? ` Address the user as "${userName}".` : ''}
 Keep it short and natural. Do NOT ask questions yet.`;
 
-      const intro = await groq.completeWithHistoryAndUsage(systemPrompt, [], introPrompt, settings);
+        console.log('Calling Groq for intro...');
+        const intro = await groq.completeWithHistoryAndUsage(systemPrompt, [], introPrompt, settings);
+        console.log('Intro generated:', intro.content.slice(0, 50));
 
-      const questionPrompt = `You just introduced yourself. Now propose a thought-provoking topic and ask an engaging opening question. 2-3 sentences max. Do NOT re-introduce yourself.`;
+        const questionPrompt = `You just introduced yourself. Now propose a thought-provoking topic and ask an engaging opening question. 2-3 sentences max. Do NOT re-introduce yourself.`;
 
-      const question = await groq.completeWithHistoryAndUsage(
-        systemPrompt,
-        [{ role: 'assistant', content: intro.content }],
-        questionPrompt,
-        settings
-      );
+        console.log('Calling Groq for question...');
+        const question = await groq.completeWithHistoryAndUsage(
+          systemPrompt,
+          [{ role: 'assistant', content: intro.content }],
+          questionPrompt,
+          settings
+        );
+        console.log('Question generated:', question.content.slice(0, 50));
 
-      // Save messages
-      await supabase.from('messages').insert([
-        { conversation_id: conversationId, role: 'assistant', content: intro.content, sequence: 1 },
-        { conversation_id: conversationId, role: 'assistant', content: question.content, sequence: 2 },
-      ]);
+        // Save messages
+        const { error: insertError } = await supabase.from('messages').insert([
+          { conversation_id: conversationId, role: 'assistant', content: intro.content, sequence: 1 },
+          { conversation_id: conversationId, role: 'assistant', content: question.content, sequence: 2 },
+        ]);
 
-      // Log AI usage for greeting generation
-      const model = settings.model || 'llama-3.3-70b-versatile';
-      const totalPromptTokens = (intro.usage?.prompt_tokens || 0) + (question.usage?.prompt_tokens || 0);
-      const totalCompletionTokens = (intro.usage?.completion_tokens || 0) + (question.usage?.completion_tokens || 0);
-      const estimatedCost = calculateCost(model, totalPromptTokens, totalCompletionTokens);
+        if (insertError) {
+          console.error('Failed to insert messages:', insertError);
+          return errorResponse('Failed to save greeting messages: ' + insertError.message, 500);
+        }
 
-      await supabase.from('ai_usage').insert({
-        user_id: conv?.user_id || null,
-        conversation_id: conversationId,
-        persona_id: personaId,
-        model,
-        prompt_tokens: totalPromptTokens,
-        completion_tokens: totalCompletionTokens,
-        total_tokens: totalPromptTokens + totalCompletionTokens,
-        estimated_cost_cents: estimatedCost,
-      }).then(({ error }) => {
-        if (error) console.error('Failed to log AI usage:', error);
-      });
+        // Log AI usage for greeting generation
+        const model = settings.model || 'llama-3.3-70b-versatile';
+        const totalPromptTokens = (intro.usage?.prompt_tokens || 0) + (question.usage?.prompt_tokens || 0);
+        const totalCompletionTokens = (intro.usage?.completion_tokens || 0) + (question.usage?.completion_tokens || 0);
+        const estimatedCost = calculateCost(model, totalPromptTokens, totalCompletionTokens);
 
-      return jsonResponse({
-        response: intro.content,
-        intro: intro.content,
-        question: question.content,
-      });
+        await supabase.from('ai_usage').insert({
+          user_id: conv?.user_id || null,
+          conversation_id: conversationId,
+          persona_id: personaId,
+          model,
+          prompt_tokens: totalPromptTokens,
+          completion_tokens: totalCompletionTokens,
+          total_tokens: totalPromptTokens + totalCompletionTokens,
+          estimated_cost_cents: estimatedCost,
+        }).then(({ error }) => {
+          if (error) console.error('Failed to log AI usage:', error);
+        });
+
+        console.log('Greeting generation complete');
+        return jsonResponse({
+          response: intro.content,
+          intro: intro.content,
+          question: question.content,
+        });
+      } catch (greetingError) {
+        console.error('Greeting generation error:', greetingError);
+        return errorResponse(
+          greetingError instanceof Error ? greetingError.message : 'Failed to generate greeting',
+          500
+        );
+      }
     }
 
     // Get conversation history
