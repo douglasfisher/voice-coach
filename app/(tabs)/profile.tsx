@@ -21,7 +21,7 @@ import {
   Flame,
   LayoutDashboard,
 } from 'lucide-react-native';
-import { requestSTTPermission, getSTTPermissionStatus, checkSTTAvailability } from '../../lib/stt';
+import { requestSTTPermission, getSTTPermissionStatus, checkSTTAvailability, isSTTModuleAvailable } from '../../lib/stt';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function ProfileScreen() {
@@ -42,6 +42,12 @@ export default function ProfileScreen() {
 
   // Check if voice input is available on mount
   useEffect(() => {
+    // First check if native module is even loaded (sync check)
+    if (!isSTTModuleAvailable()) {
+      setVoiceInputAvailable(false);
+      return;
+    }
+    // Then check if speech recognition is available on this device
     checkSTTAvailability().then(setVoiceInputAvailable);
   }, []);
 

@@ -7,6 +7,7 @@ import {
   stopSTT,
   abortSTT,
   useSpeechRecognitionEvent,
+  isSTTModuleAvailable,
 } from '../lib/stt';
 
 export interface UseSTTReturn {
@@ -40,6 +41,12 @@ export function useSTT(): UseSTTReturn {
   // Check availability and permission on mount
   useEffect(() => {
     async function init() {
+      // First check if native module is even loaded
+      if (!isSTTModuleAvailable()) {
+        setIsAvailable(false);
+        return;
+      }
+
       const available = await checkSTTAvailability();
       setIsAvailable(available);
 
