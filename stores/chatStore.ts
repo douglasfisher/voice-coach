@@ -199,6 +199,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ activeConversation: updatedConversation });
   },
 
+  clearMessages: async (conversationId) => {
+    try {
+      // Delete all messages for this conversation from DB
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      if (error) {
+        console.error('Failed to clear messages:', error);
+        set({ error: error.message });
+        return;
+      }
+
+      // Clear local state
+      set({ messages: [] });
+    } catch (error) {
+      console.error('Clear messages error:', error);
+      set({ error: (error as Error).message });
+    }
+  },
+
   clearActiveConversation: () => {
     set({ activeConversation: null, messages: [] });
   },

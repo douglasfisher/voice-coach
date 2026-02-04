@@ -23,6 +23,7 @@ import {
   Heart,
   Scale,
   Eye,
+  RotateCcw,
 } from 'lucide-react-native';
 import { useConversation } from '../../../hooks/useConversation';
 import { useTTS } from '../../../hooks/useTTS';
@@ -115,7 +116,8 @@ export default function ChatScreen() {
   } | null>(null);
 
   const [isStartingChat, setIsStartingChat] = useState(false);
-  const { fetchMessages } = useChatStore();
+  const [isClearing, setIsClearing] = useState(false);
+  const { fetchMessages, clearMessages } = useChatStore();
   const chatStarted = messages.length > 0;
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
@@ -177,6 +179,18 @@ export default function ChatScreen() {
       console.error('Failed to start chat:', error);
     } finally {
       setIsStartingChat(false);
+    }
+  };
+
+  const handleClearChat = async () => {
+    if (!conversation) return;
+    setIsClearing(true);
+    try {
+      await clearMessages(conversation.id);
+    } catch (error) {
+      console.error('Failed to clear chat:', error);
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -271,21 +285,40 @@ export default function ChatScreen() {
             <PersonaHeader persona={persona} />
           </View>
           {conversation.status === 'active' && (
-            <Pressable
-              onPress={handleEndConversation}
-              style={{
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 12,
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.1)',
-              }}
-            >
-              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
-                End
-              </Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {/* Clear Chat Button - only show when there are messages */}
+              {chatStarted && (
+                <Pressable
+                  onPress={handleClearChat}
+                  disabled={isClearing}
+                  style={{
+                    padding: 8,
+                    borderRadius: 10,
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    opacity: isClearing ? 0.5 : 1,
+                  }}
+                >
+                  <RotateCcw size={18} color="rgba(255,255,255,0.6)" />
+                </Pressable>
+              )}
+              <Pressable
+                onPress={handleEndConversation}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.1)',
+                }}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
+                  End
+                </Text>
+              </Pressable>
+            </View>
           )}
         </View>
 
