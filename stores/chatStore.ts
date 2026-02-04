@@ -187,6 +187,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const accessToken = sessionData?.session?.access_token;
 
     console.log('Session check:', sessionData?.session ? 'Active' : 'No session');
+    console.log('Starting chat with:', {
+      conversationId: activeConversation.id,
+      personaId: activeConversation.persona_id,
+    });
 
     if (!accessToken) {
       console.error('No access token available');
@@ -196,7 +200,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ isSending: true, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const response = await supabase.functions.invoke('chat', {
         body: {
           conversationId: activeConversation.id,
           personaId: activeConversation.persona_id,
@@ -207,8 +211,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       });
 
+      console.log('Start chat response:', JSON.stringify(response, null, 2));
+
+      if (response.error) {
+        console.error('Start chat error:', response.error);
+        // Try to get more details from the error context
+        if (response.error.context) {
+          const errorBody = await response.error.context.text?.() || response.error.context;
+          console.error('Error details:', errorBody);
+        }
+        throw response.error;
+      }
+
+      const { data, error } = response;
       if (error) {
-        console.error('Start chat error:', error);
+        console.error('Start chat data error:', error);
         throw error;
       }
 

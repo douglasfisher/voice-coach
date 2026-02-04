@@ -76,10 +76,20 @@ serve(async (req) => {
     return corsPreflightResponse();
   }
 
+  console.log('=== Chat function invoked ===');
+  console.log('GROQ_API_KEY present:', !!Deno.env.get('GROQ_API_KEY'));
+  console.log('SUPABASE_URL present:', !!Deno.env.get('SUPABASE_URL'));
+  console.log('SUPABASE_SERVICE_ROLE_KEY present:', !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+
   try {
     // Initialize clients
+    console.log('Creating Groq client...');
     const groq = createGroqClient();
+    console.log('Groq client created');
+
+    console.log('Creating Supabase client...');
     const supabase = createSupabaseClient();
+    console.log('Supabase client created');
 
     // Parse and validate request
     const { conversationId, userMessage, personaId, generateGreeting } = await parseJsonBody<ChatRequest>(req);
