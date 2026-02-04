@@ -4,7 +4,7 @@ import { Persona } from '../types/database';
 import { PersonaDisplay, ChallengeStyle, VoiceConfig } from '../types/persona';
 
 // Dev mode: set to true to use mock data without Supabase
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 // Local avatar images
 const AVATARS = {
