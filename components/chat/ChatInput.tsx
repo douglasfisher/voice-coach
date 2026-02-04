@@ -180,46 +180,58 @@ export function ChatInput({
         alignItems: 'center',
       }}
     >
-      {/* Transcription - shown when recording */}
-      {showRecordingUI && (
-        <View
+      {/* Top area - either hint text OR transcription+waveform */}
+      {showRecordingUI ? (
+        <>
+          {/* Transcription */}
+          <View
+            style={{
+              width: '100%',
+              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+              borderRadius: 16,
+              paddingHorizontal: 20,
+              paddingVertical: 16,
+              marginBottom: 16,
+              minHeight: 56,
+              justifyContent: 'center',
+            }}
+          >
+            <Text
+              style={{
+                color: liveText ? '#fff' : 'rgba(255, 255, 255, 0.4)',
+                fontSize: 17,
+                lineHeight: 24,
+                textAlign: 'center',
+                fontStyle: liveText ? 'normal' : 'italic',
+              }}
+              numberOfLines={4}
+            >
+              {liveText || 'Listening...'}
+            </Text>
+          </View>
+
+          {/* Waveform */}
+          <View style={{ marginBottom: 16 }}>
+            <AudioWaveform
+              audioLevel={audioLevel}
+              color={accentColor}
+              barCount={16}
+              width={200}
+              height={40}
+            />
+          </View>
+        </>
+      ) : (
+        /* Hint text - shown when NOT recording */
+        <Text
           style={{
-            width: '100%',
-            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-            borderRadius: 16,
-            paddingHorizontal: 20,
-            paddingVertical: 16,
-            marginBottom: 20,
-            minHeight: 56,
-            justifyContent: 'center',
+            color: 'rgba(255, 255, 255, 0.35)',
+            fontSize: 13,
+            marginBottom: 16,
           }}
         >
-          <Text
-            style={{
-              color: liveText ? '#fff' : 'rgba(255, 255, 255, 0.4)',
-              fontSize: 17,
-              lineHeight: 24,
-              textAlign: 'center',
-              fontStyle: liveText ? 'normal' : 'italic',
-            }}
-            numberOfLines={4}
-          >
-            {liveText || 'Listening...'}
-          </Text>
-        </View>
-      )}
-
-      {/* Waveform - shown when recording */}
-      {showRecordingUI && (
-        <View style={{ marginBottom: 20 }}>
-          <AudioWaveform
-            audioLevel={audioLevel}
-            color={accentColor}
-            barCount={16}
-            width={200}
-            height={40}
-          />
-        </View>
+          Hold to speak
+        </Text>
       )}
 
       {/* Big Central Mic Button */}
@@ -290,19 +302,6 @@ export function ChatInput({
           </Animated.View>
         </Pressable>
       </View>
-
-      {/* Hint text */}
-      {!showRecordingUI && (
-        <Text
-          style={{
-            color: 'rgba(255, 255, 255, 0.35)',
-            fontSize: 13,
-            marginTop: 12,
-          }}
-        >
-          Hold to speak
-        </Text>
-      )}
     </View>
   );
 }
