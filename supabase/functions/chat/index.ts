@@ -39,6 +39,8 @@ interface DbPersona {
   name: string;
   challenge_style: string;
   system_prompt: string;
+  formality: number;
+  title: string | null;
   ai_config: {
     model?: string;
     temperature?: number;
@@ -74,7 +76,7 @@ serve(async (req) => {
     // Get persona configuration from database
     const { data: dbPersona, error: personaError } = await supabase
       .from('personas')
-      .select('id, name, challenge_style, system_prompt, ai_config')
+      .select('id, name, challenge_style, system_prompt, formality, title, ai_config')
       .eq('id', personaId)
       .single();
 
@@ -106,45 +108,109 @@ serve(async (req) => {
 
     // Handle greeting generation
     if (generateGreeting) {
-      const greetingPrompt = `You are starting a new conversation. Introduce yourself briefly (just your first name), then propose a specific thought-provoking topic and ask an engaging opening question related to your expertise and challenge style.
+      // Get user info for personalized greeting
+      const { data: conversation } = await supabase
+        .from('conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .single();
+
+      let userName = '';
+      if (conversation?.user_id) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('display_name')
+          .eq('id', conversation.user_id)
+          .single();
+        userName = userProfile?.display_name || '';
+      }
+
+      // Determine intro style based on formality (0-100 scale)
+      const formality = persona.formality ?? 50;
+      const title = persona.title || '';
+      const isHighFormality = formality >= 60;
+
+      // Build intro style guidance
+      let introStyle: string;
+      if (isHighFormality) {
+        // Formal: "I'm Dr. Maya Chen..." or "I'm Professor Marcus..."
+        const formalName = title ? `${title} ${persona.name}` : persona.name;
+        introStyle = `Introduce yourself formally as "${formalName}". Use a professional, measured tone.`;
+      } else {
+        // Casual: "Hey! I'm Maya..." or "Hi there, I'm Marcus..."
+        introStyle = `Introduce yourself casually using just your first name "${persona.name}". Be warm and friendly, like greeting a new friend.`;
+      }
+
+      // Add user name if available
+      const userGreeting = userName ? ` Address the user by name ("${userName}").` : '';
+
+      // Generate introduction message
+      const introPrompt = `You are starting a new conversation. Write ONLY a brief self-introduction (1-2 sentences max).
+
+${introStyle}${userGreeting}
+
+Keep it short and natural. Do NOT ask any questions or propose topics yet.`;
+
+      const { content: intro, usage: introUsage } = await groq.completeWithHistoryAndUsage(
+        systemPrompt,
+        [],
+        introPrompt,
+        { ...settings, temperature: 0.9 }
+      );
+
+      // Generate the opening question as a separate message
+      const questionPrompt = `You just introduced yourself. Now propose a specific thought-provoking topic and ask an engaging opening question related to your expertise and challenge style.
 
 Be creative - pick an interesting, unexpected angle on topics like: human nature, society, technology, relationships, success, morality, happiness, decision-making, beliefs, or current events.
 
-Keep it conversational and warm but intellectually stimulating. The greeting should be 2-3 sentences max. End with your question.
+Write ONLY the topic introduction and question (2-3 sentences max). Do NOT re-introduce yourself.
 
 Do NOT ask the user what they want to talk about - YOU choose the topic and question.`;
 
-      const { content: greeting, usage } = await groq.completeWithHistoryAndUsage(
+      const { content: question, usage: questionUsage } = await groq.completeWithHistoryAndUsage(
         systemPrompt,
-        [],
-        greetingPrompt,
-        { ...settings, temperature: 0.9 } // Higher temperature for variety
+        [{ role: 'assistant', content: intro }],
+        questionPrompt,
+        { ...settings, temperature: 0.9 }
       );
 
-      // Save the greeting as the first message
-      const { error: saveGreetingError } = await supabase
+      // Save both messages as separate bubbles
+      const { error: saveIntroError } = await supabase
         .from('messages')
         .insert({
           conversation_id: conversationId,
           role: 'assistant',
-          content: greeting,
+          content: intro,
           sequence: 1,
         });
 
-      if (saveGreetingError) {
-        console.error('Failed to save greeting:', saveGreetingError);
+      if (saveIntroError) {
+        console.error('Failed to save intro:', saveIntroError);
       }
 
-      // Log usage
-      if (usage) {
-        const { data: conversation } = await supabase
-          .from('conversations')
-          .select('user_id')
-          .eq('id', conversationId)
-          .single();
+      const { error: saveQuestionError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: question,
+          sequence: 2,
+        });
 
-        const inputCost = (usage.prompt_tokens / 1_000_000) * costPerMillionInput;
-        const outputCost = (usage.completion_tokens / 1_000_000) * costPerMillionOutput;
+      if (saveQuestionError) {
+        console.error('Failed to save question:', saveQuestionError);
+      }
+
+      // Log combined usage
+      const totalUsage = {
+        prompt_tokens: (introUsage?.prompt_tokens || 0) + (questionUsage?.prompt_tokens || 0),
+        completion_tokens: (introUsage?.completion_tokens || 0) + (questionUsage?.completion_tokens || 0),
+        total_tokens: (introUsage?.total_tokens || 0) + (questionUsage?.total_tokens || 0),
+      };
+
+      if (totalUsage.total_tokens > 0) {
+        const inputCost = (totalUsage.prompt_tokens / 1_000_000) * costPerMillionInput;
+        const outputCost = (totalUsage.completion_tokens / 1_000_000) * costPerMillionOutput;
         const estimatedCost = Math.ceil((inputCost + outputCost) * 100);
 
         await supabase.from('ai_usage').insert({
@@ -152,14 +218,19 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
           conversation_id: conversationId,
           persona_id: personaId,
           model: settings.model,
-          prompt_tokens: usage.prompt_tokens,
-          completion_tokens: usage.completion_tokens,
-          total_tokens: usage.total_tokens,
+          prompt_tokens: totalUsage.prompt_tokens,
+          completion_tokens: totalUsage.completion_tokens,
+          total_tokens: totalUsage.total_tokens,
           estimated_cost_cents: estimatedCost,
         });
       }
 
-      return jsonResponse({ response: greeting });
+      // Return both messages
+      return jsonResponse({
+        response: intro,
+        intro,
+        question,
+      });
     }
 
     // Get conversation history
