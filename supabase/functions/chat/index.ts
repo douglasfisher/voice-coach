@@ -115,9 +115,18 @@ serve(async (req) => {
     const persona = dbPersona as DbPersona;
     const systemPrompt = persona.system_prompt;
 
-    // Build settings from database ai_config
+    // Fetch global default model from app_settings
+    const { data: defaultModelSetting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'default_model')
+      .single();
+
+    const globalDefaultModel = defaultModelSetting?.value || 'llama-3.1-8b-instant';
+
+    // Build settings - use global default, persona ai_config only for temperature/tokens
     const settings: Partial<GroqCompletionSettings> = {
-      model: (persona.ai_config?.model as GroqCompletionSettings['model']) || 'llama-3.3-70b-versatile',
+      model: (globalDefaultModel as GroqCompletionSettings['model']),
       temperature: persona.ai_config?.temperature ?? 0.7,
       top_p: persona.ai_config?.top_p ?? 0.9,
       max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
@@ -126,7 +135,8 @@ serve(async (req) => {
 
     console.log('=== AI Model Configuration ===');
     console.log('Persona:', persona.name);
-    console.log('Model:', settings.model);
+    console.log('Global default model:', globalDefaultModel);
+    console.log('Model being used:', settings.model);
     console.log('Temperature:', settings.temperature);
     console.log('Persona ai_config:', JSON.stringify(persona.ai_config));
 
