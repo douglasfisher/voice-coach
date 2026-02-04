@@ -5,16 +5,35 @@
  * Dashboard, Personas, Users, Usage, Settings
  */
 
-import { Tabs, Redirect } from 'expo-router';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { Tabs, Redirect, router } from 'expo-router';
+import { View, ActivityIndicator, Text, Pressable } from 'react-native';
 import {
   LayoutDashboard,
   Users,
   UserCog,
   BarChart3,
   Settings,
+  ArrowLeft,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
+
+function BackToAppButton() {
+  return (
+    <Pressable
+      onPress={() => router.replace('/(tabs)')}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingLeft: 16,
+        paddingRight: 8,
+        paddingVertical: 8,
+      }}
+    >
+      <ArrowLeft size={20} color="#F59E0B" />
+      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 6 }}>App</Text>
+    </Pressable>
+  );
+}
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const color = focused ? '#F59E0B' : '#6E6E73';
@@ -65,6 +84,7 @@ export default function AdminLayout() {
         headerTitleStyle: {
           fontWeight: '600',
         },
+        headerLeft: () => <BackToAppButton />,
         tabBarStyle: {
           backgroundColor: '#1A1A1F',
           borderTopColor: '#252529',
