@@ -23,11 +23,11 @@
 import { PersonaPromptConfig, ChallengeStyle, PersonaSettings } from '../types.ts';
 
 // =============================================================================
-// DEFAULT SETTINGS
+// DEFAULT SETTINGS (Model must be configured in database per-persona)
 // =============================================================================
 
+// NOTE: model is intentionally omitted - MUST be provided from database ai_config
 const DEFAULT_SETTINGS: PersonaSettings = {
-  model: 'llama-3.3-70b-versatile',
   temperature: 0.7,
   top_p: 0.9,
   max_completion_tokens: 1024,

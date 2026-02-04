@@ -14,9 +14,8 @@ import {
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-// Default settings optimized for conversational AI
-const DEFAULT_SETTINGS: GroqCompletionSettings = {
-  model: 'llama-3.3-70b-versatile',
+// Default settings - model MUST be provided from database config
+const DEFAULT_SETTINGS: Partial<GroqCompletionSettings> = {
   temperature: 0.7,
   top_p: 0.9,
   max_completion_tokens: 1024,
@@ -25,25 +24,24 @@ const DEFAULT_SETTINGS: GroqCompletionSettings = {
 
 export interface GroqClientConfig {
   apiKey: string;
-  defaultModel?: GroqModel;
   defaultSettings?: Partial<GroqCompletionSettings>;
 }
 
 export class GroqClient {
   private apiKey: string;
-  private defaultSettings: GroqCompletionSettings;
+  private defaultSettings: Partial<GroqCompletionSettings>;
 
   constructor(config: GroqClientConfig) {
     this.apiKey = config.apiKey;
     this.defaultSettings = {
       ...DEFAULT_SETTINGS,
       ...config.defaultSettings,
-      model: config.defaultModel || DEFAULT_SETTINGS.model,
     };
   }
 
   /**
    * Create a chat completion
+   * NOTE: settings.model is REQUIRED - must be provided from database config
    */
   async chat(
     messages: GroqMessage[],
@@ -53,6 +51,10 @@ export class GroqClient {
       ...this.defaultSettings,
       ...settings,
     };
+
+    if (!mergedSettings.model) {
+      throw new Error('Model must be specified - configure in database ai_config');
+    }
 
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',

@@ -8,36 +8,31 @@
 import { UserProfile, Persona, AIUsage, AppSettings } from './database';
 
 // =============================================================================
-// MODEL COSTS
+// MODEL COSTS (Configured in database per-persona ai_config)
 // =============================================================================
 
 /**
  * Cost per 1 million tokens in USD cents
+ * NOTE: Model costs are now stored in the database (personas.ai_config)
+ * This interface is kept for type compatibility
  */
 export interface ModelCost {
   input: number;
   output: number;
 }
 
-export const MODEL_COSTS: Record<string, ModelCost> = {
-  'llama-3.3-70b-versatile': { input: 59, output: 79 },    // $0.59/$0.79 per 1M
-  'llama-3.1-8b-instant': { input: 5, output: 8 },         // $0.05/$0.08 per 1M
-  'mixtral-8x7b-32768': { input: 24, output: 24 },         // $0.24/$0.24 per 1M
-  'gemma2-9b-it': { input: 20, output: 20 },               // $0.20/$0.20 per 1M
-  'llama-guard-3-8b': { input: 20, output: 20 },           // $0.20/$0.20 per 1M
-};
-
 /**
- * Calculate cost in cents for a given model and token counts
+ * Calculate cost in cents for given token counts and cost rates
+ * Cost rates should come from database (persona.ai_config.cost_per_million_input/output)
  */
 export function calculateCost(
-  model: string,
   promptTokens: number,
-  completionTokens: number
+  completionTokens: number,
+  costPerMillionInput: number,
+  costPerMillionOutput: number
 ): number {
-  const costs = MODEL_COSTS[model] || MODEL_COSTS['llama-3.3-70b-versatile'];
-  const inputCost = (promptTokens / 1_000_000) * costs.input;
-  const outputCost = (completionTokens / 1_000_000) * costs.output;
+  const inputCost = (promptTokens / 1_000_000) * costPerMillionInput;
+  const outputCost = (completionTokens / 1_000_000) * costPerMillionOutput;
   return Math.ceil((inputCost + outputCost) * 100); // cents
 }
 

@@ -45,28 +45,11 @@ interface DbPersona {
     top_p?: number;
     max_completion_tokens?: number;
     stop?: string[];
+    cost_per_million_input?: number;
+    cost_per_million_output?: number;
   } | null;
 }
 
-// Cost per 1 million tokens in USD cents
-const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-  'llama-3.3-70b-versatile': { input: 59, output: 79 },
-  'llama-3.1-8b-instant': { input: 5, output: 8 },
-  'mixtral-8x7b-32768': { input: 24, output: 24 },
-  'gemma2-9b-it': { input: 20, output: 20 },
-  'llama-guard-3-8b': { input: 20, output: 20 },
-};
-
-function calculateCost(
-  model: string,
-  promptTokens: number,
-  completionTokens: number
-): number {
-  const costs = MODEL_COSTS[model] || MODEL_COSTS['llama-3.3-70b-versatile'];
-  const inputCost = (promptTokens / 1_000_000) * costs.input;
-  const outputCost = (completionTokens / 1_000_000) * costs.output;
-  return Math.ceil((inputCost + outputCost) * 100); // cents
-}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -103,14 +86,23 @@ serve(async (req) => {
     const persona = dbPersona as DbPersona;
     const systemPrompt = persona.system_prompt;
 
+    // Model must be configured in database
+    if (!persona.ai_config?.model) {
+      return errorResponse('Persona AI model not configured in database', 500);
+    }
+
     // Build settings from database ai_config
     const settings: Partial<GroqCompletionSettings> = {
-      model: (persona.ai_config?.model as GroqCompletionSettings['model']) || 'llama-3.3-70b-versatile',
+      model: persona.ai_config.model as GroqCompletionSettings['model'],
       temperature: persona.ai_config?.temperature ?? 0.7,
       top_p: persona.ai_config?.top_p ?? 0.9,
       max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
       stop: persona.ai_config?.stop,
     };
+
+    // Cost config from database (cents per million tokens)
+    const costPerMillionInput = persona.ai_config?.cost_per_million_input ?? 0;
+    const costPerMillionOutput = persona.ai_config?.cost_per_million_output ?? 0;
 
     // Handle greeting generation
     if (generateGreeting) {
@@ -151,14 +143,15 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
           .eq('id', conversationId)
           .single();
 
-        const model = settings.model || 'llama-3.3-70b-versatile';
-        const estimatedCost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens);
+        const inputCost = (usage.prompt_tokens / 1_000_000) * costPerMillionInput;
+        const outputCost = (usage.completion_tokens / 1_000_000) * costPerMillionOutput;
+        const estimatedCost = Math.ceil((inputCost + outputCost) * 100);
 
         await supabase.from('ai_usage').insert({
           user_id: conversation?.user_id || null,
           conversation_id: conversationId,
           persona_id: personaId,
-          model,
+          model: settings.model,
           prompt_tokens: usage.prompt_tokens,
           completion_tokens: usage.completion_tokens,
           total_tokens: usage.total_tokens,
@@ -236,14 +229,15 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
 
     // Log AI usage for cost tracking
     if (usage) {
-      const model = settings.model || 'llama-3.3-70b-versatile';
-      const estimatedCost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens);
+      const inputCost = (usage.prompt_tokens / 1_000_000) * costPerMillionInput;
+      const outputCost = (usage.completion_tokens / 1_000_000) * costPerMillionOutput;
+      const estimatedCost = Math.ceil((inputCost + outputCost) * 100);
 
       await supabase.from('ai_usage').insert({
         user_id: conversation?.user_id || null,
         conversation_id: conversationId,
         persona_id: personaId,
-        model,
+        model: settings.model,
         prompt_tokens: usage.prompt_tokens,
         completion_tokens: usage.completion_tokens,
         total_tokens: usage.total_tokens,

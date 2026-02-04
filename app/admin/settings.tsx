@@ -31,11 +31,14 @@ import { useAdminStatsStore } from '../../stores/adminStatsStore';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { AppSettingsMap } from '../../types/admin';
 
-const AI_MODELS = [
+// Common models shown as quick options - actual model can be any valid Groq model ID
+// Full list at: https://console.groq.com/docs/models
+const COMMON_AI_MODELS = [
   { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Best)' },
   { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fast)' },
   { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
   { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+  { value: 'custom', label: '+ Custom Model...' },
 ];
 
 function formatNumber(num: number): string {
@@ -141,6 +144,8 @@ export default function AdminSettingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [localSettings, setLocalSettings] = useState<Partial<AppSettingsMap>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [showCustomModelInput, setShowCustomModelInput] = useState(false);
+  const [customModelValue, setCustomModelValue] = useState('');
 
   useEffect(() => {
     fetchSettings();
@@ -150,6 +155,13 @@ export default function AdminSettingsScreen() {
   useEffect(() => {
     setLocalSettings(settings);
     setHasChanges(false);
+    // Check if current model is not in the common list
+    const currentModel = settings.default_model;
+    const isKnownModel = COMMON_AI_MODELS.some(m => m.value === currentModel && m.value !== 'custom');
+    if (currentModel && !isKnownModel) {
+      setShowCustomModelInput(true);
+      setCustomModelValue(currentModel);
+    }
   }, [settings]);
 
   const onRefresh = async () => {
@@ -236,11 +248,47 @@ export default function AdminSettingsScreen() {
               >
                 <SelectInput
                   label="Default AI Model"
-                  value={localSettings.default_model || 'llama-3.3-70b-versatile'}
-                  options={AI_MODELS}
-                  onValueChange={(value) => updateLocal('default_model', value)}
+                  value={showCustomModelInput ? 'custom' : (localSettings.default_model || '')}
+                  options={COMMON_AI_MODELS}
+                  onValueChange={(value) => {
+                    if (value === 'custom') {
+                      setShowCustomModelInput(true);
+                      setCustomModelValue(localSettings.default_model || '');
+                    } else {
+                      setShowCustomModelInput(false);
+                      updateLocal('default_model', value);
+                    }
+                  }}
                   icon={<Bot size={16} color="#F59E0B" />}
                 />
+
+                {showCustomModelInput && (
+                  <View style={{ marginBottom: 16 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginBottom: 8 }}>
+                      Custom Model ID (from Groq)
+                    </Text>
+                    <TextInput
+                      value={customModelValue}
+                      onChangeText={(text) => {
+                        setCustomModelValue(text);
+                        updateLocal('default_model', text);
+                      }}
+                      placeholder="e.g., llama-3.3-70b-versatile"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderRadius: 12,
+                        padding: 14,
+                        color: '#fff',
+                        fontSize: 15,
+                      }}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                )}
 
                 <View style={{ marginBottom: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>

@@ -6,12 +6,11 @@
 // GROQ API TYPES
 // =============================================================================
 
-export type GroqModel =
-  | 'llama-3.3-70b-versatile'
-  | 'llama-3.1-8b-instant'
-  | 'llama-guard-3-8b'
-  | 'mixtral-8x7b-32768'
-  | 'gemma2-9b-it';
+/**
+ * AI model identifier - configurable via database
+ * Common models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768, gemma2-9b-it
+ */
+export type GroqModel = string;
 
 export interface GroqMessage {
   role: 'system' | 'user' | 'assistant';
@@ -88,7 +87,7 @@ export type ChallengeStyle =
   | 'perspective_shifter';
 
 export interface PersonaSettings {
-  model: GroqModel;
+  model?: GroqModel;  // Optional here - MUST be configured in database per-persona
   temperature: number;
   top_p: number;
   max_completion_tokens: number;

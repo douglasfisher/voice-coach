@@ -53,6 +53,15 @@ serve(async (req) => {
     const request = await parseJsonBody<AnalyzeRequest>(req);
     requireFields(request, ['message']);
 
+    // Get default model from app_settings
+    const { data: modelSetting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'default_model')
+      .single();
+
+    const model = modelSetting?.value || 'llama-3.3-70b-versatile';
+
     // Build the analysis prompt
     const userPrompt = buildAnalysisUserPrompt(request.message, request.context);
 
@@ -60,7 +69,7 @@ serve(async (req) => {
     const { parsed: analysis } = await groq.completeJSON<AnalysisResult>(
       ANALYSIS_SYSTEM_PROMPT,
       userPrompt,
-      ANALYSIS_SETTINGS
+      { ...ANALYSIS_SETTINGS, model }
     );
 
     // Use parsed result or fallback

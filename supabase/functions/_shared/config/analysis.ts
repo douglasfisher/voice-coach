@@ -8,10 +8,10 @@ import { PersonaSettings } from '../types.ts';
 
 // =============================================================================
 // ANALYSIS SETTINGS
+// Model must be provided from database app_settings
 // =============================================================================
 
 export const ANALYSIS_SETTINGS: PersonaSettings = {
-  model: 'llama-3.3-70b-versatile',
   temperature: 0.3,  // Lower for consistent, structured output
   top_p: 0.85,
   max_completion_tokens: 1024,
