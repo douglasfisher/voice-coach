@@ -1,7 +1,7 @@
-import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Flame,
@@ -14,6 +14,7 @@ import {
   Brain,
   Sparkles,
   Users,
+  RefreshCw,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -21,8 +22,16 @@ import { usePersonaStore } from '../../stores/personaStore';
 
 export default function HomeScreen() {
   const { profile, user } = useAuthStore();
-  const { conversations, fetchConversations } = useChatStore();
+  const {
+    conversations,
+    fetchConversations,
+    dailyChallenge,
+    isLoadingChallenge,
+    fetchDailyChallenge,
+    startChallengeChat,
+  } = useChatStore();
   const { getPersonaById, personas } = usePersonaStore();
+  const [isStartingChallenge, setIsStartingChallenge] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -30,14 +39,45 @@ export default function HomeScreen() {
     }
   }, [user?.id, fetchConversations]);
 
+  // Fetch daily challenge when personas are available
+  useEffect(() => {
+    if (personas.length > 0) {
+      fetchDailyChallenge(personas);
+    }
+  }, [personas, fetchDailyChallenge]);
+
   const activeConversations = conversations.filter((c) => c.status === 'active');
   const recentConversations = conversations.slice(0, 5);
 
   const greeting = getGreeting();
   const displayName = profile?.display_name ?? 'Thinker';
 
-  // Get a featured persona for the challenge card
-  const featuredPersona = personas[0];
+  // Get the persona for the daily challenge
+  const challengePersona = dailyChallenge
+    ? getPersonaById(dailyChallenge.personaId)
+    : null;
+
+  const handleStartChallenge = async () => {
+    if (!user?.id || !dailyChallenge) return;
+
+    setIsStartingChallenge(true);
+    try {
+      const conversationId = await startChallengeChat(
+        user.id,
+        dailyChallenge.personaId,
+        dailyChallenge.question,
+        dailyChallenge.topic
+      );
+
+      if (conversationId) {
+        router.push(`/(tabs)/chat/${conversationId}`);
+      }
+    } catch (error) {
+      console.error('Failed to start challenge:', error);
+    } finally {
+      setIsStartingChallenge(false);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
@@ -188,7 +228,10 @@ export default function HomeScreen() {
 
         {/* Daily Challenge */}
         <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
-          <Pressable onPress={() => router.push('/(tabs)/personas')}>
+          <Pressable
+            onPress={handleStartChallenge}
+            disabled={isLoadingChallenge || isStartingChallenge || !dailyChallenge}
+          >
             <LinearGradient
               colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}
               start={{ x: 0, y: 0 }}
@@ -218,9 +261,11 @@ export default function HomeScreen() {
                       <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '600', letterSpacing: 1 }}>
                         TODAY'S CHALLENGE
                       </Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2 }}>
-                        Sharpen your thinking
-                      </Text>
+                      {challengePersona && (
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2 }}>
+                          with {challengePersona.name}
+                        </Text>
+                      )}
                     </View>
                   </View>
                   <View style={{
@@ -233,29 +278,60 @@ export default function HomeScreen() {
                   </View>
                 </View>
 
-                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 28, marginBottom: 16 }}>
-                  "Is it ever right to lie to protect someone's feelings?"
-                </Text>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Brain size={16} color="rgba(255,255,255,0.5)" />
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginLeft: 6 }}>
-                      Ethics • Relationships
+                {isLoadingChallenge ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <ActivityIndicator size="small" color="#60a5fa" />
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 8 }}>
+                      Generating today's challenge...
                     </Text>
                   </View>
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: '#60a5fa',
-                    paddingHorizontal: 16,
-                    paddingVertical: 10,
-                    borderRadius: 14,
-                  }}>
-                    <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14 }}>Start</Text>
-                    <ChevronRight size={18} color="#0f0f12" style={{ marginLeft: 4 }} />
+                ) : dailyChallenge ? (
+                  <>
+                    <Text style={{ color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 28, marginBottom: 16 }}>
+                      "{dailyChallenge.question}"
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Brain size={16} color="rgba(255,255,255,0.5)" />
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginLeft: 6 }}>
+                          {dailyChallenge.topic}
+                        </Text>
+                      </View>
+                      <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: '#60a5fa',
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                        borderRadius: 14,
+                        opacity: isStartingChallenge ? 0.7 : 1,
+                      }}>
+                        {isStartingChallenge ? (
+                          <ActivityIndicator size="small" color="#0f0f12" />
+                        ) : (
+                          <>
+                            <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14 }}>Start</Text>
+                            <ChevronRight size={18} color="#0f0f12" style={{ marginLeft: 4 }} />
+                          </>
+                        )}
+                      </View>
+                    </View>
+                  </>
+                ) : (
+                  <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
+                      Unable to load challenge
+                    </Text>
+                    <Pressable
+                      onPress={() => fetchDailyChallenge(personas)}
+                      style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
+                    >
+                      <RefreshCw size={14} color="#60a5fa" />
+                      <Text style={{ color: '#60a5fa', fontSize: 12, marginLeft: 6 }}>Retry</Text>
+                    </Pressable>
                   </View>
-                </View>
+                )}
               </View>
             </LinearGradient>
           </Pressable>

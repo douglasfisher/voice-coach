@@ -21,6 +21,13 @@ interface CompletedConversation {
 
 interface ChatMessage extends Omit<Message, 'analysis'> {}
 
+interface DailyChallenge {
+  question: string;
+  topic: string;
+  personaId: string;
+  generatedAt: string;
+}
+
 interface ChatState {
   conversations: Conversation[];
   activeConversation: Conversation | null;
@@ -35,6 +42,10 @@ interface ChatState {
   previewQuestion: string | null;
   questionRefreshCount: number;
   isGeneratingPreview: boolean;
+
+  // Daily challenge
+  dailyChallenge: DailyChallenge | null;
+  isLoadingChallenge: boolean;
 
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
@@ -61,6 +72,7 @@ interface ChatState {
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
+  fetchDailyChallenge: (personas: { id: string }[]) => Promise<void>;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
@@ -79,6 +91,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   previewQuestion: null,
   questionRefreshCount: 0,
   isGeneratingPreview: false,
+
+  // Daily challenge
+  dailyChallenge: null,
+  isLoadingChallenge: false,
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
@@ -546,5 +562,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearActiveConversation: () => {
     set({ activeConversation: null, messages: [] });
+  },
+
+  fetchDailyChallenge: async (personas) => {
+    const { dailyChallenge } = get();
+
+    // Check if we have a valid challenge for today
+    if (dailyChallenge) {
+      const generatedDate = new Date(dailyChallenge.generatedAt).toDateString();
+      const today = new Date().toDateString();
+      if (generatedDate === today) {
+        return; // Already have today's challenge
+      }
+    }
+
+    if (personas.length === 0) return;
+
+    set({ isLoadingChallenge: true });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      // Pick a random persona for the challenge
+      const randomPersona = personas[Math.floor(Math.random() * personas.length)];
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/daily-challenge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({ personaId: randomPersona.id }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      set({
+        dailyChallenge: {
+          question: data.question,
+          topic: data.topic,
+          personaId: randomPersona.id,
+          generatedAt: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error('Failed to fetch daily challenge:', error);
+      // Fallback - don't crash the app
+    } finally {
+      set({ isLoadingChallenge: false });
+    }
   },
 }));
