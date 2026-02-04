@@ -5,7 +5,7 @@ import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../ty
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2; // 2 columns with padding
-const CARD_HEIGHT = CARD_WIDTH * 1.4; // Taller aspect ratio for impact
+const CARD_HEIGHT = CARD_WIDTH * 1.8; // Taller aspect ratio for impact
 
 interface PersonaCardProps {
   persona: PersonaDisplay;
@@ -67,7 +67,7 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
           marginBottom: 24,
           borderRadius: 24,
           overflow: 'hidden',
-          height: 220,
+          height: 400,
         }}
       >
         {/* Full bleed background image */}
@@ -83,7 +83,7 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
 
         {/* Gradient overlay */}
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.9)']}
+          colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.9)']}
           style={{
             position: 'absolute',
             width: '100%',
@@ -214,7 +214,7 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
       {/* Gradient overlay */}
       <LinearGradient
         colors={theme.gradient}
-        locations={[0, 0.5, 1]}
+        locations={[0, 0.95, 1]}
         style={{
           position: 'absolute',
           width: '100%',
