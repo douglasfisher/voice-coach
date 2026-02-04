@@ -284,7 +284,7 @@ export default function ChatScreen() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
-        {/* Header - minimal when pre-chat, compact when active */}
+        {/* Header - overlays hero when pre-chat, fixed when active */}
         <View
           style={{
             flexDirection: 'row',
@@ -293,6 +293,13 @@ export default function ChatScreen() {
             borderBottomWidth: chatStarted ? 1 : 0,
             borderBottomColor: 'rgba(255,255,255,0.08)',
             backgroundColor: chatStarted ? 'rgba(10, 10, 15, 0.95)' : 'transparent',
+            ...(chatStarted ? {} : {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10,
+            }),
           }}
         >
           <Pressable
@@ -348,47 +355,48 @@ export default function ChatScreen() {
           )}
         </View>
 
-        {/* Messages */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <MessageBubble
-              content={item.content}
-              role={item.role as 'user' | 'assistant'}
-              persona={item.role === 'assistant' ? persona : undefined}
-              analysis={item.role === 'user' ? item.analysis : null}
-              audioUrl={item.audio_url}
-              onPlayAudio={
-                item.role === 'assistant' && preferences?.tts_enabled
-                  ? () => handlePlayAudio(item.audio_url, item.content)
-                  : undefined
-              }
-              isPlaying={isPlaying}
-              timestamp={item.created_at}
-            />
-          )}
-          ListFooterComponent={
-            (isSending || isStartingChat) ? <TypingIndicator persona={persona} /> : null
-          }
-          ListEmptyComponent={
-            <ChatHeroEmptyState
-              persona={persona}
-              introMessage={previewIntro}
-              questionMessage={previewQuestion}
-              refreshCount={questionRefreshCount}
-              maxRefreshes={3}
-              isLoading={isGeneratingPreview}
-              isRefreshing={isGeneratingPreview && previewIntro !== null}
-              onRefreshQuestion={handleRefreshQuestion}
-              onStartChat={handleStartChat}
-              isStarting={isStartingChat}
-            />
-          }
-        />
+        {/* Messages or Full-screen Hero */}
+        {chatStarted ? (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <MessageBubble
+                content={item.content}
+                role={item.role as 'user' | 'assistant'}
+                persona={item.role === 'assistant' ? persona : undefined}
+                analysis={item.role === 'user' ? item.analysis : null}
+                audioUrl={item.audio_url}
+                onPlayAudio={
+                  item.role === 'assistant' && preferences?.tts_enabled
+                    ? () => handlePlayAudio(item.audio_url, item.content)
+                    : undefined
+                }
+                isPlaying={isPlaying}
+                timestamp={item.created_at}
+              />
+            )}
+            ListFooterComponent={
+              isSending ? <TypingIndicator persona={persona} /> : null
+            }
+          />
+        ) : (
+          <ChatHeroEmptyState
+            persona={persona}
+            introMessage={previewIntro}
+            questionMessage={previewQuestion}
+            refreshCount={questionRefreshCount}
+            maxRefreshes={3}
+            isLoading={isGeneratingPreview}
+            isRefreshing={isGeneratingPreview && previewIntro !== null}
+            onRefreshQuestion={handleRefreshQuestion}
+            onStartChat={handleStartChat}
+            isStarting={isStartingChat}
+          />
+        )}
 
         {/* Latest Analysis Card */}
         {latestAnalysis?.analysis && (

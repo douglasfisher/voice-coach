@@ -79,213 +79,179 @@ export function ChatHeroEmptyState({
   const hasPreview = introMessage && questionMessage;
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', padding: 16 }}>
-      <View
+    <View style={{ flex: 1 }}>
+      {/* Full bleed background image */}
+      <Image
+        source={imageSource as ImageSourcePropType}
         style={{
-          borderRadius: 24,
-          overflow: 'hidden',
-          height: 520,
-          borderWidth: 2,
-          borderColor: theme.accent,
-          shadowColor: theme.accent,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.5,
-          shadowRadius: 16,
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
         }}
-      >
-        {/* Full bleed background image */}
-        <Image
-          source={imageSource as ImageSourcePropType}
-          style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-          }}
-          resizeMode="cover"
-        />
+        resizeMode="cover"
+      />
 
-        {/* Gradient overlay - stronger for text readability */}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.95)']}
-          locations={[0, 0.4, 1]}
-          style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-          }}
-        />
+      {/* Gradient overlay - stronger at bottom for text readability */}
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.85)', 'rgba(0,0,0,0.95)']}
+        locations={[0, 0.35, 0.6, 1]}
+        style={{
+          position: 'absolute',
+          width: '100%',
+          height: '100%',
+        }}
+      />
 
-        {/* Content overlay */}
-        <View style={{ flex: 1, justifyContent: 'space-between', padding: 24 }}>
-          {/* Top - Challenge style icon badge */}
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-start' }}>
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: theme.accent,
-                alignItems: 'center',
-                justifyContent: 'center',
-                shadowColor: theme.accent,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.5,
-                shadowRadius: 8,
-              }}
-            >
-              <StyleIcon size={18} color="#0f0f12" />
-            </View>
-            <View
-              style={{
-                marginLeft: 12,
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                borderRadius: 20,
-                backgroundColor: `${theme.accent}20`,
-                borderWidth: 1,
-                borderColor: `${theme.accent}40`,
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: theme.accent, fontSize: 13, fontWeight: '600' }}>
-                {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
-              </Text>
-            </View>
+      {/* Content overlay */}
+      <View style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 24 }}>
+        {/* Persona name */}
+        <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 8 }}>
+          {persona.name}
+        </Text>
+
+        {/* Challenge style badge inline */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <View
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              backgroundColor: theme.accent,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <StyleIcon size={14} color="#0f0f12" />
           </View>
+          <Text style={{ color: theme.accent, fontSize: 13, fontWeight: '600', marginLeft: 8 }}>
+            {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
+          </Text>
+        </View>
 
-          {/* Bottom info */}
-          <View>
-            {/* Persona name */}
-            <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 12 }}>
-              {persona.name}
-            </Text>
-
-            {/* Intro message or loading skeleton */}
-            {isLoading && !hasPreview ? (
-              <View style={{ marginBottom: 12 }}>
-                <View
-                  style={{
-                    height: 16,
-                    width: '80%',
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    marginBottom: 8,
-                  }}
-                />
-                <View
-                  style={{
-                    height: 16,
-                    width: '60%',
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                  }}
-                />
-              </View>
-            ) : introMessage ? (
-              <Text
-                style={{
-                  color: 'rgba(255,255,255,0.85)',
-                  fontSize: 15,
-                  lineHeight: 22,
-                  marginBottom: 12,
-                }}
-              >
-                {introMessage}
-              </Text>
-            ) : null}
-
-            {/* Question or loading skeleton */}
-            {isLoading && !hasPreview ? (
-              <View style={{ marginBottom: 20 }}>
-                <View
-                  style={{
-                    height: 18,
-                    width: '90%',
-                    backgroundColor: 'rgba(255,255,255,0.15)',
-                    borderRadius: 8,
-                    marginBottom: 8,
-                  }}
-                />
-                <View
-                  style={{
-                    height: 18,
-                    width: '70%',
-                    backgroundColor: 'rgba(255,255,255,0.15)',
-                    borderRadius: 8,
-                  }}
-                />
-              </View>
-            ) : questionMessage ? (
-              <Text
-                style={{
-                  color: '#fff',
-                  fontSize: 17,
-                  fontWeight: '600',
-                  lineHeight: 24,
-                  marginBottom: 20,
-                }}
-              >
-                {questionMessage}
-              </Text>
-            ) : null}
-
-            {/* New Question button */}
-            <Pressable
-              onPress={onRefreshQuestion}
-              disabled={!canRefresh}
+        {/* Intro message or loading skeleton */}
+        {isLoading && !hasPreview ? (
+          <View style={{ marginBottom: 12 }}>
+            <View
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingVertical: 14,
-                borderRadius: 14,
-                backgroundColor: 'rgba(255,255,255,0.12)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.2)',
-                marginBottom: 12,
-                opacity: canRefresh ? 1 : 0.4,
+                height: 16,
+                width: '80%',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderRadius: 8,
+                marginBottom: 8,
               }}
-            >
-              {isRefreshing ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <RefreshCw size={18} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>
-                    New Question
-                  </Text>
-                  {refreshesRemaining > 0 && (
-                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginLeft: 8 }}>
-                      ({refreshesRemaining} left)
-                    </Text>
-                  )}
-                </>
-              )}
-            </Pressable>
-
-            {/* Start Challenge CTA button */}
-            <Pressable
-              onPress={onStartChat}
-              disabled={isStarting || isLoading || !hasPreview}
+            />
+            <View
               style={{
-                paddingVertical: 16,
-                borderRadius: 16,
-                backgroundColor: theme.accent,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: (isStarting || isLoading || !hasPreview) ? 0.7 : 1,
+                height: 16,
+                width: '60%',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderRadius: 8,
               }}
-            >
-              {isStarting ? (
-                <ActivityIndicator color="#0f0f12" />
-              ) : (
-                <Text style={{ color: '#0f0f12', fontWeight: '700', fontSize: 18 }}>
-                  Start Challenge
+            />
+          </View>
+        ) : introMessage ? (
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.85)',
+              fontSize: 15,
+              lineHeight: 22,
+              marginBottom: 12,
+            }}
+          >
+            {introMessage}
+          </Text>
+        ) : null}
+
+        {/* Question or loading skeleton */}
+        {isLoading && !hasPreview ? (
+          <View style={{ marginBottom: 20 }}>
+            <View
+              style={{
+                height: 18,
+                width: '90%',
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 8,
+                marginBottom: 8,
+              }}
+            />
+            <View
+              style={{
+                height: 18,
+                width: '70%',
+                backgroundColor: 'rgba(255,255,255,0.15)',
+                borderRadius: 8,
+              }}
+            />
+          </View>
+        ) : questionMessage ? (
+          <Text
+            style={{
+              color: '#fff',
+              fontSize: 17,
+              fontWeight: '600',
+              lineHeight: 24,
+              marginBottom: 20,
+            }}
+          >
+            {questionMessage}
+          </Text>
+        ) : null}
+
+        {/* New Question button */}
+        <Pressable
+          onPress={onRefreshQuestion}
+          disabled={!canRefresh}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 14,
+            borderRadius: 14,
+            backgroundColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.2)',
+            marginBottom: 12,
+            opacity: canRefresh ? 1 : 0.4,
+          }}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <RefreshCw size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>
+                New Question
+              </Text>
+              {refreshesRemaining > 0 && (
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginLeft: 8 }}>
+                  ({refreshesRemaining} left)
                 </Text>
               )}
-            </Pressable>
-          </View>
-        </View>
+            </>
+          )}
+        </Pressable>
+
+        {/* Start Challenge CTA button */}
+        <Pressable
+          onPress={onStartChat}
+          disabled={isStarting || isLoading || !hasPreview}
+          style={{
+            paddingVertical: 16,
+            borderRadius: 16,
+            backgroundColor: theme.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: (isStarting || isLoading || !hasPreview) ? 0.7 : 1,
+          }}
+        >
+          {isStarting ? (
+            <ActivityIndicator color="#0f0f12" />
+          ) : (
+            <Text style={{ color: '#0f0f12', fontWeight: '700', fontSize: 18 }}>
+              Start Challenge
+            </Text>
+          )}
+        </Pressable>
       </View>
     </View>
   );
