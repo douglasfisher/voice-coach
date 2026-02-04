@@ -1,18 +1,15 @@
-import { View, Pressable, ActivityIndicator } from 'react-native';
+import { View, Pressable, ActivityIndicator, GestureResponderEvent } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
   withSpring,
-  interpolate,
   useSharedValue,
-  runOnJS,
 } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mic, MicOff } from 'lucide-react-native';
-import { useEffect, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import { AudioWaveform } from './AudioWaveform';
 
 interface PushToTalkButtonProps {
@@ -41,71 +38,60 @@ export function PushToTalkButton({
   hasPermission,
 }: PushToTalkButtonProps) {
   const scale = useSharedValue(1);
-  const dragY = useSharedValue(0);
   const isPressed = useSharedValue(false);
+  const startYRef = useRef<number>(0);
+  const cancelledRef = useRef(false);
 
-  const handlePressIn = useCallback(() => {
+  const handlePressIn = useCallback((event: GestureResponderEvent) => {
+    if (disabled) return;
+    startYRef.current = event.nativeEvent.pageY;
+    cancelledRef.current = false;
+    isPressed.value = true;
+    scale.value = withSpring(1.1, { damping: 12, stiffness: 200 });
     onRecordingStart();
-  }, [onRecordingStart]);
+  }, [disabled, onRecordingStart, isPressed, scale]);
 
-  const handlePressOut = useCallback(() => {
-    if (dragY.value > CANCEL_THRESHOLD) {
+  const handlePressOut = useCallback((event: GestureResponderEvent) => {
+    if (disabled) return;
+
+    const dragY = event.nativeEvent.pageY - startYRef.current;
+
+    scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+    isPressed.value = false;
+
+    if (cancelledRef.current || dragY > CANCEL_THRESHOLD) {
       onCancel();
     } else {
       onRecordingEnd();
     }
-  }, [onRecordingEnd, onCancel, dragY]);
+  }, [disabled, onRecordingEnd, onCancel, scale, isPressed]);
 
-  const handleCancel = useCallback(() => {
-    onCancel();
-  }, [onCancel]);
+  const handleMove = useCallback((event: GestureResponderEvent) => {
+    if (disabled) return;
+    const dragY = event.nativeEvent.pageY - startYRef.current;
 
-  // Gesture for press-and-hold with drag-to-cancel
-  const gesture = Gesture.Pan()
-    .onBegin(() => {
-      if (disabled) return;
-      isPressed.value = true;
+    if (dragY > CANCEL_THRESHOLD && !cancelledRef.current) {
+      cancelledRef.current = true;
+      scale.value = withSpring(0.9, { damping: 12, stiffness: 200 });
+    } else if (dragY <= CANCEL_THRESHOLD && cancelledRef.current) {
+      cancelledRef.current = false;
       scale.value = withSpring(1.1, { damping: 12, stiffness: 200 });
-      runOnJS(handlePressIn)();
-    })
-    .onUpdate((event) => {
-      if (disabled) return;
-      dragY.value = Math.max(0, event.translationY);
-
-      // Scale down as user drags down (indicating cancel)
-      if (dragY.value > 0) {
-        const cancelProgress = Math.min(1, dragY.value / CANCEL_THRESHOLD);
-        scale.value = interpolate(cancelProgress, [0, 1], [1.1, 0.9]);
-      }
-    })
-    .onEnd(() => {
-      if (disabled) return;
-      if (dragY.value > CANCEL_THRESHOLD) {
-        runOnJS(handleCancel)();
-      } else {
-        runOnJS(handlePressOut)();
-      }
-      scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-      dragY.value = 0;
-      isPressed.value = false;
-    })
-    .onFinalize(() => {
-      scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-      dragY.value = 0;
-      isPressed.value = false;
-    });
+    }
+  }, [disabled, scale]);
 
   // Pulsing animation when recording
   const pulseStyle = useAnimatedStyle(() => {
+    const baseScale = scale.value;
+
     if (!isPressed.value) {
       return {
-        transform: [{ scale: scale.value }],
+        transform: [{ scale: baseScale }],
         shadowOpacity: 0.4,
       };
     }
 
     return {
-      transform: [{ scale: scale.value }],
+      transform: [{ scale: baseScale }],
       shadowOpacity: withRepeat(
         withSequence(
           withTiming(0.8, { duration: 600 }),
@@ -215,7 +201,12 @@ export function PushToTalkButton({
         ]}
       />
 
-      <GestureDetector gesture={gesture}>
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onTouchMove={handleMove}
+        delayLongPress={0}
+      >
         <Animated.View
           style={[
             {
@@ -255,7 +246,7 @@ export function PushToTalkButton({
             )}
           </LinearGradient>
         </Animated.View>
-      </GestureDetector>
+      </Pressable>
     </View>
   );
 }
