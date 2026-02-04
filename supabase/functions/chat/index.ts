@@ -49,26 +49,6 @@ interface DbPersona {
   } | null;
 }
 
-// Cost per 1 million tokens in USD cents
-const MODEL_COSTS: Record<string, { input: number; output: number }> = {
-  'llama-3.3-70b-versatile': { input: 59, output: 79 },
-  'llama-3.1-8b-instant': { input: 5, output: 8 },
-  'mixtral-8x7b-32768': { input: 24, output: 24 },
-  'gemma2-9b-it': { input: 20, output: 20 },
-  'llama-guard-3-8b': { input: 20, output: 20 },
-};
-
-function calculateCost(
-  model: string,
-  promptTokens: number,
-  completionTokens: number
-): number {
-  const costs = MODEL_COSTS[model] || MODEL_COSTS['llama-3.3-70b-versatile'];
-  const inputCost = (promptTokens / 1_000_000) * costs.input;
-  const outputCost = (completionTokens / 1_000_000) * costs.output;
-  return Math.ceil((inputCost + outputCost) * 100); // cents
-}
-
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -205,21 +185,18 @@ Keep it short and natural. Do NOT ask questions yet.`;
           return errorResponse('Failed to save greeting messages: ' + insertError.message, 500);
         }
 
-        // Log AI usage for greeting generation
-        const model = settings.model || 'llama-3.3-70b-versatile';
+        // Log AI usage
         const totalPromptTokens = (intro.usage?.prompt_tokens || 0) + (question.usage?.prompt_tokens || 0);
         const totalCompletionTokens = (intro.usage?.completion_tokens || 0) + (question.usage?.completion_tokens || 0);
-        const estimatedCost = calculateCost(model, totalPromptTokens, totalCompletionTokens);
 
         await supabase.from('ai_usage').insert({
           user_id: conv?.user_id || null,
           conversation_id: conversationId,
           persona_id: personaId,
-          model,
+          model: settings.model,
           prompt_tokens: totalPromptTokens,
           completion_tokens: totalCompletionTokens,
           total_tokens: totalPromptTokens + totalCompletionTokens,
-          estimated_cost_cents: estimatedCost,
         }).then(({ error }) => {
           if (error) console.error('Failed to log AI usage:', error);
         });
@@ -304,20 +281,16 @@ Keep it short and natural. Do NOT ask questions yet.`;
       .eq('id', conversationId)
       .single();
 
-    // Log AI usage for cost tracking
+    // Log AI usage
     if (usage) {
-      const model = settings.model || 'llama-3.3-70b-versatile';
-      const estimatedCost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens);
-
       await supabase.from('ai_usage').insert({
         user_id: conversation?.user_id || null,
         conversation_id: conversationId,
         persona_id: personaId,
-        model,
+        model: settings.model,
         prompt_tokens: usage.prompt_tokens,
         completion_tokens: usage.completion_tokens,
         total_tokens: usage.total_tokens,
-        estimated_cost_cents: estimatedCost,
       }).then(({ error }) => {
         if (error) console.error('Failed to log AI usage:', error);
       });
