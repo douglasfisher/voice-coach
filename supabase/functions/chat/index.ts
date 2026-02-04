@@ -29,15 +29,18 @@ import {
 
 interface ChatRequest {
   conversationId: string;
-  userMessage: string;
+  userMessage?: string;
   personaId: string;
+  generateGreeting?: boolean;
 }
 
 interface DbPersona {
   id: string;
   name: string;
+  title?: string;
   challenge_style: string;
   system_prompt: string;
+  formality?: number;
   ai_config: {
     model?: string;
     temperature?: number;
@@ -79,13 +82,19 @@ serve(async (req) => {
     const supabase = createSupabaseClient();
 
     // Parse and validate request
-    const { conversationId, userMessage, personaId } = await parseJsonBody<ChatRequest>(req);
-    requireFields({ conversationId, userMessage, personaId }, ['conversationId', 'userMessage', 'personaId']);
+    const { conversationId, userMessage, personaId, generateGreeting } = await parseJsonBody<ChatRequest>(req);
+
+    // Validate required fields based on request type
+    if (generateGreeting) {
+      requireFields({ conversationId, personaId }, ['conversationId', 'personaId']);
+    } else {
+      requireFields({ conversationId, userMessage, personaId }, ['conversationId', 'userMessage', 'personaId']);
+    }
 
     // Get persona configuration from database
     const { data: dbPersona, error: personaError } = await supabase
       .from('personas')
-      .select('id, name, challenge_style, system_prompt, ai_config')
+      .select('id, name, title, challenge_style, system_prompt, formality, ai_config')
       .eq('id', personaId)
       .single();
 
@@ -105,6 +114,78 @@ serve(async (req) => {
       max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
       stop: persona.ai_config?.stop,
     };
+
+    // Handle greeting generation for new conversations
+    if (generateGreeting) {
+      // Get user info for personalized greeting
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .single();
+
+      let userName = '';
+      if (conv?.user_id) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('display_name')
+          .eq('id', conv.user_id)
+          .single();
+        userName = profile?.display_name || '';
+      }
+
+      // Generate intro based on formality
+      const formality = persona.formality ?? 50;
+      const introStyle = formality >= 60
+        ? `Introduce yourself formally as "${persona.title || ''} ${persona.name}".`
+        : `Introduce yourself casually as "${persona.name}".`;
+
+      const introPrompt = `Write ONLY a brief self-introduction (1-2 sentences).
+${introStyle}${userName ? ` Address the user as "${userName}".` : ''}
+Keep it short and natural. Do NOT ask questions yet.`;
+
+      const intro = await groq.completeWithHistoryAndUsage(systemPrompt, [], introPrompt, settings);
+
+      const questionPrompt = `You just introduced yourself. Now propose a thought-provoking topic and ask an engaging opening question. 2-3 sentences max. Do NOT re-introduce yourself.`;
+
+      const question = await groq.completeWithHistoryAndUsage(
+        systemPrompt,
+        [{ role: 'assistant', content: intro.content }],
+        questionPrompt,
+        settings
+      );
+
+      // Save messages
+      await supabase.from('messages').insert([
+        { conversation_id: conversationId, role: 'assistant', content: intro.content, sequence: 1 },
+        { conversation_id: conversationId, role: 'assistant', content: question.content, sequence: 2 },
+      ]);
+
+      // Log AI usage for greeting generation
+      const model = settings.model || 'llama-3.3-70b-versatile';
+      const totalPromptTokens = (intro.usage?.prompt_tokens || 0) + (question.usage?.prompt_tokens || 0);
+      const totalCompletionTokens = (intro.usage?.completion_tokens || 0) + (question.usage?.completion_tokens || 0);
+      const estimatedCost = calculateCost(model, totalPromptTokens, totalCompletionTokens);
+
+      await supabase.from('ai_usage').insert({
+        user_id: conv?.user_id || null,
+        conversation_id: conversationId,
+        persona_id: personaId,
+        model,
+        prompt_tokens: totalPromptTokens,
+        completion_tokens: totalCompletionTokens,
+        total_tokens: totalPromptTokens + totalCompletionTokens,
+        estimated_cost_cents: estimatedCost,
+      }).then(({ error }) => {
+        if (error) console.error('Failed to log AI usage:', error);
+      });
+
+      return jsonResponse({
+        response: intro.content,
+        intro: intro.content,
+        question: question.content,
+      });
+    }
 
     // Get conversation history
     const { data: messages, error: messagesError } = await supabase
