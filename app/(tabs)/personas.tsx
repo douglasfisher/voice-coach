@@ -38,16 +38,23 @@ export default function PersonasScreen() {
   const otherPersonas = filteredPersonas.slice(1);
 
   const handleChallenge = async (persona: PersonaDisplay) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.error('Cannot start chat: User not authenticated');
+      return;
+    }
 
     setIsCreating(true);
     try {
       const conversationId = await createConversation(user.id, persona.id);
-      setSelectedPersona(null);
 
       if (conversationId) {
+        setSelectedPersona(null);
         router.push(`/(tabs)/chat/${conversationId}`);
+      } else {
+        console.error('Failed to create conversation - no ID returned');
       }
+    } catch (error) {
+      console.error('Error creating conversation:', error);
     } finally {
       setIsCreating(false);
     }
