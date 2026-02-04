@@ -15,6 +15,12 @@ interface ChatState {
   isSending: boolean;
   error: string | null;
 
+  // Preview state
+  previewIntro: string | null;
+  previewQuestion: string | null;
+  questionRefreshCount: number;
+  isGeneratingPreview: boolean;
+
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
@@ -25,10 +31,16 @@ interface ChatState {
   ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string; analysis: AnalysisResult | null } | null>;
   startChat: () => Promise<boolean>;
+  startChatWithPreview: () => Promise<boolean>;
+  generatePreview: () => Promise<void>;
+  regenerateQuestion: () => Promise<boolean>;
+  clearPreview: () => void;
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
 }
+
+const MAX_QUESTION_REFRESHES = 3;
 
 export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
@@ -37,6 +49,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   isSending: false,
   error: null,
+
+  // Preview state
+  previewIntro: null,
+  previewQuestion: null,
+  questionRefreshCount: 0,
+  isGeneratingPreview: false,
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
@@ -225,6 +243,149 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } finally {
       set({ isSending: false });
     }
+  },
+
+  generatePreview: async () => {
+    const { activeConversation } = get();
+    if (!activeConversation) return;
+
+    console.log('Generating preview for:', {
+      conversationId: activeConversation.id,
+      personaId: activeConversation.persona_id,
+    });
+
+    set({ isGeneratingPreview: true, error: null });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+        },
+        body: JSON.stringify({
+          conversationId: activeConversation.id,
+          personaId: activeConversation.persona_id,
+          previewGreeting: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Generate preview error:', response.status, errorData);
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      set({
+        previewIntro: data.intro,
+        previewQuestion: data.question,
+        questionRefreshCount: 0,
+      });
+    } catch (error) {
+      console.error('Generate preview failed:', error);
+      set({ error: (error as Error).message });
+    } finally {
+      set({ isGeneratingPreview: false });
+    }
+  },
+
+  regenerateQuestion: async () => {
+    const { activeConversation, previewIntro, questionRefreshCount } = get();
+    if (!activeConversation || !previewIntro) return false;
+    if (questionRefreshCount >= MAX_QUESTION_REFRESHES) return false;
+
+    console.log('Regenerating question:', {
+      conversationId: activeConversation.id,
+      refreshCount: questionRefreshCount + 1,
+    });
+
+    set({ isGeneratingPreview: true, error: null });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+        },
+        body: JSON.stringify({
+          conversationId: activeConversation.id,
+          personaId: activeConversation.persona_id,
+          regenerateQuestion: true,
+          existingIntro: previewIntro,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Regenerate question error:', response.status, errorData);
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      set({
+        previewQuestion: data.question,
+        questionRefreshCount: questionRefreshCount + 1,
+      });
+      return true;
+    } catch (error) {
+      console.error('Regenerate question failed:', error);
+      set({ error: (error as Error).message });
+      return false;
+    } finally {
+      set({ isGeneratingPreview: false });
+    }
+  },
+
+  startChatWithPreview: async () => {
+    const { activeConversation, previewIntro, previewQuestion } = get();
+    if (!activeConversation || !previewIntro || !previewQuestion) return false;
+
+    console.log('Starting chat with preview:', {
+      conversationId: activeConversation.id,
+      personaId: activeConversation.persona_id,
+    });
+
+    set({ isSending: true, error: null });
+    try {
+      // Save the preview messages to the database
+      const { error: insertError } = await supabase.from('messages').insert([
+        { conversation_id: activeConversation.id, role: 'assistant', content: previewIntro, sequence: 1 },
+        { conversation_id: activeConversation.id, role: 'assistant', content: previewQuestion, sequence: 2 },
+      ]);
+
+      if (insertError) throw insertError;
+
+      // Clear preview state
+      set({
+        previewIntro: null,
+        previewQuestion: null,
+        questionRefreshCount: 0,
+      });
+
+      // Refresh messages to show greeting
+      await get().fetchMessages(activeConversation.id);
+      return true;
+    } catch (error) {
+      console.error('Start chat with preview failed:', error);
+      set({ error: (error as Error).message });
+      return false;
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  clearPreview: () => {
+    set({
+      previewIntro: null,
+      previewQuestion: null,
+      questionRefreshCount: 0,
+    });
   },
 
   endConversation: async () => {

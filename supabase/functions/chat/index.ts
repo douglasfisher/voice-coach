@@ -17,6 +17,9 @@ interface ChatRequest {
   userMessage?: string;
   personaId: string;
   generateGreeting?: boolean;
+  previewGreeting?: boolean;      // Generate but don't save
+  regenerateQuestion?: boolean;   // Regenerate question only
+  existingIntro?: string;         // Pass intro when regenerating question
 }
 
 interface GroqMessage {
@@ -42,7 +45,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request
-    const { conversationId, userMessage, personaId, generateGreeting } = await req.json() as ChatRequest;
+    const { conversationId, userMessage, personaId, generateGreeting, previewGreeting, regenerateQuestion, existingIntro } = await req.json() as ChatRequest;
 
     if (!conversationId || !personaId) {
       return new Response(
@@ -51,7 +54,7 @@ serve(async (req) => {
       );
     }
 
-    if (!generateGreeting && !userMessage) {
+    if (!generateGreeting && !previewGreeting && !regenerateQuestion && !userMessage) {
       return new Response(
         JSON.stringify({ error: 'Missing userMessage' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -90,7 +93,7 @@ serve(async (req) => {
     }
     const systemPrompt = persona.system_prompt;
 
-    console.log('Chat request:', { conversationId, personaId, model, generateGreeting });
+    console.log('Chat request:', { conversationId, personaId, model, generateGreeting, previewGreeting, regenerateQuestion });
     console.log('Model from DB:', modelSetting?.value);
     console.log('Final model being used:', model);
 
@@ -123,7 +126,79 @@ serve(async (req) => {
       return response.json();
     }
 
-    // Handle greeting generation
+    // Helper to get user name for personalization
+    async function getUserName(): Promise<string> {
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .single();
+
+      if (conv?.user_id) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('display_name')
+          .eq('id', conv.user_id)
+          .single();
+        return profile?.display_name || '';
+      }
+      return '';
+    }
+
+    // Helper to generate intro content
+    async function generateIntro(userName: string) {
+      const formality = persona.formality ?? 50;
+      const introStyle = formality >= 60
+        ? `Introduce yourself formally as "${persona.name}".`
+        : `Introduce yourself casually as "${persona.name}".`;
+
+      const introPrompt = `Write ONLY a brief self-introduction (1-2 sentences).
+${introStyle}${userName ? ` Address the user as "${userName}".` : ''}
+Keep it short and natural. Do NOT ask questions yet.`;
+
+      return callGroq([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: introPrompt },
+      ]);
+    }
+
+    // Helper to generate question content
+    async function generateQuestion(introContent: string) {
+      const questionPrompt = `You just introduced yourself. Now propose a thought-provoking topic and ask an engaging opening question. 2-3 sentences max. Do NOT re-introduce yourself.`;
+
+      return callGroq([
+        { role: 'system', content: systemPrompt },
+        { role: 'assistant', content: introContent },
+        { role: 'user', content: questionPrompt },
+      ]);
+    }
+
+    // Handle regenerate question only (preview mode)
+    if (regenerateQuestion && existingIntro) {
+      const questionResponse = await generateQuestion(existingIntro);
+      const questionContent = questionResponse.choices[0]?.message?.content || '';
+
+      return new Response(
+        JSON.stringify({ question: questionContent, preview: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle preview greeting (generate but don't save)
+    if (previewGreeting) {
+      const userName = await getUserName();
+      const introResponse = await generateIntro(userName);
+      const introContent = introResponse.choices[0]?.message?.content || '';
+      const questionResponse = await generateQuestion(introContent);
+      const questionContent = questionResponse.choices[0]?.message?.content || '';
+
+      return new Response(
+        JSON.stringify({ intro: introContent, question: questionContent, preview: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle greeting generation (generate and save)
     if (generateGreeting) {
       // Get user name for personalization
       const { data: conv } = await supabase
@@ -132,40 +207,10 @@ serve(async (req) => {
         .eq('id', conversationId)
         .single();
 
-      let userName = '';
-      if (conv?.user_id) {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('display_name')
-          .eq('id', conv.user_id)
-          .single();
-        userName = profile?.display_name || '';
-      }
-
-      const formality = persona.formality ?? 50;
-      const introStyle = formality >= 60
-        ? `Introduce yourself formally as "${persona.name}".`
-        : `Introduce yourself casually as "${persona.name}".`;
-
-      // Generate intro
-      const introPrompt = `Write ONLY a brief self-introduction (1-2 sentences).
-${introStyle}${userName ? ` Address the user as "${userName}".` : ''}
-Keep it short and natural. Do NOT ask questions yet.`;
-
-      const introResponse = await callGroq([
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: introPrompt },
-      ]);
+      const userName = await getUserName();
+      const introResponse = await generateIntro(userName);
       const introContent = introResponse.choices[0]?.message?.content || '';
-
-      // Generate question
-      const questionPrompt = `You just introduced yourself. Now propose a thought-provoking topic and ask an engaging opening question. 2-3 sentences max. Do NOT re-introduce yourself.`;
-
-      const questionResponse = await callGroq([
-        { role: 'system', content: systemPrompt },
-        { role: 'assistant', content: introContent },
-        { role: 'user', content: questionPrompt },
-      ]);
+      const questionResponse = await generateQuestion(introContent);
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
       // Save messages

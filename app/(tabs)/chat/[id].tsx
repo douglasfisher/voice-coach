@@ -114,7 +114,19 @@ export default function ChatScreen() {
 
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const { fetchMessages, clearMessages, startChat } = useChatStore();
+  const {
+    fetchMessages,
+    clearMessages,
+    startChat,
+    generatePreview,
+    regenerateQuestion,
+    startChatWithPreview,
+    clearPreview,
+    previewIntro,
+    previewQuestion,
+    questionRefreshCount,
+    isGeneratingPreview,
+  } = useChatStore();
   const chatStarted = messages.length > 0;
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
@@ -161,12 +173,22 @@ export default function ChatScreen() {
 
     setIsStartingChat(true);
     try {
-      await startChat();
+      // If we have preview messages, save them and start
+      if (previewIntro && previewQuestion) {
+        await startChatWithPreview();
+      } else {
+        // Fallback to original behavior
+        await startChat();
+      }
     } catch (error) {
       console.error('Failed to start chat:', error);
     } finally {
       setIsStartingChat(false);
     }
+  };
+
+  const handleRefreshQuestion = async () => {
+    await regenerateQuestion();
   };
 
   const handleClearChat = async () => {
@@ -180,6 +202,20 @@ export default function ChatScreen() {
       setIsClearing(false);
     }
   };
+
+  // Generate preview when conversation loads and chat hasn't started
+  useEffect(() => {
+    if (conversation && !chatStarted && !previewIntro && !isGeneratingPreview) {
+      generatePreview();
+    }
+  }, [conversation?.id, chatStarted]);
+
+  // Clear preview when leaving the screen
+  useEffect(() => {
+    return () => {
+      clearPreview();
+    };
+  }, []);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -341,6 +377,13 @@ export default function ChatScreen() {
           ListEmptyComponent={
             <ChatHeroEmptyState
               persona={persona}
+              introMessage={previewIntro}
+              questionMessage={previewQuestion}
+              refreshCount={questionRefreshCount}
+              maxRefreshes={3}
+              isLoading={isGeneratingPreview}
+              isRefreshing={isGeneratingPreview && previewIntro !== null}
+              onRefreshQuestion={handleRefreshQuestion}
               onStartChat={handleStartChat}
               isStarting={isStartingChat}
             />
