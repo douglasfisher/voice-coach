@@ -122,7 +122,7 @@ serve(async (req) => {
       .eq('key', 'default_model')
       .single();
 
-    const globalDefaultModel = defaultModelSetting?.value || 'llama-3.3-70b-versatile';
+    const globalDefaultModel = defaultModelSetting?.value || 'llama-3.1-8b-instant';
 
     // Build settings - use global default, persona ai_config only for temperature/tokens
     const settings: Partial<GroqCompletionSettings> = {
