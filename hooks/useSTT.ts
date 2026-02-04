@@ -37,6 +37,7 @@ export function useSTT(): UseSTTReturn {
 
   const resolveRef = useRef<((value: string) => void) | null>(null);
   const finalTranscriptRef = useRef('');
+  const interimTranscriptRef = useRef('');
 
   // Check availability and permission on mount
   useEffect(() => {
@@ -65,15 +66,17 @@ export function useSTT(): UseSTTReturn {
     setTranscript('');
     setInterimTranscript('');
     finalTranscriptRef.current = '';
+    interimTranscriptRef.current = '';
   });
 
   useSpeechRecognitionEvent('end', () => {
     setIsListening(false);
     setAudioLevel(0);
 
-    // Resolve the promise with final transcript
+    // Resolve the promise with final transcript, or interim as fallback
     if (resolveRef.current) {
-      resolveRef.current(finalTranscriptRef.current);
+      const result = finalTranscriptRef.current || interimTranscriptRef.current;
+      resolveRef.current(result);
       resolveRef.current = null;
     }
   });
@@ -88,9 +91,12 @@ export function useSTT(): UseSTTReturn {
 
     if (latestResult.isFinal) {
       finalTranscriptRef.current = text;
+      interimTranscriptRef.current = '';
       setTranscript(text);
       setInterimTranscript('');
     } else {
+      // Track interim in ref so we can use it as fallback
+      interimTranscriptRef.current = text;
       setInterimTranscript(text);
     }
   });
@@ -158,19 +164,21 @@ export function useSTT(): UseSTTReturn {
 
       stopSTT().catch(() => {
         // If stop fails, resolve with current transcript
-        resolve(finalTranscriptRef.current || transcript || interimTranscript);
+        const result = finalTranscriptRef.current || interimTranscriptRef.current;
+        resolve(result);
         resolveRef.current = null;
       });
 
       // Timeout fallback
       setTimeout(() => {
         if (resolveRef.current) {
-          resolve(finalTranscriptRef.current || transcript || interimTranscript);
+          const result = finalTranscriptRef.current || interimTranscriptRef.current;
+          resolve(result);
           resolveRef.current = null;
         }
       }, 2000);
     });
-  }, [transcript, interimTranscript]);
+  }, []);
 
   const cancelListening = useCallback(() => {
     resolveRef.current = null;
