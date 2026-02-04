@@ -417,7 +417,6 @@ export default function ChatScreen() {
           <ChatInput
             onSend={handleSend}
             disabled={isSending}
-            placeholder={`Share your thoughts with ${persona.name}...`}
             accentColor={theme?.accent}
             voiceInputEnabled={voiceInputEnabled}
             voiceState={voiceState}
