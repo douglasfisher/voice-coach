@@ -20,7 +20,28 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
+  Clock,
 } from 'lucide-react-native';
+
+/**
+ * Formats response time in milliseconds to a readable format.
+ */
+function formatResponseTime(ms: number | null): string | null {
+  if (!ms || ms <= 0) return null;
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+/**
+ * Counts words in a string.
+ */
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+}
 import { supabase } from '../../../../lib/supabase';
 import { usePersonaStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
@@ -39,6 +60,8 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   sequence: number;
+  created_at: string;
+  response_time_ms: number | null;
 }
 
 interface TimingMetrics {
@@ -115,15 +138,21 @@ export default function ReportScreen() {
         setPersona(personaData);
       }
 
-      // Fetch messages for transcript
+      // Fetch messages for transcript with timing data
       const { data: msgs, error: msgError } = await supabase
         .from('messages')
-        .select('role, content, sequence')
+        .select('role, content, sequence, created_at, response_time_ms')
         .eq('conversation_id', id)
         .order('sequence', { ascending: true });
 
       if (!msgError && msgs) {
-        setMessages(msgs as Message[]);
+        setMessages(msgs.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          sequence: m.sequence,
+          created_at: m.created_at,
+          response_time_ms: m.response_time_ms ?? null,
+        })));
       }
     } catch (error) {
       console.error('Failed to load report:', error);
@@ -536,29 +565,97 @@ export default function ReportScreen() {
           </View>
           {showTranscript && (
             <View style={{ marginTop: 16 }}>
-              {messages.map((msg, index) => (
-                <View
-                  key={index}
-                  style={{
-                    marginBottom: index < messages.length - 1 ? 16 : 0,
-                    paddingLeft: msg.role === 'user' ? 0 : 0,
-                  }}
-                >
-                  <Text
+              {messages.map((msg, index) => {
+                const responseTime = formatResponseTime(msg.response_time_ms);
+                const wordCount = countWords(msg.content);
+                const timestamp = msg.created_at
+                  ? new Date(msg.created_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : null;
+
+                return (
+                  <View
+                    key={index}
                     style={{
-                      color: msg.role === 'user' ? '#F59E0B' : '#60a5fa',
-                      fontSize: 12,
-                      fontWeight: '600',
-                      marginBottom: 4,
+                      marginBottom: index < messages.length - 1 ? 20 : 0,
+                      paddingBottom: index < messages.length - 1 ? 20 : 0,
+                      borderBottomWidth: index < messages.length - 1 ? 1 : 0,
+                      borderBottomColor: 'rgba(255,255,255,0.06)',
                     }}
                   >
-                    {msg.role === 'user' ? 'YOU' : 'COACH'}
-                  </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, lineHeight: 20 }}>
-                    {msg.content}
-                  </Text>
-                </View>
-              ))}
+                    {/* Header row with role and timing */}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: msg.role === 'user' ? '#F59E0B' : '#60a5fa',
+                          fontSize: 12,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {msg.role === 'user' ? 'YOU' : 'COACH'}
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        {timestamp && (
+                          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
+                            {timestamp}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Message content */}
+                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, lineHeight: 22 }}>
+                      {msg.content}
+                    </Text>
+
+                    {/* Message stats */}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        marginTop: 10,
+                        gap: 16,
+                      }}
+                    >
+                      {/* Word count */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <MessageSquare size={12} color="rgba(255,255,255,0.3)" />
+                        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
+                          {wordCount} words
+                        </Text>
+                      </View>
+
+                      {/* Response time */}
+                      {responseTime && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Clock
+                            size={12}
+                            color={msg.role === 'user' ? '#F59E0B80' : '#60a5fa80'}
+                          />
+                          <Text
+                            style={{
+                              color: msg.role === 'user' ? '#F59E0B80' : '#60a5fa80',
+                              fontSize: 11,
+                            }}
+                          >
+                            {msg.role === 'user' ? 'replied in ' : 'response in '}
+                            {responseTime}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
             </View>
           )}
         </Pressable>

@@ -463,6 +463,7 @@ export default function ChatScreen() {
                 }
                 isPlaying={isPlaying}
                 timestamp={item.created_at}
+                responseTimeMs={item.response_time_ms}
                 immersiveMode={showImmersiveLayout}
               />
             )}

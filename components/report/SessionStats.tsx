@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { Clock, MessageCircle, FileText, Zap } from 'lucide-react-native';
+import { Clock, MessageCircle, FileText, Zap, User, Bot, TrendingUp } from 'lucide-react-native';
 
 interface TimingMetrics {
   total_duration_ms: number;
@@ -52,130 +52,243 @@ function formatNumber(num: number): string {
   return num.toLocaleString();
 }
 
-interface StatItemProps {
+interface StatRowProps {
   icon: typeof Clock;
   label: string;
   value: string;
+  subValue?: string;
   color: string;
+  isLast?: boolean;
 }
 
-function StatItem({ icon: Icon, label, value, color }: StatItemProps) {
+function StatRow({ icon: Icon, label, value, subValue, color, isLast }: StatRowProps) {
   return (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
+        paddingVertical: 14,
+        borderBottomWidth: isLast ? 0 : 1,
         borderBottomColor: 'rgba(255,255,255,0.06)',
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
         <View
           style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
+            width: 36,
+            height: 36,
+            borderRadius: 10,
             backgroundColor: `${color}20`,
             alignItems: 'center',
             justifyContent: 'center',
             marginRight: 12,
           }}
         >
-          <Icon size={16} color={color} />
+          <Icon size={18} color={color} />
         </View>
         <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
           {label}
         </Text>
       </View>
-      <Text
-        style={{
-          color: '#fff',
-          fontSize: 16,
-          fontWeight: '600',
-          fontFamily: 'monospace',
-        }}
-      >
-        {value}
-      </Text>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text
+          style={{
+            color: '#fff',
+            fontSize: 18,
+            fontWeight: '700',
+            fontFamily: 'monospace',
+          }}
+        >
+          {value}
+        </Text>
+        {subValue && (
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
+            {subValue}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+interface ComparisonBarProps {
+  userValue: number;
+  coachValue: number;
+  userColor: string;
+  coachColor: string;
+}
+
+function ComparisonBar({ userValue, coachValue, userColor, coachColor }: ComparisonBarProps) {
+  const maxValue = Math.max(userValue, coachValue, 1);
+  const userWidth = (userValue / maxValue) * 100;
+  const coachWidth = (coachValue / maxValue) * 100;
+
+  return (
+    <View style={{ marginTop: 12 }}>
+      {/* User bar */}
+      <View style={{ marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <User size={12} color={userColor} />
+          <Text style={{ color: userColor, fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
+            You
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 'auto' }}>
+            {formatResponseTime(userValue)}
+          </Text>
+        </View>
+        <View style={{ height: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+          <View
+            style={{
+              width: `${userWidth}%`,
+              height: '100%',
+              backgroundColor: userColor,
+              borderRadius: 4,
+            }}
+          />
+        </View>
+      </View>
+
+      {/* Coach bar */}
+      <View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <Bot size={12} color={coachColor} />
+          <Text style={{ color: coachColor, fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
+            Coach
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 'auto' }}>
+            {formatResponseTime(coachValue)}
+          </Text>
+        </View>
+        <View style={{ height: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+          <View
+            style={{
+              width: `${coachWidth}%`,
+              height: '100%',
+              backgroundColor: coachColor,
+              borderRadius: 4,
+            }}
+          />
+        </View>
+      </View>
     </View>
   );
 }
 
 /**
- * Displays session timing statistics in a card format.
+ * Displays comprehensive session timing statistics.
  */
 export function SessionStats({ timingMetrics }: SessionStatsProps) {
-  const stats = [
-    {
-      icon: Clock,
-      label: 'Total Duration',
-      value: formatDuration(timingMetrics.total_duration_ms),
-      color: '#60a5fa',
-    },
-    {
-      icon: MessageCircle,
-      label: 'Your Avg Response',
-      value: formatResponseTime(timingMetrics.user_avg_response_ms),
-      color: '#F59E0B',
-    },
-    {
-      icon: Zap,
-      label: 'Coach Avg Response',
-      value: formatResponseTime(timingMetrics.assistant_avg_response_ms),
-      color: '#4ade80',
-    },
-    {
-      icon: MessageCircle,
-      label: 'Exchanges',
-      value: formatNumber(timingMetrics.exchange_count),
-      color: '#c084fc',
-    },
-    {
-      icon: FileText,
-      label: 'Total Words',
-      value: formatNumber(timingMetrics.word_count_total),
-      color: '#f472b6',
-    },
-  ];
+  // Calculate derived metrics
+  const durationMinutes = timingMetrics.total_duration_ms / 60000;
+  const wordsPerMinute = durationMinutes > 0
+    ? Math.round(timingMetrics.word_count_total / durationMinutes)
+    : 0;
+
+  const avgWordsPerExchange = timingMetrics.exchange_count > 0
+    ? Math.round(timingMetrics.word_count_total / (timingMetrics.exchange_count * 2))
+    : 0;
+
+  // Engagement score (based on response time and word count)
+  const engagementScore = Math.min(100, Math.round(
+    (avgWordsPerExchange / 50) * 50 + // Up to 50 points for word depth
+    (Math.min(timingMetrics.user_avg_response_ms, 60000) / 60000) * 50 // Up to 50 points for thoughtful responses
+  ));
 
   return (
-    <View
-      style={{
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-      }}
-    >
-      <Text
+    <View style={{ marginBottom: 20 }}>
+      {/* Main Duration Card */}
+      <View
         style={{
-          color: 'rgba(255,255,255,0.5)',
-          fontSize: 12,
-          fontWeight: '600',
-          letterSpacing: 1,
-          marginBottom: 8,
+          backgroundColor: 'rgba(96, 165, 250, 0.1)',
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(96, 165, 250, 0.2)',
+          alignItems: 'center',
         }}
       >
-        SESSION STATS
-      </Text>
-      <View>
-        {stats.map((stat, index) => (
-          <View
-            key={stat.label}
-            style={index === stats.length - 1 ? { borderBottomWidth: 0 } : {}}
-          >
-            <StatItem
-              icon={stat.icon}
-              label={stat.label}
-              value={stat.value}
-              color={stat.color}
-            />
-          </View>
-        ))}
+        <Clock size={24} color="#60a5fa" style={{ marginBottom: 8 }} />
+        <Text style={{ color: '#60a5fa', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 4 }}>
+          SESSION DURATION
+        </Text>
+        <Text style={{ color: '#fff', fontSize: 36, fontWeight: '800', fontFamily: 'monospace' }}>
+          {formatDuration(timingMetrics.total_duration_ms)}
+        </Text>
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 4 }}>
+          {timingMetrics.exchange_count} exchanges • {formatNumber(timingMetrics.word_count_total)} words
+        </Text>
+      </View>
+
+      {/* Response Time Comparison */}
+      <View
+        style={{
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.1)',
+        }}
+      >
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 4 }}>
+          AVERAGE RESPONSE TIME
+        </Text>
+        <ComparisonBar
+          userValue={timingMetrics.user_avg_response_ms}
+          coachValue={timingMetrics.assistant_avg_response_ms}
+          userColor="#F59E0B"
+          coachColor="#4ade80"
+        />
+      </View>
+
+      {/* Detailed Stats */}
+      <View
+        style={{
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          borderRadius: 16,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.1)',
+        }}
+      >
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 8 }}>
+          CONVERSATION INSIGHTS
+        </Text>
+
+        <StatRow
+          icon={MessageCircle}
+          label="Exchanges"
+          value={formatNumber(timingMetrics.exchange_count)}
+          subValue="back-and-forth"
+          color="#c084fc"
+        />
+
+        <StatRow
+          icon={FileText}
+          label="Total Words"
+          value={formatNumber(timingMetrics.word_count_total)}
+          subValue={`~${avgWordsPerExchange} per message`}
+          color="#f472b6"
+        />
+
+        <StatRow
+          icon={Zap}
+          label="Pace"
+          value={`${wordsPerMinute}`}
+          subValue="words per minute"
+          color="#2dd4bf"
+        />
+
+        <StatRow
+          icon={TrendingUp}
+          label="Engagement"
+          value={`${engagementScore}%`}
+          subValue="thoughtfulness score"
+          color="#fbbf24"
+          isLast
+        />
       </View>
     </View>
   );
