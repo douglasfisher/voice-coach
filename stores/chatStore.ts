@@ -119,6 +119,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ activeConversation: data, messages: [] });
       return data.id;
     } catch (error) {
+      console.error('createConversation error:', error);
       set({ error: (error as Error).message });
       return null;
     } finally {
