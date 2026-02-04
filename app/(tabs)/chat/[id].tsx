@@ -26,12 +26,14 @@ import {
 } from 'lucide-react-native';
 import { useConversation } from '../../../hooks/useConversation';
 import { useTTS } from '../../../hooks/useTTS';
+import { useVoiceInput } from '../../../hooks/useVoiceInput';
 import { useAuthStore } from '../../../stores/authStore';
 import {
   PersonaHeader,
   MessageBubble,
   TypingIndicator,
   ChatInput,
+  VoiceInputOverlay,
 } from '../../../components/chat';
 import { AnalysisCard } from '../../../components/chat/AnalysisCard';
 import { AnalysisResult } from '../../../types/analysis';
@@ -92,6 +94,19 @@ export default function ChatScreen() {
   } = useConversation(id);
 
   const { play, stop, isPlaying, generateAndPlay, isLoading: ttsLoading } = useTTS();
+
+  // Voice input
+  const voiceInputEnabled = preferences?.voice_input_enabled ?? false;
+  const {
+    state: voiceState,
+    transcript: voiceTranscript,
+    interimTranscript,
+    audioLevel,
+    handlers: voiceHandlers,
+    hasPermission: hasVoicePermission,
+  } = useVoiceInput(voiceInputEnabled);
+
+  const isRecording = voiceState === 'recording';
 
   const [latestAnalysis, setLatestAnalysis] = useState<{
     messageId: string;
@@ -398,13 +413,30 @@ export default function ChatScreen() {
           </View>
         )}
 
+        {/* Voice Input Overlay */}
+        <VoiceInputOverlay
+          isVisible={isRecording}
+          transcript={voiceTranscript}
+          interimTranscript={interimTranscript}
+          audioLevel={audioLevel}
+          accentColor={theme?.accent || '#F59E0B'}
+        />
+
         {/* Input */}
         {conversation.status === 'active' ? (
           <ChatInput
             onSend={handleSend}
-            disabled={isSending}
+            disabled={isSending || isRecording}
             placeholder={`Share your thoughts with ${persona.name}...`}
             accentColor={theme?.accent}
+            voiceInputEnabled={voiceInputEnabled}
+            voiceState={voiceState}
+            interimTranscript={interimTranscript}
+            audioLevel={audioLevel}
+            hasVoicePermission={hasVoicePermission}
+            onVoicePressIn={voiceHandlers.onPressIn}
+            onVoicePressOut={voiceHandlers.onPressOut}
+            onVoiceCancel={voiceHandlers.onCancel}
           />
         ) : (
           <View

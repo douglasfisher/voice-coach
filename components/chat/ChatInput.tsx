@@ -1,13 +1,24 @@
 import { View, TextInput, Pressable, Text } from 'react-native';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Send, Sparkles } from 'lucide-react-native';
+import { PushToTalkButton } from './PushToTalkButton';
+import { VoiceInputState } from '../../hooks/useVoiceInput';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
   placeholder?: string;
   accentColor?: string;
+  // Voice input props
+  voiceInputEnabled?: boolean;
+  voiceState?: VoiceInputState;
+  interimTranscript?: string;
+  audioLevel?: number;
+  hasVoicePermission?: boolean;
+  onVoicePressIn?: () => void;
+  onVoicePressOut?: () => Promise<string>;
+  onVoiceCancel?: () => void;
 }
 
 export function ChatInput({
@@ -15,14 +26,44 @@ export function ChatInput({
   disabled = false,
   placeholder = 'Share your thoughts...',
   accentColor = '#F59E0B',
+  voiceInputEnabled = false,
+  voiceState = 'idle',
+  interimTranscript = '',
+  audioLevel = 0,
+  hasVoicePermission = false,
+  onVoicePressIn,
+  onVoicePressOut,
+  onVoiceCancel,
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const inputRef = useRef<TextInput>(null);
+  const isRecording = voiceState === 'recording';
+  const isProcessing = voiceState === 'processing';
 
   const handleSend = () => {
     if (!message.trim() || disabled) return;
     onSend(message.trim());
     setMessage('');
+  };
+
+  const handleVoiceRecordingStart = () => {
+    onVoicePressIn?.();
+  };
+
+  const handleVoiceRecordingEnd = async () => {
+    if (onVoicePressOut) {
+      const transcript = await onVoicePressOut();
+      if (transcript.trim()) {
+        // Populate the input field with the transcript
+        setMessage((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        // Focus the input so user can edit
+        inputRef.current?.focus();
+      }
+    }
+  };
+
+  const handleVoiceCancel = () => {
+    onVoiceCancel?.();
   };
 
   const canSend = message.trim().length > 0 && !disabled;
@@ -45,6 +86,23 @@ export function ChatInput({
           alignItems: 'flex-end',
         }}
       >
+        {/* Mic button */}
+        {voiceInputEnabled && (
+          <View style={{ marginRight: 12, marginBottom: 2 }}>
+            <PushToTalkButton
+              onRecordingStart={handleVoiceRecordingStart}
+              onRecordingEnd={handleVoiceRecordingEnd}
+              onCancel={handleVoiceCancel}
+              isRecording={isRecording}
+              isProcessing={isProcessing}
+              disabled={disabled}
+              accentColor={accentColor}
+              audioLevel={audioLevel}
+              hasPermission={hasVoicePermission}
+            />
+          </View>
+        )}
+
         {/* Text input with gradient border */}
         <View
           style={{

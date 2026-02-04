@@ -1,13 +1,14 @@
 import { View, Text, ScrollView, Switch, Pressable, Alert, Image } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   User,
   Settings,
   Volume2,
+  Mic,
   Bell,
   Zap,
   Info,
@@ -20,6 +21,7 @@ import {
   Flame,
   LayoutDashboard,
 } from 'lucide-react-native';
+import { requestSTTPermission, getSTTPermissionStatus, checkSTTAvailability } from '../../lib/stt';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function ProfileScreen() {
@@ -30,9 +32,18 @@ export default function ProfileScreen() {
     preferences?.preferred_challenge_intensity ?? 5
   );
   const [ttsEnabled, setTtsEnabled] = useState(preferences?.tts_enabled ?? true);
+  const [voiceInputEnabled, setVoiceInputEnabled] = useState(
+    preferences?.voice_input_enabled ?? false
+  );
+  const [voiceInputAvailable, setVoiceInputAvailable] = useState(false);
   const [notifications, setNotifications] = useState(
     preferences?.notification_daily_challenge ?? true
   );
+
+  // Check if voice input is available on mount
+  useEffect(() => {
+    checkSTTAvailability().then(setVoiceInputAvailable);
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -59,6 +70,26 @@ export default function ProfileScreen() {
   const toggleTTS = async (value: boolean) => {
     setTtsEnabled(value);
     await updatePreferences({ tts_enabled: value });
+  };
+
+  const toggleVoiceInput = async (value: boolean) => {
+    if (value) {
+      // Request permission when enabling
+      const hasPermission = await getSTTPermissionStatus();
+      if (!hasPermission) {
+        const granted = await requestSTTPermission();
+        if (!granted) {
+          Alert.alert(
+            'Permission Required',
+            'Microphone access is required for voice input. Please enable it in your device settings.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+    }
+    setVoiceInputEnabled(value);
+    await updatePreferences({ voice_input_enabled: value });
   };
 
   const toggleNotifications = async (value: boolean) => {
@@ -286,6 +317,18 @@ export default function ProfileScreen() {
           value={ttsEnabled}
           onValueChange={toggleTTS}
         />
+
+        {/* Voice Input */}
+        {voiceInputAvailable && (
+          <SettingToggle
+            icon={Mic}
+            iconColor="#f472b6"
+            title="Voice Input"
+            description="Use push-to-talk for voice messages"
+            value={voiceInputEnabled}
+            onValueChange={toggleVoiceInput}
+          />
+        )}
 
         {/* Notifications */}
         <SettingToggle

@@ -4,3 +4,7 @@ export { TypingIndicator } from './TypingIndicator';
 export { AnalysisCard } from './AnalysisCard';
 export { VoiceButton, VoiceControls } from './VoiceButton';
 export { ChatInput } from './ChatInput';
+export { PushToTalkButton } from './PushToTalkButton';
+export { AudioWaveform } from './AudioWaveform';
+export { LiveTranscription } from './LiveTranscription';
+export { VoiceInputOverlay } from './VoiceInputOverlay';

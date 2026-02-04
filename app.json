@@ -16,7 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dialectica.app",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Dialectica uses speech recognition for voice input.",
+        "NSMicrophoneUsageDescription": "Dialectica needs microphone access for voice input."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +29,8 @@
       },
       "package": "com.dialectica.app",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -34,7 +39,14 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Dialectica to use your microphone for voice input.",
+          "speechRecognitionPermission": "Allow Dialectica to use speech recognition."
+        }
+      ]
     ],
     "extra": {
       "router": {
