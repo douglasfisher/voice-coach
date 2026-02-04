@@ -131,20 +131,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       });
 
       if (aiError) {
-        // Extract error message for logging
-        let errorMessage = aiError.message || 'Unknown error';
-        if ('context' in aiError && aiError.context) {
-          try {
-            const ctx = typeof aiError.context === 'string'
-              ? JSON.parse(aiError.context)
-              : aiError.context;
-            if (ctx?.error) errorMessage = ctx.error;
-          } catch {
-            // Use default
-          }
-        }
-        console.error('Failed to generate AI greeting:', errorMessage);
-        throw new Error(`AI greeting failed: ${errorMessage}`);
+        console.error('Failed to generate AI greeting:', aiError);
+        // Don't throw - conversation was created, greeting just failed
+        // User can still use the chat
       }
 
       // Fetch the greeting message that was saved by the edge function
@@ -196,25 +185,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       });
 
-      if (error) {
-        // Extract error message from Supabase Functions error
-        let errorMessage = 'Failed to send message';
-        if (error.message) {
-          errorMessage = error.message;
-        }
-        // Check if there's a context with more details
-        if ('context' in error && error.context) {
-          try {
-            const ctx = typeof error.context === 'string'
-              ? JSON.parse(error.context)
-              : error.context;
-            if (ctx?.error) errorMessage = ctx.error;
-          } catch {
-            // Use default message
-          }
-        }
-        throw new Error(errorMessage);
-      }
+      if (error) throw error;
 
       // Refresh messages from DB to get saved versions with IDs
       await get().fetchMessages(activeConversation.id);

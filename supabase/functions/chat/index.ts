@@ -53,17 +53,21 @@ interface DbPersona {
   } | null;
 }
 
-// Default fallback model if persona's model fails
-const SYSTEM_FALLBACK_MODEL = 'llama-3.1-8b-instant';
+// Default model - this is known to work
+const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const FALLBACK_MODEL = 'llama-3.1-8b-instant';
 
-// Default AI config when persona has none
-const DEFAULT_AI_CONFIG = {
-  model: SYSTEM_FALLBACK_MODEL,
-  fallback_model: SYSTEM_FALLBACK_MODEL,
-  temperature: 0.7,
-  top_p: 0.9,
-  max_completion_tokens: 1024,
+// Cost per 1 million tokens in USD cents
+const MODEL_COSTS: Record<string, { input: number; output: number }> = {
+  'llama-3.3-70b-versatile': { input: 59, output: 79 },
+  'llama-3.1-8b-instant': { input: 5, output: 8 },
+  'mixtral-8x7b-32768': { input: 24, output: 24 },
+  'gemma2-9b-it': { input: 20, output: 20 },
 };
+
+function getCosts(model: string) {
+  return MODEL_COSTS[model] || MODEL_COSTS[DEFAULT_MODEL];
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -100,66 +104,50 @@ serve(async (req) => {
     const persona = dbPersona as DbPersona;
     const systemPrompt = persona.system_prompt;
 
-    // Use persona's ai_config or fall back to defaults
-    const aiConfig = persona.ai_config || DEFAULT_AI_CONFIG;
+    // Get model from persona config, with fallbacks
+    const primaryModel = persona.ai_config?.model || DEFAULT_MODEL;
+    const fallbackModel = persona.ai_config?.fallback_model || FALLBACK_MODEL;
 
-    console.log(`Persona ${persona.name} ai_config:`, JSON.stringify(aiConfig));
-
-    // Build list of models to try: primary -> fallback -> system fallback
-    const modelsToTry: string[] = [];
-    if (aiConfig.model) {
-      modelsToTry.push(aiConfig.model);
-    }
-    if (aiConfig.fallback_model && aiConfig.fallback_model !== aiConfig.model) {
-      modelsToTry.push(aiConfig.fallback_model);
-    }
-    // Always add system fallback as last resort
-    if (!modelsToTry.includes(SYSTEM_FALLBACK_MODEL)) {
-      modelsToTry.push(SYSTEM_FALLBACK_MODEL);
-    }
-
-    // Remove duplicates
-    const uniqueModels = [...new Set(modelsToTry)];
-    console.log(`Models to try: ${uniqueModels.join(', ')}`);
-
-    // Base settings from database ai_config
+    // Build settings from database ai_config
     const baseSettings = {
-      temperature: aiConfig.temperature ?? 0.7,
-      top_p: aiConfig.top_p ?? 0.9,
-      max_completion_tokens: aiConfig.max_completion_tokens ?? 1024,
-      stop: aiConfig.stop,
+      temperature: persona.ai_config?.temperature ?? 0.7,
+      top_p: persona.ai_config?.top_p ?? 0.9,
+      max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
+      stop: persona.ai_config?.stop,
     };
 
-    // Cost config from database (cents per million tokens)
-    const costPerMillionInput = aiConfig.cost_per_million_input ?? 5; // Default to llama-3.1-8b costs
-    const costPerMillionOutput = aiConfig.cost_per_million_output ?? 8;
-
-    // Helper to try models with fallback
-    async function tryWithFallback<T>(
-      operation: (model: string) => Promise<T>
-    ): Promise<{ result: T; modelUsed: string }> {
+    // Helper function to try a model with fallback
+    async function tryCompletion(
+      systemPrompt: string,
+      history: GroqMessage[],
+      userPrompt: string,
+      extraSettings?: Partial<GroqCompletionSettings>
+    ): Promise<{ content: string; usage: any; modelUsed: string }> {
+      const models = [primaryModel, fallbackModel];
       let lastError: Error | null = null;
 
-      for (const model of uniqueModels) {
+      for (const model of models) {
         try {
-          console.log(`Trying model: ${model}`);
-          const result = await operation(model);
-          return { result, modelUsed: model };
+          const settings: Partial<GroqCompletionSettings> = {
+            model: model as GroqCompletionSettings['model'],
+            ...baseSettings,
+            ...extraSettings,
+          };
+          const result = await groq.completeWithHistoryAndUsage(
+            systemPrompt,
+            history,
+            userPrompt,
+            settings
+          );
+          return { ...result, modelUsed: model };
         } catch (error) {
-          console.warn(`Model ${model} failed:`, error);
+          console.error(`Model ${model} failed:`, error);
           lastError = error instanceof Error ? error : new Error(String(error));
-          // Continue to next model
         }
       }
 
       throw lastError || new Error('All models failed');
     }
-
-    // Settings will be built per-attempt with the current model
-    const buildSettings = (model: string): Partial<GroqCompletionSettings> => ({
-      model: model as GroqCompletionSettings['model'],
-      ...baseSettings,
-    });
 
     // Handle greeting generation
     if (generateGreeting) {
@@ -187,16 +175,12 @@ serve(async (req) => {
 
       // Build intro style guidance
       let introStyle: string;
-      if (isHighFormality) {
-        // Formal: "I'm Dr. Maya Chen..." or "I'm Professor Marcus..."
-        const formalName = title ? `${title} ${persona.name}` : persona.name;
-        introStyle = `Introduce yourself formally as "${formalName}". Use a professional, measured tone.`;
+      if (isHighFormality && title) {
+        introStyle = `Introduce yourself formally as "${title} ${persona.name}". Use a professional, measured tone.`;
       } else {
-        // Casual: "Hey! I'm Maya..." or "Hi there, I'm Marcus..."
-        introStyle = `Introduce yourself casually using just your first name "${persona.name}". Be warm and friendly, like greeting a new friend.`;
+        introStyle = `Introduce yourself casually using just your first name "${persona.name}". Be warm and friendly.`;
       }
 
-      // Add user name if available
       const userGreeting = userName ? ` Address the user by name ("${userName}").` : '';
 
       // Generate introduction message
@@ -206,15 +190,7 @@ ${introStyle}${userGreeting}
 
 Keep it short and natural. Do NOT ask any questions or propose topics yet.`;
 
-      const { result: introResult, modelUsed } = await tryWithFallback(async (model) => {
-        return await groq.completeWithHistoryAndUsage(
-          systemPrompt,
-          [],
-          introPrompt,
-          { ...buildSettings(model), temperature: 0.9 }
-        );
-      });
-      const { content: intro, usage: introUsage } = introResult;
+      const introResult = await tryCompletion(systemPrompt, [], introPrompt, { temperature: 0.9 });
 
       // Generate the opening question as a separate message
       const questionPrompt = `You just introduced yourself. Now propose a specific thought-provoking topic and ask an engaging opening question related to your expertise and challenge style.
@@ -225,60 +201,47 @@ Write ONLY the topic introduction and question (2-3 sentences max). Do NOT re-in
 
 Do NOT ask the user what they want to talk about - YOU choose the topic and question.`;
 
-      const { result: questionResult } = await tryWithFallback(async (model) => {
-        return await groq.completeWithHistoryAndUsage(
-          systemPrompt,
-          [{ role: 'assistant', content: intro }],
-          questionPrompt,
-          { ...buildSettings(model), temperature: 0.9 }
-        );
-      });
-      const { content: question, usage: questionUsage } = questionResult;
+      const questionResult = await tryCompletion(
+        systemPrompt,
+        [{ role: 'assistant', content: introResult.content }],
+        questionPrompt,
+        { temperature: 0.9 }
+      );
 
       // Save both messages as separate bubbles
-      const { error: saveIntroError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          role: 'assistant',
-          content: intro,
-          sequence: 1,
-        });
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: introResult.content,
+        sequence: 1,
+      });
 
-      if (saveIntroError) {
-        console.error('Failed to save intro:', saveIntroError);
-      }
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: questionResult.content,
+        sequence: 2,
+      });
 
-      const { error: saveQuestionError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          role: 'assistant',
-          content: question,
-          sequence: 2,
-        });
-
-      if (saveQuestionError) {
-        console.error('Failed to save question:', saveQuestionError);
-      }
-
-      // Log combined usage
+      // Log usage
       const totalUsage = {
-        prompt_tokens: (introUsage?.prompt_tokens || 0) + (questionUsage?.prompt_tokens || 0),
-        completion_tokens: (introUsage?.completion_tokens || 0) + (questionUsage?.completion_tokens || 0),
-        total_tokens: (introUsage?.total_tokens || 0) + (questionUsage?.total_tokens || 0),
+        prompt_tokens: (introResult.usage?.prompt_tokens || 0) + (questionResult.usage?.prompt_tokens || 0),
+        completion_tokens: (introResult.usage?.completion_tokens || 0) + (questionResult.usage?.completion_tokens || 0),
+        total_tokens: (introResult.usage?.total_tokens || 0) + (questionResult.usage?.total_tokens || 0),
       };
 
       if (totalUsage.total_tokens > 0) {
-        const inputCost = (totalUsage.prompt_tokens / 1_000_000) * costPerMillionInput;
-        const outputCost = (totalUsage.completion_tokens / 1_000_000) * costPerMillionOutput;
-        const estimatedCost = Math.ceil((inputCost + outputCost) * 100);
+        const costs = getCosts(introResult.modelUsed);
+        const estimatedCost = Math.ceil(
+          ((totalUsage.prompt_tokens / 1_000_000) * costs.input +
+            (totalUsage.completion_tokens / 1_000_000) * costs.output) * 100
+        );
 
         await supabase.from('ai_usage').insert({
           user_id: conversation?.user_id || null,
           conversation_id: conversationId,
           persona_id: personaId,
-          model: modelUsed,
+          model: introResult.modelUsed,
           prompt_tokens: totalUsage.prompt_tokens,
           completion_tokens: totalUsage.completion_tokens,
           total_tokens: totalUsage.total_tokens,
@@ -286,14 +249,14 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
         });
       }
 
-      // Return both messages
       return jsonResponse({
-        response: intro,
-        intro,
-        question,
+        response: introResult.content,
+        intro: introResult.content,
+        question: questionResult.content,
       });
     }
 
+    // Regular message handling
     // Get conversation history
     const { data: messages, error: messagesError } = await supabase
       .from('messages')
@@ -305,13 +268,11 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
       return errorResponse('Failed to fetch conversation history', 500);
     }
 
-    // Build conversation context
     const conversationMessages: GroqMessage[] = (messages || []).map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     }));
 
-    // Get next sequence number
     const nextSequence = (messages?.length || 0) + 1;
 
     // Save user message
@@ -329,126 +290,85 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
       return errorResponse('Failed to save user message', 500);
     }
 
-    // Generate AI response with usage tracking and fallback
-    // userMessage is guaranteed to be defined here (validated above for non-greeting requests)
-    const { result: chatResult, modelUsed: chatModelUsed } = await tryWithFallback(async (model) => {
-      return await groq.completeWithHistoryAndUsage(
-        systemPrompt,
-        conversationMessages,
-        userMessage!,
-        buildSettings(model)
-      );
-    });
-    const { content: assistantMessage, usage } = chatResult;
+    // Generate AI response
+    const chatResult = await tryCompletion(systemPrompt, conversationMessages, userMessage!);
 
     // Save assistant message
-    const { error: saveAssistantError } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: assistantMessage,
-        sequence: nextSequence + 1,
-      });
+    await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      role: 'assistant',
+      content: chatResult.content,
+      sequence: nextSequence + 1,
+    });
 
-    if (saveAssistantError) {
-      console.error('Failed to save assistant message:', saveAssistantError);
-      // Continue - we have the response, just couldn't save it
-    }
-
-    // Get user_id from conversation for usage tracking
+    // Get user_id for usage tracking
     const { data: conversation } = await supabase
       .from('conversations')
       .select('user_id')
       .eq('id', conversationId)
       .single();
 
-    // Log AI usage for cost tracking
-    if (usage) {
-      const inputCost = (usage.prompt_tokens / 1_000_000) * costPerMillionInput;
-      const outputCost = (usage.completion_tokens / 1_000_000) * costPerMillionOutput;
-      const estimatedCost = Math.ceil((inputCost + outputCost) * 100);
+    // Log AI usage
+    if (chatResult.usage) {
+      const costs = getCosts(chatResult.modelUsed);
+      const estimatedCost = Math.ceil(
+        ((chatResult.usage.prompt_tokens / 1_000_000) * costs.input +
+          (chatResult.usage.completion_tokens / 1_000_000) * costs.output) * 100
+      );
 
       await supabase.from('ai_usage').insert({
         user_id: conversation?.user_id || null,
         conversation_id: conversationId,
         persona_id: personaId,
-        model: chatModelUsed,
-        prompt_tokens: usage.prompt_tokens,
-        completion_tokens: usage.completion_tokens,
-        total_tokens: usage.total_tokens,
+        model: chatResult.modelUsed,
+        prompt_tokens: chatResult.usage.prompt_tokens,
+        completion_tokens: chatResult.usage.completion_tokens,
+        total_tokens: chatResult.usage.total_tokens,
         estimated_cost_cents: estimatedCost,
-      }).then(({ error }) => {
-        if (error) console.error('Failed to log AI usage:', error);
       });
     }
 
-    // Trigger analysis asynchronously (don't wait for it)
+    // Trigger analysis asynchronously
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    // Fire and forget analysis (only if we have the required env vars)
     if (supabaseUrl && serviceKey) {
       fetch(`${supabaseUrl}/functions/v1/analyze`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${serviceKey}`,
-      },
-      body: JSON.stringify({
-        message: userMessage,
-        context: conversationMessages.slice(-5),
-        conversationId,
-        messageSequence: nextSequence,
-      }),
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          context: conversationMessages.slice(-5),
+          conversationId,
+          messageSequence: nextSequence,
+        }),
       }).catch((err) => console.error('Analysis trigger failed:', err));
     }
 
     return jsonResponse({
-      response: assistantMessage,
-      analysis: null, // Analysis happens async
+      response: chatResult.content,
+      analysis: null,
     });
 
   } catch (error) {
     console.error('Chat error:', error);
 
-    // Extract detailed error message and determine status code
-    let errorMessage = 'Unknown error';
-    let statusCode = 500;
-
+    let errorMessage = 'Chat service error';
     if (error instanceof Error) {
       errorMessage = error.message;
-
-      // Check for Groq API errors which include responseBody
       if ('responseBody' in error) {
         try {
           const body = JSON.parse((error as any).responseBody);
           errorMessage = body.error?.message || error.message;
-
-          // Map Groq error types to HTTP status codes
-          if (body.error?.type === 'invalid_request_error') {
-            statusCode = 400;
-          } else if (body.error?.type === 'authentication_error') {
-            statusCode = 401;
-          } else if (body.error?.code === 'rate_limit_exceeded') {
-            statusCode = 429;
-          }
         } catch {
-          // Use original message if can't parse
+          // Use original
         }
-      }
-
-      // Check for specific error messages
-      if (errorMessage.includes('Model must be specified')) {
-        statusCode = 500;
-        errorMessage = 'AI model configuration error - please contact support';
-      } else if (errorMessage.includes('All models failed')) {
-        statusCode = 503;
-        errorMessage = 'AI service temporarily unavailable - please try again';
       }
     }
 
-    console.error(`Returning error ${statusCode}: ${errorMessage}`);
-    return errorResponse(errorMessage, statusCode);
+    return errorResponse(errorMessage, 500);
   }
 });
