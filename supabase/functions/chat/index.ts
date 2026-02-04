@@ -1,11 +1,34 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import Anthropic from 'npm:@anthropic-ai/sdk';
+/**
+ * Chat Edge Function
+ *
+ * Handles conversational AI interactions with personas.
+ * Uses the unified AI service internally.
+ *
+ * Endpoint: POST /functions/v1/chat
+ *
+ * Request body:
+ * {
+ *   "conversationId": "uuid",
+ *   "userMessage": "string",
+ *   "personaId": "uuid"
+ * }
+ */
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import {
+  createGroqClient,
+  createSupabaseClient,
+  getPersonaConfig,
+  getSystemPrompt,
+  createPersonaConfig,
+  corsPreflightResponse,
+  jsonResponse,
+  errorResponse,
+  parseJsonBody,
+  requireFields,
+  GroqMessage,
+  ChallengeStyle,
+} from '../_shared/index.ts';
 
 interface ChatRequest {
   conversationId: string;
@@ -16,30 +39,48 @@ interface ChatRequest {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return corsPreflightResponse();
   }
 
   try {
-    const anthropic = new Anthropic({
-      apiKey: Deno.env.get('ANTHROPIC_API_KEY'),
-    });
+    // Initialize clients
+    const groq = createGroqClient();
+    const supabase = createSupabaseClient();
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Parse and validate request
+    const { conversationId, userMessage, personaId } = await parseJsonBody<ChatRequest>(req);
+    requireFields({ conversationId, userMessage, personaId }, ['conversationId', 'userMessage', 'personaId']);
 
-    const { conversationId, userMessage, personaId }: ChatRequest = await req.json();
+    // Get persona configuration
+    let systemPrompt: string;
+    let settings = {};
 
-    // Get persona
-    const { data: persona, error: personaError } = await supabase
-      .from('personas')
-      .select('*')
-      .eq('id', personaId)
-      .single();
+    // First try local config
+    let config = getPersonaConfig(personaId);
 
-    if (personaError || !persona) {
-      throw new Error('Persona not found');
+    // If not found locally, get from database
+    if (!config) {
+      const { data: dbPersona, error: personaError } = await supabase
+        .from('personas')
+        .select('id, name, challenge_style, system_prompt')
+        .eq('id', personaId)
+        .single();
+
+      if (personaError || !dbPersona) {
+        return errorResponse('Persona not found', 404);
+      }
+
+      // Create config from database persona
+      config = createPersonaConfig(
+        dbPersona.id,
+        dbPersona.name,
+        dbPersona.challenge_style as ChallengeStyle,
+        dbPersona.system_prompt || undefined
+      );
     }
+
+    systemPrompt = config.systemPrompt;
+    settings = config.settings;
 
     // Get conversation history
     const { data: messages, error: messagesError } = await supabase
@@ -49,22 +90,16 @@ serve(async (req) => {
       .order('sequence', { ascending: true });
 
     if (messagesError) {
-      throw new Error('Failed to fetch conversation history');
+      return errorResponse('Failed to fetch conversation history', 500);
     }
 
-    // Build messages array for Claude
-    const conversationMessages = (messages || []).map((m) => ({
+    // Build conversation context
+    const conversationMessages: GroqMessage[] = (messages || []).map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     }));
 
-    // Add the new user message
-    conversationMessages.push({
-      role: 'user',
-      content: userMessage,
-    });
-
-    // Get the next sequence number
+    // Get next sequence number
     const nextSequence = (messages?.length || 0) + 1;
 
     // Save user message
@@ -78,20 +113,17 @@ serve(async (req) => {
       });
 
     if (saveUserError) {
-      throw new Error('Failed to save user message');
+      console.error('Failed to save user message:', saveUserError);
+      return errorResponse('Failed to save user message', 500);
     }
 
-    // Call Claude API
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: persona.system_prompt,
-      messages: conversationMessages,
-    });
-
-    const assistantMessage = response.content[0].type === 'text'
-      ? response.content[0].text
-      : '';
+    // Generate AI response
+    const assistantMessage = await groq.completeWithHistory(
+      systemPrompt,
+      conversationMessages,
+      userMessage,
+      settings
+    );
 
     // Save assistant message
     const { error: saveAssistantError } = await supabase
@@ -104,58 +136,38 @@ serve(async (req) => {
       });
 
     if (saveAssistantError) {
-      throw new Error('Failed to save assistant message');
+      console.error('Failed to save assistant message:', saveAssistantError);
+      // Continue - we have the response, just couldn't save it
     }
 
-    // Analyze user message for biases/fallacies
-    let analysis = null;
-    try {
-      const analysisResponse = await fetch(
-        `${supabaseUrl}/functions/v1/analyze`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-          },
-          body: JSON.stringify({
-            message: userMessage,
-            context: conversationMessages.slice(-5),
-          }),
-        }
-      );
+    // Trigger analysis asynchronously (don't wait for it)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-      if (analysisResponse.ok) {
-        analysis = await analysisResponse.json();
-
-        // Update user message with analysis
-        await supabase
-          .from('messages')
-          .update({ analysis })
-          .eq('conversation_id', conversationId)
-          .eq('sequence', nextSequence);
-      }
-    } catch (analysisError) {
-      console.error('Analysis failed:', analysisError);
-    }
-
-    return new Response(
-      JSON.stringify({
-        response: assistantMessage,
-        analysis,
+    // Fire and forget analysis
+    fetch(`${supabaseUrl}/functions/v1/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        message: userMessage,
+        context: conversationMessages.slice(-5),
+        conversationId,
+        messageSequence: nextSequence,
       }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    }).catch((err) => console.error('Analysis trigger failed:', err));
+
+    return jsonResponse({
+      response: assistantMessage,
+      analysis: null, // Analysis happens async
+    });
+
   } catch (error) {
     console.error('Chat error:', error);
-    return new Response(
-      JSON.stringify({ error: (error as Error).message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+    return errorResponse(
+      error instanceof Error ? error.message : 'Unknown error'
     );
   }
 });
