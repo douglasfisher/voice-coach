@@ -56,6 +56,14 @@ interface DbPersona {
 // Default fallback model if persona's model fails
 const SYSTEM_FALLBACK_MODEL = 'llama-3.1-8b-instant';
 
+// Default AI config when persona has none
+const DEFAULT_AI_CONFIG = {
+  model: SYSTEM_FALLBACK_MODEL,
+  fallback_model: SYSTEM_FALLBACK_MODEL,
+  temperature: 0.7,
+  top_p: 0.9,
+  max_completion_tokens: 1024,
+};
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -92,30 +100,39 @@ serve(async (req) => {
     const persona = dbPersona as DbPersona;
     const systemPrompt = persona.system_prompt;
 
+    // Use persona's ai_config or fall back to defaults
+    const aiConfig = persona.ai_config || DEFAULT_AI_CONFIG;
+
+    console.log(`Persona ${persona.name} ai_config:`, JSON.stringify(aiConfig));
+
     // Build list of models to try: primary -> fallback -> system fallback
     const modelsToTry: string[] = [];
-    if (persona.ai_config?.model) {
-      modelsToTry.push(persona.ai_config.model);
+    if (aiConfig.model) {
+      modelsToTry.push(aiConfig.model);
     }
-    if (persona.ai_config?.fallback_model) {
-      modelsToTry.push(persona.ai_config.fallback_model);
+    if (aiConfig.fallback_model && aiConfig.fallback_model !== aiConfig.model) {
+      modelsToTry.push(aiConfig.fallback_model);
     }
-    modelsToTry.push(SYSTEM_FALLBACK_MODEL);
+    // Always add system fallback as last resort
+    if (!modelsToTry.includes(SYSTEM_FALLBACK_MODEL)) {
+      modelsToTry.push(SYSTEM_FALLBACK_MODEL);
+    }
 
     // Remove duplicates
     const uniqueModels = [...new Set(modelsToTry)];
+    console.log(`Models to try: ${uniqueModels.join(', ')}`);
 
     // Base settings from database ai_config
     const baseSettings = {
-      temperature: persona.ai_config?.temperature ?? 0.7,
-      top_p: persona.ai_config?.top_p ?? 0.9,
-      max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
-      stop: persona.ai_config?.stop,
+      temperature: aiConfig.temperature ?? 0.7,
+      top_p: aiConfig.top_p ?? 0.9,
+      max_completion_tokens: aiConfig.max_completion_tokens ?? 1024,
+      stop: aiConfig.stop,
     };
 
     // Cost config from database (cents per million tokens)
-    const costPerMillionInput = persona.ai_config?.cost_per_million_input ?? 0;
-    const costPerMillionOutput = persona.ai_config?.cost_per_million_output ?? 0;
+    const costPerMillionInput = aiConfig.cost_per_million_input ?? 5; // Default to llama-3.1-8b costs
+    const costPerMillionOutput = aiConfig.cost_per_million_output ?? 8;
 
     // Helper to try models with fallback
     async function tryWithFallback<T>(
@@ -313,11 +330,12 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
     }
 
     // Generate AI response with usage tracking and fallback
+    // userMessage is guaranteed to be defined here (validated above for non-greeting requests)
     const { result: chatResult, modelUsed: chatModelUsed } = await tryWithFallback(async (model) => {
       return await groq.completeWithHistoryAndUsage(
         systemPrompt,
         conversationMessages,
-        userMessage,
+        userMessage!,
         buildSettings(model)
       );
     });
@@ -366,11 +384,12 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
     }
 
     // Trigger analysis asynchronously (don't wait for it)
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    // Fire and forget analysis
-    fetch(`${supabaseUrl}/functions/v1/analyze`, {
+    // Fire and forget analysis (only if we have the required env vars)
+    if (supabaseUrl && serviceKey) {
+      fetch(`${supabaseUrl}/functions/v1/analyze`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -382,7 +401,8 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
         conversationId,
         messageSequence: nextSequence,
       }),
-    }).catch((err) => console.error('Analysis trigger failed:', err));
+      }).catch((err) => console.error('Analysis trigger failed:', err));
+    }
 
     return jsonResponse({
       response: assistantMessage,
@@ -392,21 +412,43 @@ Do NOT ask the user what they want to talk about - YOU choose the topic and ques
   } catch (error) {
     console.error('Chat error:', error);
 
-    // Extract detailed error message
+    // Extract detailed error message and determine status code
     let errorMessage = 'Unknown error';
+    let statusCode = 500;
+
     if (error instanceof Error) {
       errorMessage = error.message;
+
       // Check for Groq API errors which include responseBody
       if ('responseBody' in error) {
         try {
           const body = JSON.parse((error as any).responseBody);
           errorMessage = body.error?.message || error.message;
+
+          // Map Groq error types to HTTP status codes
+          if (body.error?.type === 'invalid_request_error') {
+            statusCode = 400;
+          } else if (body.error?.type === 'authentication_error') {
+            statusCode = 401;
+          } else if (body.error?.code === 'rate_limit_exceeded') {
+            statusCode = 429;
+          }
         } catch {
           // Use original message if can't parse
         }
       }
+
+      // Check for specific error messages
+      if (errorMessage.includes('Model must be specified')) {
+        statusCode = 500;
+        errorMessage = 'AI model configuration error - please contact support';
+      } else if (errorMessage.includes('All models failed')) {
+        statusCode = 503;
+        errorMessage = 'AI service temporarily unavailable - please try again';
+      }
     }
 
-    return errorResponse(errorMessage);
+    console.error(`Returning error ${statusCode}: ${errorMessage}`);
+    return errorResponse(errorMessage, statusCode);
   }
 });
