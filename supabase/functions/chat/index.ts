@@ -90,7 +90,9 @@ serve(async (req) => {
         model = modelSetting.value;
       }
     }
-    const systemPrompt = persona.system_prompt;
+    // Enhance system prompt with conversational brevity instruction
+    const briefnessInstruction = `\n\nIMPORTANT STYLE GUIDE: Keep responses brief (1-2 sentences). Ask ONE thought-provoking follow-up question. Never lecture or explain at length. Be conversational and direct.`;
+    const systemPrompt = persona.system_prompt + briefnessInstruction;
 
     console.log('Chat request:', { conversationId, personaId, model, generateGreeting, previewGreeting, regenerateQuestion });
     console.log('Model from DB:', modelSetting?.value);
@@ -110,7 +112,7 @@ serve(async (req) => {
           model,
           messages,
           temperature: persona.ai_config?.temperature ?? 0.7,
-          max_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
+          max_tokens: persona.ai_config?.max_completion_tokens ?? 150,
         }),
       });
 
@@ -251,23 +253,8 @@ serve(async (req) => {
       });
     }
 
-    // Trigger analysis async
-    fetch(`${supabaseUrl}/functions/v1/analyze`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-      },
-      body: JSON.stringify({
-        message: userMessage,
-        context: history.slice(-5),
-        conversationId,
-        messageSequence: nextSequence,
-      }),
-    }).catch((err) => console.error('Analysis trigger failed:', err));
-
     return new Response(
-      JSON.stringify({ response: assistantMessage, analysis: null }),
+      JSON.stringify({ response: assistantMessage }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

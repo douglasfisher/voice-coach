@@ -11,6 +11,7 @@ export default function ChatLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="[id]" />
+      <Stack.Screen name="report/[id]" />
     </Stack>
   );
 }

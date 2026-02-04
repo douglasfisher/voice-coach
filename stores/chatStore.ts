@@ -1,18 +1,34 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
-import { AnalysisResult } from '../types/analysis';
 
-interface ChatMessage extends Omit<Message, 'analysis'> {
-  analysis: AnalysisResult | null;
+interface SessionReport {
+  tldr: string;
+  strengths: string[];
+  weaknesses: string[];
+  detailed_analysis: string;
+  overall_score: number;
+  generated_at: string;
 }
+
+interface CompletedConversation {
+  id: string;
+  persona_id: string;
+  overall_score: number | null;
+  ended_at: string | null;
+  created_at: string;
+}
+
+interface ChatMessage extends Omit<Message, 'analysis'> {}
 
 interface ChatState {
   conversations: Conversation[];
   activeConversation: Conversation | null;
   messages: ChatMessage[];
+  completedConversations: CompletedConversation[];
   isLoading: boolean;
   isSending: boolean;
+  isGeneratingReport: boolean;
   error: string | null;
 
   // Preview state (question only, no intro)
@@ -23,16 +39,18 @@ interface ChatState {
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
+  fetchCompletedConversations: (userId: string) => Promise<void>;
   createConversation: (
     userId: string,
     personaId: string,
     topic?: string
   ) => Promise<string | null>;
-  sendMessage: (content: string) => Promise<{ response: string; analysis: AnalysisResult | null } | null>;
+  sendMessage: (content: string) => Promise<{ response: string } | null>;
   startChat: () => Promise<boolean>;
   startChatWithPreview: () => Promise<boolean>;
   generatePreview: () => Promise<void>;
   regenerateQuestion: () => Promise<boolean>;
+  generateReport: (conversationId: string) => Promise<SessionReport | null>;
   clearPreview: () => void;
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
@@ -45,8 +63,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   activeConversation: null,
   messages: [],
+  completedConversations: [],
   isLoading: false,
   isSending: false,
+  isGeneratingReport: false,
   error: null,
 
   // Preview state (question only, no intro)
@@ -110,12 +130,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
       content: msg.content as string,
       audio_url: msg.audio_url as string | null,
       audio_duration_ms: msg.audio_duration_ms as number | null,
-      analysis: msg.analysis as AnalysisResult | null,
       sequence: msg.sequence as number,
       created_at: msg.created_at as string,
     }));
 
     set({ messages });
+  },
+
+  fetchCompletedConversations: async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id, persona_id, overall_score, ended_at, created_at')
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+        .not('overall_score', 'is', null)
+        .order('ended_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      set({ completedConversations: data ?? [] });
+    } catch (error) {
+      console.error('Failed to fetch completed conversations:', error);
+    }
   },
 
   createConversation: async (userId, personaId, topic) => {
@@ -161,7 +198,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         content,
         audio_url: null,
         audio_duration_ms: null,
-        analysis: null,
         sequence,
         created_at: new Date().toISOString(),
       };
@@ -184,7 +220,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       return {
         response: data.response,
-        analysis: data.analysis as AnalysisResult | null,
       };
     } catch (error) {
       set({ error: (error as Error).message });
@@ -384,6 +419,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
       previewQuestion: null,
       questionRefreshCount: 0,
     });
+  },
+
+  generateReport: async (conversationId: string) => {
+    set({ isGeneratingReport: true, error: null });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({ conversationId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.report as SessionReport;
+    } catch (error) {
+      console.error('Generate report failed:', error);
+      set({ error: (error as Error).message });
+      return null;
+    } finally {
+      set({ isGeneratingReport: false });
+    }
   },
 
   endConversation: async () => {

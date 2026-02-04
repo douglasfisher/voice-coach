@@ -9,3 +9,4 @@ export { AudioWaveform } from './AudioWaveform';
 export { LiveTranscription } from './LiveTranscription';
 export { VoiceInputOverlay } from './VoiceInputOverlay';
 export { ChatHeroEmptyState } from './ChatHeroEmptyState';
+export { EndChatModal } from './EndChatModal';

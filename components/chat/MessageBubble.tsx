@@ -1,8 +1,6 @@
 import { View, Text, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Pause, Volume2, Sparkles, Zap, Brain, Heart, Scale, Eye } from 'lucide-react-native';
-import { AnalysisBadge } from '../ui/Badge';
-import { AnalysisResult, AnalysisItemType } from '../../types/analysis';
 import { PersonaDisplay, ChallengeStyle } from '../../types/persona';
 
 // Challenge style themes
@@ -47,7 +45,6 @@ interface MessageBubbleProps {
   content: string;
   role: 'user' | 'assistant';
   persona?: PersonaDisplay;
-  analysis?: AnalysisResult | null;
   audioUrl?: string | null;
   onPlayAudio?: () => void;
   isPlaying?: boolean;
@@ -59,7 +56,6 @@ export function MessageBubble({
   content,
   role,
   persona,
-  analysis,
   audioUrl,
   onPlayAudio,
   isPlaying,
@@ -209,42 +205,6 @@ export function MessageBubble({
                 />
               )}
             </Pressable>
-          )}
-
-          {/* Analysis badges for user messages */}
-          {isUser && analysis && analysis.items.length > 0 && (
-            <View
-              style={{
-                marginTop: 8,
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: 6,
-                justifyContent: 'flex-end',
-              }}
-            >
-              {analysis.items.slice(0, 3).map((item, index) => (
-                <AnalysisBadge
-                  key={index}
-                  type={item.type as AnalysisItemType}
-                  label={item.label}
-                  size="sm"
-                />
-              ))}
-              {analysis.items.length > 3 && (
-                <View
-                  style={{
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 12,
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                  }}
-                >
-                  <Text style={{ fontSize: 11, color: '#9A9A9E' }}>
-                    +{analysis.items.length - 3} more
-                  </Text>
-                </View>
-              )}
-            </View>
           )}
 
           {/* Timestamp */}

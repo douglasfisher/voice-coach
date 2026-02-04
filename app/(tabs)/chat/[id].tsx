@@ -36,9 +36,8 @@ import {
   TypingIndicator,
   ChatInput,
   ChatHeroEmptyState,
+  EndChatModal,
 } from '../../../components/chat';
-import { AnalysisCard } from '../../../components/chat/AnalysisCard';
-import { AnalysisResult } from '../../../types/analysis';
 import { ChallengeStyle } from '../../../types/persona';
 
 // Challenge style themes
@@ -111,13 +110,9 @@ export default function ChatScreen() {
 
   const isRecording = voiceState === 'recording';
 
-  const [latestAnalysis, setLatestAnalysis] = useState<{
-    messageId: string;
-    analysis: AnalysisResult;
-  } | null>(null);
-
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [showEndModal, setShowEndModal] = useState(false);
   const {
     fetchMessages,
     clearMessages,
@@ -126,9 +121,11 @@ export default function ChatScreen() {
     regenerateQuestion,
     startChatWithPreview,
     clearPreview,
+    generateReport,
     previewQuestion,
     questionRefreshCount,
     isGeneratingPreview,
+    isGeneratingReport,
   } = useChatStore();
   const chatStarted = messages.length > 0;
 
@@ -147,13 +144,6 @@ export default function ChatScreen() {
 
   const handleSend = async (content: string) => {
     const result = await send(content);
-
-    if (result?.analysis) {
-      setLatestAnalysis({
-        messageId: messages[messages.length - 1]?.id ?? '',
-        analysis: result.analysis,
-      });
-    }
 
     // Auto-play TTS for assistant response if enabled
     if (result?.response && preferences?.tts_enabled && persona?.voiceConfig) {
@@ -174,9 +164,21 @@ export default function ChatScreen() {
     }
   };
 
-  const handleEndConversation = async () => {
-    await end();
-    router.back();
+  const handleEndConversation = () => {
+    setShowEndModal(true);
+  };
+
+  const handleConfirmEnd = async () => {
+    if (!conversation) return;
+
+    const report = await generateReport(conversation.id);
+    if (report) {
+      router.replace(`/(tabs)/chat/report/${conversation.id}`);
+    } else {
+      // Fallback: just end and go back
+      await end();
+      router.back();
+    }
   };
 
   const handleStartChat = async () => {
@@ -422,7 +424,6 @@ export default function ChatScreen() {
                 content={item.content}
                 role={item.role as 'user' | 'assistant'}
                 persona={item.role === 'assistant' ? persona : undefined}
-                analysis={item.role === 'user' ? item.analysis : null}
                 audioUrl={item.audio_url}
                 onPlayAudio={
                   item.role === 'assistant' && preferences?.tts_enabled
@@ -450,16 +451,6 @@ export default function ChatScreen() {
             onStartChat={handleStartChat}
             isStarting={isStartingChat}
           />
-        )}
-
-        {/* Latest Analysis Card */}
-        {latestAnalysis?.analysis && (
-          <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-            <AnalysisCard
-              analysis={latestAnalysis.analysis as AnalysisResult}
-              expanded={false}
-            />
-          </View>
         )}
 
         {/* Error Display */}
@@ -530,6 +521,14 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         ) : null}
+
+        {/* End Chat Modal */}
+        <EndChatModal
+          visible={showEndModal}
+          onContinue={() => setShowEndModal(false)}
+          onEnd={handleConfirmEnd}
+          isGenerating={isGeneratingReport}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

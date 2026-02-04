@@ -1,12 +1,15 @@
-import { View, Text, ScrollView, RefreshControl } from 'react-native';
+import { useEffect } from 'react';
+import { View, Text, ScrollView, RefreshControl, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TrendingUp, Award, Brain, Eye, Heart, Lightbulb } from 'lucide-react-native';
+import { TrendingUp, Award, Brain, Eye, Heart, Lightbulb, ChevronRight, Clock } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { useAnalysis, useGrowthScores } from '../../hooks/useAnalysis';
 import { ScoreCard } from '../../components/growth/ScoreCard';
 import { BiasRadar } from '../../components/growth/BiasRadar';
 import { TrendGraph } from '../../components/growth/TrendGraph';
 import { PatternList } from '../../components/growth/PatternList';
+import { useChatStore, useAuthStore, usePersonaStore } from '../../stores';
 
 // Dimension colors matching the BiasRadar
 const DIMENSION_COLORS = {
@@ -19,6 +22,28 @@ const DIMENSION_COLORS = {
 export default function GrowthScreen() {
   const { patterns, trend, isLoading, refresh } = useAnalysis();
   const scores = useGrowthScores();
+  const { user } = useAuthStore();
+  const { completedConversations, fetchCompletedConversations } = useChatStore();
+  const { getPersonaById } = usePersonaStore();
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchCompletedConversations(user.id);
+    }
+  }, [user?.id]);
+
+  const getScoreColor = (score: number | null) => {
+    if (!score) return 'rgba(255,255,255,0.3)';
+    if (score >= 75) return '#4ade80';
+    if (score >= 50) return '#fbbf24';
+    return '#f87171';
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
@@ -244,9 +269,123 @@ export default function GrowthScreen() {
         </View>
 
         {/* Pattern List */}
-        <View style={{ marginBottom: 40 }}>
+        <View style={{ marginBottom: 20 }}>
           <PatternList patterns={patterns} />
         </View>
+
+        {/* Past Sessions */}
+        {completedConversations.length > 0 && (
+          <View style={{ marginBottom: 40 }}>
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+                marginBottom: 12,
+                marginLeft: 4,
+              }}
+            >
+              PAST SESSIONS
+            </Text>
+
+            <View
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
+                overflow: 'hidden',
+              }}
+            >
+              {completedConversations.map((conv, index) => {
+                const persona = getPersonaById(conv.persona_id);
+                const scoreColor = getScoreColor(conv.overall_score);
+                const imageSource = persona
+                  ? typeof persona.avatarUrl === 'string'
+                    ? { uri: persona.avatarUrl }
+                    : persona.avatarUrl
+                  : null;
+
+                return (
+                  <Pressable
+                    key={conv.id}
+                    onPress={() => router.push(`/(tabs)/chat/report/${conv.id}`)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      padding: 16,
+                      borderBottomWidth: index < completedConversations.length - 1 ? 1 : 0,
+                      borderBottomColor: 'rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    {/* Avatar */}
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        overflow: 'hidden',
+                        marginRight: 12,
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                      }}
+                    >
+                      {imageSource && (
+                        <Image
+                          source={imageSource as ImageSourcePropType}
+                          style={{ width: '100%', height: '100%' }}
+                          resizeMode="cover"
+                        />
+                      )}
+                    </View>
+
+                    {/* Info */}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                        {persona?.name || 'Unknown Coach'}
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <Clock size={12} color="rgba(255,255,255,0.4)" />
+                        <Text
+                          style={{
+                            color: 'rgba(255,255,255,0.4)',
+                            fontSize: 13,
+                            marginLeft: 4,
+                          }}
+                        >
+                          {formatDate(conv.ended_at || conv.created_at)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Score Badge */}
+                    <View
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 12,
+                        backgroundColor: `${scoreColor}20`,
+                        marginRight: 8,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: scoreColor,
+                          fontSize: 14,
+                          fontWeight: '700',
+                        }}
+                      >
+                        {conv.overall_score ?? '--'}
+                      </Text>
+                    </View>
+
+                    <ChevronRight size={20} color="rgba(255,255,255,0.3)" />
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
