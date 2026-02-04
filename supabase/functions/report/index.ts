@@ -2,11 +2,12 @@
  * Report Edge Function
  *
  * Generates comprehensive session reports for completed conversations.
- * Analyzes the full conversation and returns structured feedback.
+ * Uses database-driven configuration via resolveAIConfig.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { resolveAIConfig } from '../_shared/config/ai-config-resolver.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -93,6 +94,18 @@ serve(async (req) => {
       );
     }
 
+    // Resolve AI config for 'report' task
+    const config = await resolveAIConfig(supabase, {
+      task: 'report',
+      personaId: conversation.persona_id,
+    });
+
+    console.log('Report config resolved:', {
+      model: config.model,
+      temperature: config.temperature,
+      max_tokens: config.max_completion_tokens,
+    });
+
     // Fetch all messages
     const { data: messages, error: msgError } = await supabase
       .from('messages')
@@ -120,23 +133,7 @@ ${transcript}
 
 Generate a comprehensive session report.`;
 
-    // Get model from settings
-    const { data: modelSetting } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'default_model')
-      .single();
-
-    let model = 'llama-3.3-70b-versatile';
-    if (modelSetting?.value) {
-      try {
-        model = JSON.parse(modelSetting.value);
-      } catch {
-        model = modelSetting.value;
-      }
-    }
-
-    // Call Groq for report
+    // Call Groq with resolved config
     const groqResponse = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -144,13 +141,13 @@ Generate a comprehensive session report.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model,
+        model: config.model,
         messages: [
           { role: 'system', content: REPORT_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.3,
-        max_tokens: 1000,
+        temperature: config.temperature,
+        max_tokens: config.max_completion_tokens,
       }),
     });
 
@@ -172,7 +169,6 @@ Generate a comprehensive session report.`;
       report.generated_at = new Date().toISOString();
     } catch (parseError) {
       console.error('Failed to parse report:', reportContent);
-      // Fallback report
       report = {
         tldr: 'Session completed. Analysis could not be generated.',
         strengths: ['Engaged in conversation', 'Completed the session'],
@@ -206,7 +202,7 @@ Generate a comprehensive session report.`;
       await supabase.from('ai_usage').insert({
         user_id: conversation.user_id,
         conversation_id: conversationId,
-        model,
+        model: config.model,
         prompt_tokens: groqData.usage.prompt_tokens,
         completion_tokens: groqData.usage.completion_tokens,
         total_tokens: groqData.usage.total_tokens,

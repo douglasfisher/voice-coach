@@ -1,9 +1,13 @@
 /**
- * Chat Edge Function - Single file, self-contained
+ * Chat Edge Function
+ *
+ * Uses database-driven configuration via resolveAIConfig.
+ * All AI behavior is controlled by app_settings and persona.ai_config.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { resolveAIConfig } from '../_shared/config/ai-config-resolver.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -17,8 +21,8 @@ interface ChatRequest {
   userMessage?: string;
   personaId: string;
   generateGreeting?: boolean;
-  previewGreeting?: boolean;      // Generate but don't save
-  regenerateQuestion?: boolean;   // Regenerate question only
+  previewGreeting?: boolean;
+  regenerateQuestion?: boolean;
 }
 
 interface GroqMessage {
@@ -27,7 +31,6 @@ interface GroqMessage {
 }
 
 serve(async (req) => {
-  // CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -43,8 +46,14 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse request
-    const { conversationId, userMessage, personaId, generateGreeting, previewGreeting, regenerateQuestion } = await req.json() as ChatRequest;
+    const {
+      conversationId,
+      userMessage,
+      personaId,
+      generateGreeting,
+      previewGreeting,
+      regenerateQuestion,
+    } = await req.json() as ChatRequest;
 
     if (!conversationId || !personaId) {
       return new Response(
@@ -60,48 +69,21 @@ serve(async (req) => {
       );
     }
 
-    // Get persona
-    const { data: persona, error: personaError } = await supabase
-      .from('personas')
-      .select('id, name, challenge_style, system_prompt, formality, ai_config')
-      .eq('id', personaId)
-      .single();
+    // Resolve AI config from database (global + persona settings)
+    const config = await resolveAIConfig(supabase, {
+      task: 'chat',
+      personaId,
+    });
 
-    if (personaError || !persona) {
-      return new Response(
-        JSON.stringify({ error: 'Persona not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    console.log('Chat config resolved:', {
+      model: config.model,
+      temperature: config.temperature,
+      max_tokens: config.max_completion_tokens,
+      personaId,
+    });
 
-    // Get default model from app_settings
-    const { data: modelSetting } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'default_model')
-      .single();
-
-    // Parse the value - it's JSON stringified in the DB
-    let model = 'llama-3.3-70b-versatile';
-    if (modelSetting?.value) {
-      try {
-        model = JSON.parse(modelSetting.value);
-      } catch {
-        model = modelSetting.value;
-      }
-    }
-    // Prepend strict brevity instruction to system prompt
-    const briefnessInstruction = `CRITICAL RULE: You MUST keep ALL responses under 40 words total. Be direct and conversational like texting. One short statement + one question. NO explanations, NO multiple paragraphs, NO preamble.\n\n`;
-    const systemPrompt = briefnessInstruction + persona.system_prompt;
-
-    console.log('Chat request:', { conversationId, personaId, model, generateGreeting, previewGreeting, regenerateQuestion });
-    console.log('Model from DB:', modelSetting?.value);
-    console.log('Final model being used:', model);
-
-    // Helper to call Groq
+    // Helper to call Groq using resolved config
     async function callGroq(messages: GroqMessage[]) {
-      console.log('Calling Groq with model:', model);
-      console.log('API Key prefix:', groqApiKey?.slice(0, 15));
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -109,35 +91,35 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model,
+          model: config.model,
           messages,
-          temperature: persona.ai_config?.temperature ?? 0.7,
-          max_tokens: 100, // Force short responses
+          temperature: config.temperature,
+          top_p: config.top_p,
+          max_tokens: config.max_completion_tokens,
+          stop: config.stop,
         }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Groq error status:', response.status);
-        console.error('Groq error body:', errorText);
-        console.error('Request model was:', model);
+        console.error('Groq error:', response.status, errorText);
         throw new Error(`Groq API error: ${response.status} - ${errorText}`);
       }
 
       return response.json();
     }
 
-    // Helper to generate opening question content (no intro, just the question)
+    // Helper to generate opening question
     async function generateQuestion() {
-      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max, under 30 words total). Be direct and intriguing. No introduction or preamble needed - just ask the question.`;
+      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max). Be direct and intriguing. No introduction - just the question.`;
 
       return callGroq([
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: config.full_system_prompt },
         { role: 'user', content: questionPrompt },
       ]);
     }
 
-    // Handle regenerate question only (preview mode)
+    // Handle regenerate question (preview mode)
     if (regenerateQuestion) {
       const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
@@ -148,7 +130,7 @@ serve(async (req) => {
       );
     }
 
-    // Handle preview greeting (generate but don't save) - now only generates question
+    // Handle preview greeting
     if (previewGreeting) {
       const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
@@ -159,7 +141,7 @@ serve(async (req) => {
       );
     }
 
-    // Handle greeting generation (generate and save) - now only saves question
+    // Handle greeting generation (save to DB)
     if (generateGreeting) {
       const { data: conv } = await supabase
         .from('conversations')
@@ -170,7 +152,6 @@ serve(async (req) => {
       const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
-      // Save only the question message
       await supabase.from('messages').insert({
         conversation_id: conversationId,
         role: 'assistant',
@@ -178,16 +159,17 @@ serve(async (req) => {
         sequence: 1,
       });
 
-      // Log usage
-      await supabase.from('ai_usage').insert({
-        user_id: conv?.user_id || null,
-        conversation_id: conversationId,
-        persona_id: personaId,
-        model,
-        prompt_tokens: questionResponse.usage?.prompt_tokens || 0,
-        completion_tokens: questionResponse.usage?.completion_tokens || 0,
-        total_tokens: questionResponse.usage?.total_tokens || 0,
-      });
+      if (questionResponse.usage) {
+        await supabase.from('ai_usage').insert({
+          user_id: conv?.user_id || null,
+          conversation_id: conversationId,
+          persona_id: personaId,
+          model: config.model,
+          prompt_tokens: questionResponse.usage.prompt_tokens,
+          completion_tokens: questionResponse.usage.completion_tokens,
+          total_tokens: questionResponse.usage.total_tokens,
+        });
+      }
 
       return new Response(
         JSON.stringify({ response: questionContent, question: questionContent }),
@@ -219,7 +201,7 @@ serve(async (req) => {
 
     // Generate response
     const groqResponse = await callGroq([
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: config.full_system_prompt },
       ...history,
       { role: 'user', content: userMessage! },
     ]);
@@ -234,7 +216,7 @@ serve(async (req) => {
       sequence: nextSequence + 1,
     });
 
-    // Get user_id and log usage
+    // Log usage
     const { data: conversation } = await supabase
       .from('conversations')
       .select('user_id')
@@ -246,7 +228,7 @@ serve(async (req) => {
         user_id: conversation?.user_id || null,
         conversation_id: conversationId,
         persona_id: personaId,
-        model,
+        model: config.model,
         prompt_tokens: groqResponse.usage.prompt_tokens,
         completion_tokens: groqResponse.usage.completion_tokens,
         total_tokens: groqResponse.usage.total_tokens,
