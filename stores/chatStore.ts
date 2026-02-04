@@ -2,9 +2,43 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
 import { AnalysisResult } from '../types/analysis';
+import { PersonaDisplay, ChallengeStyle } from '../types/persona';
 
 interface ChatMessage extends Omit<Message, 'analysis'> {
   analysis: AnalysisResult | null;
+}
+
+// Generate persona intro message based on their style
+function generatePersonaGreeting(persona: PersonaDisplay): string {
+  const greetings: Record<ChallengeStyle, string[]> = {
+    socratic: [
+      `Hello, I'm ${persona.name}. I believe the best way to understand something deeply is through thoughtful questions. What's been on your mind lately that you'd like to explore together?`,
+      `Welcome! I'm ${persona.name}, and I'm here to help you discover insights through inquiry. What topic would you like to examine today?`,
+    ],
+    devils_advocate: [
+      `Hey there, I'm ${persona.name}. My job is to challenge your thinking and help you see the other side. So tell me — what's a belief you hold strongly that you'd like me to push back on?`,
+      `I'm ${persona.name}, your friendly contrarian. I'll question everything you say — not to frustrate you, but to strengthen your thinking. What position would you like to defend today?`,
+    ],
+    steelman: [
+      `Hi, I'm ${persona.name}. I specialize in building the strongest possible version of your arguments before we examine them together. What idea would you like to develop?`,
+      `Welcome! I'm ${persona.name}. I'll help you articulate your best thinking, then we'll explore its limits. What belief or argument would you like to strengthen?`,
+    ],
+    empathetic_probe: [
+      `Hello, I'm ${persona.name}. I'm here to help you explore not just what you think, but why you think it — including the emotions and experiences behind your beliefs. What's something meaningful you'd like to discuss?`,
+      `Hi there, I'm ${persona.name}. I believe our reasoning is deeply connected to our experiences and feelings. What's been weighing on your mind that you'd like to explore together?`,
+    ],
+    logical_surgeon: [
+      `Greetings, I'm ${persona.name}. I specialize in precisely analyzing the structure of arguments and ideas. What claim or reasoning would you like me to examine with you?`,
+      `Hello, I'm ${persona.name}. My approach is to carefully dissect arguments to find their strengths and weaknesses. What topic would you like to analyze together?`,
+    ],
+    perspective_shifter: [
+      `Hi, I'm ${persona.name}. I'll help you see your ideas through completely different lenses. What's a situation or belief you'd like to view from new angles?`,
+      `Welcome! I'm ${persona.name}. I love exploring how the same thing can look entirely different depending on your vantage point. What would you like to examine from fresh perspectives?`,
+    ],
+  };
+
+  const options = greetings[persona.challengeStyle];
+  return options[Math.floor(Math.random() * options.length)];
 }
 
 interface ChatState {
@@ -21,6 +55,7 @@ interface ChatState {
   createConversation: (
     userId: string,
     personaId: string,
+    persona: PersonaDisplay,
     topic?: string
   ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string; analysis: AnalysisResult | null } | null>;
@@ -100,7 +135,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messages });
   },
 
-  createConversation: async (userId, personaId, topic) => {
+  createConversation: async (userId, personaId, persona, topic) => {
     set({ isLoading: true, error: null });
     try {
       const { data, error } = await supabase
@@ -116,7 +151,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (error) throw error;
 
-      set({ activeConversation: data, messages: [] });
+      // Generate and save the persona's greeting message
+      const greeting = generatePersonaGreeting(persona);
+      const { data: greetingMsg, error: msgError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: data.id,
+          role: 'assistant',
+          content: greeting,
+          sequence: 1,
+        })
+        .select()
+        .single();
+
+      if (msgError) {
+        console.warn('Failed to create greeting message:', msgError);
+      }
+
+      const initialMessage: ChatMessage = greetingMsg ? {
+        id: greetingMsg.id,
+        conversation_id: greetingMsg.conversation_id,
+        role: 'assistant',
+        content: greetingMsg.content,
+        audio_url: null,
+        audio_duration_ms: null,
+        analysis: null,
+        sequence: 1,
+        created_at: greetingMsg.created_at,
+      } : {
+        id: `temp-greeting-${Date.now()}`,
+        conversation_id: data.id,
+        role: 'assistant',
+        content: greeting,
+        audio_url: null,
+        audio_duration_ms: null,
+        analysis: null,
+        sequence: 1,
+        created_at: new Date().toISOString(),
+      };
+
+      set({ activeConversation: data, messages: [initialMessage] });
       return data.id;
     } catch (error) {
       console.error('createConversation error:', error);
@@ -133,7 +207,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ isSending: true, error: null });
     try {
-      const sequence = messages.length + 1;
+      // Get the max sequence from existing messages
+      const maxSequence = messages.reduce((max, msg) => Math.max(max, msg.sequence), 0);
+      const sequence = maxSequence + 1;
 
       // Add user message to local state immediately
       const userMessage: ChatMessage = {

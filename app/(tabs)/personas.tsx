@@ -45,7 +45,7 @@ export default function PersonasScreen() {
 
     setIsCreating(true);
     try {
-      const conversationId = await createConversation(user.id, persona.id);
+      const conversationId = await createConversation(user.id, persona.id, persona);
 
       if (conversationId) {
         setSelectedPersona(null);
