@@ -90,9 +90,9 @@ serve(async (req) => {
         model = modelSetting.value;
       }
     }
-    // Enhance system prompt with conversational brevity instruction
-    const briefnessInstruction = `\n\nIMPORTANT STYLE GUIDE: Keep responses brief (1-2 sentences). Ask ONE thought-provoking follow-up question. Never lecture or explain at length. Be conversational and direct.`;
-    const systemPrompt = persona.system_prompt + briefnessInstruction;
+    // Prepend strict brevity instruction to system prompt
+    const briefnessInstruction = `CRITICAL RULE: You MUST keep ALL responses under 40 words total. Be direct and conversational like texting. One short statement + one question. NO explanations, NO multiple paragraphs, NO preamble.\n\n`;
+    const systemPrompt = briefnessInstruction + persona.system_prompt;
 
     console.log('Chat request:', { conversationId, personaId, model, generateGreeting, previewGreeting, regenerateQuestion });
     console.log('Model from DB:', modelSetting?.value);
@@ -112,7 +112,7 @@ serve(async (req) => {
           model,
           messages,
           temperature: persona.ai_config?.temperature ?? 0.7,
-          max_tokens: persona.ai_config?.max_completion_tokens ?? 150,
+          max_tokens: 100, // Force short responses
         }),
       });
 
