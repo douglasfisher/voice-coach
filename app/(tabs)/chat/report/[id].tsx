@@ -188,8 +188,12 @@ export default function ReportScreen() {
               borderColor: 'rgba(255,255,255,0.1)',
             }}
           >
-            {/* Persona Image */}
-            <View style={{ height: 280, position: 'relative' }}>
+            {/* Persona Image - 1:1.3 portrait ratio */}
+            <View style={{
+              width: '100%',
+              aspectRatio: 1 / 1.3,
+              position: 'relative'
+            }}>
               <Image
                 source={
                   typeof persona.avatarUrl === 'string'
@@ -206,7 +210,7 @@ export default function ReportScreen() {
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  height: 120,
+                  height: 140,
                 }}
               />
             </View>
