@@ -13,7 +13,7 @@ import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 // TYPES
 // =============================================================================
 
-export type AITaskType = 'chat' | 'analysis' | 'report';
+export type AITaskType = 'chat' | 'analysis' | 'report' | 'challenge';
 
 export interface AIResponseStyle {
   brevity: 'terse' | 'conversational' | 'detailed';

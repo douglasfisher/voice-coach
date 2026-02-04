@@ -586,14 +586,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Pick a random persona for the challenge
       const randomPersona = personas[Math.floor(Math.random() * personas.length)];
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/daily-challenge`, {
+      // Use the existing chat function with generateChallenge flag
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': supabaseAnonKey || '',
           'Authorization': `Bearer ${supabaseAnonKey}`,
         },
-        body: JSON.stringify({ personaId: randomPersona.id }),
+        body: JSON.stringify({
+          personaId: randomPersona.id,
+          generateChallenge: true,
+        }),
       });
 
       if (!response.ok) {

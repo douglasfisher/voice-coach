@@ -17,12 +17,13 @@ const corsHeaders = {
 };
 
 interface ChatRequest {
-  conversationId: string;
+  conversationId?: string;
   userMessage?: string;
   personaId: string;
   generateGreeting?: boolean;
   previewGreeting?: boolean;
   regenerateQuestion?: boolean;
+  generateChallenge?: boolean;
 }
 
 interface GroqMessage {
@@ -54,6 +55,75 @@ serve(async (req) => {
       previewGreeting,
       regenerateQuestion,
     } = await req.json() as ChatRequest;
+
+    // Handle challenge generation (doesn't require conversationId)
+    if (generateChallenge) {
+      // Fetch challenge prompt from app_settings
+      const { data: challengeSettings } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'ai_challenge_prompt')
+        .single();
+
+      const challengePrompt = challengeSettings?.value || `You are a generator of thought-provoking philosophical and ethical questions. Generate ONE unique, engaging question that will challenge someone's assumptions and spark deep thinking.
+
+IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanations.
+
+Output format:
+{"question": "Your thought-provoking question here?", "topic": "Brief topic label (2-3 words)"}
+
+Guidelines:
+- Questions should be open-ended, not yes/no
+- Focus on ethics, philosophy, psychology, society, or personal growth
+- Make it personally relevant - something people encounter in daily life
+- Avoid academic jargon - keep it accessible
+- The question should have no single "right" answer`;
+
+      const config = await resolveAIConfig(supabase, {
+        task: 'challenge',
+        personaId,
+      });
+
+      const challengeResponse = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: 'system', content: challengePrompt },
+            { role: 'user', content: 'Generate a unique, thought-provoking question for today.' },
+          ],
+          temperature: 0.9,
+          max_tokens: 150,
+        }),
+      });
+
+      if (!challengeResponse.ok) {
+        throw new Error(`Groq API error: ${challengeResponse.status}`);
+      }
+
+      const challengeData = await challengeResponse.json();
+      const content = challengeData.choices[0]?.message?.content || '';
+
+      let result: { question: string; topic: string };
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        result = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+      } catch {
+        result = {
+          question: "What belief do you hold that you've never seriously questioned?",
+          topic: 'Self-Reflection',
+        };
+      }
+
+      return new Response(
+        JSON.stringify(result),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!conversationId || !personaId) {
       return new Response(
