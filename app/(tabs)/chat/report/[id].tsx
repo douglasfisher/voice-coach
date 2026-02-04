@@ -180,48 +180,51 @@ export default function ReportScreen() {
         {persona && (
           <View
             style={{
-              backgroundColor: 'rgba(255,255,255,0.05)',
               borderRadius: 20,
               overflow: 'hidden',
               marginBottom: 20,
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.1)',
+              aspectRatio: 1 / 1.3,
+              position: 'relative',
             }}
           >
-            {/* Persona Image - 1:1.3 portrait ratio */}
-            <View style={{
-              width: '100%',
-              aspectRatio: 1 / 1.3,
-              position: 'relative'
-            }}>
-              <Image
-                source={
-                  typeof persona.avatarUrl === 'string'
-                    ? { uri: persona.avatarUrl }
-                    : persona.avatarUrl as ImageSourcePropType
-                }
-                style={{ width: '100%', height: '100%' }}
-                resizeMode="cover"
-              />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.9)']}
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: 140,
-                }}
-              />
-            </View>
+            {/* Persona Image - fills entire card */}
+            <Image
+              source={
+                typeof persona.avatarUrl === 'string'
+                  ? { uri: persona.avatarUrl }
+                  : persona.avatarUrl as ImageSourcePropType
+              }
+              style={{ width: '100%', height: '100%', position: 'absolute' }}
+              resizeMode="cover"
+            />
 
-            {/* Persona Info */}
-            <View style={{ padding: 16, marginTop: -40 }}>
+            {/* Gradient overlay */}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.85)']}
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: '50%',
+              }}
+            />
+
+            {/* Persona Info - positioned at bottom */}
+            <View style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: 16,
+            }}>
               <Text style={{ color: '#fff', fontSize: 22, fontWeight: '700' }}>
                 {persona.name}
               </Text>
               {persona.tagline && (
-                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginTop: 4 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginTop: 4 }}>
                   {persona.tagline}
                 </Text>
               )}
@@ -237,7 +240,7 @@ export default function ReportScreen() {
                   style={{
                     paddingHorizontal: 10,
                     paddingVertical: 4,
-                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                    backgroundColor: 'rgba(245, 158, 11, 0.3)',
                     borderRadius: 8,
                   }}
                 >
@@ -246,7 +249,7 @@ export default function ReportScreen() {
                   </Text>
                 </View>
                 {sessionDate && (
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
                     {sessionDate}
                   </Text>
                 )}
