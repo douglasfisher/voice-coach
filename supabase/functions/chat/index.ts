@@ -124,6 +124,12 @@ serve(async (req) => {
       stop: persona.ai_config?.stop,
     };
 
+    console.log('=== AI Model Configuration ===');
+    console.log('Persona:', persona.name);
+    console.log('Model:', settings.model);
+    console.log('Temperature:', settings.temperature);
+    console.log('Persona ai_config:', JSON.stringify(persona.ai_config));
+
     // Handle greeting generation for new conversations
     if (generateGreeting) {
       console.log('Generating greeting for conversation:', conversationId);
