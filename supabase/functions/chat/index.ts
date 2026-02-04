@@ -2,7 +2,7 @@
  * Chat Edge Function
  *
  * Handles conversational AI interactions with personas.
- * Uses the unified AI service internally.
+ * All persona configuration is read from the database.
  *
  * Endpoint: POST /functions/v1/chat
  *
@@ -18,22 +18,33 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import {
   createGroqClient,
   createSupabaseClient,
-  getPersonaConfig,
-  getSystemPrompt,
-  createPersonaConfig,
   corsPreflightResponse,
   jsonResponse,
   errorResponse,
   parseJsonBody,
   requireFields,
   GroqMessage,
-  ChallengeStyle,
+  GroqCompletionSettings,
 } from '../_shared/index.ts';
 
 interface ChatRequest {
   conversationId: string;
   userMessage: string;
   personaId: string;
+}
+
+interface DbPersona {
+  id: string;
+  name: string;
+  challenge_style: string;
+  system_prompt: string;
+  ai_config: {
+    model?: string;
+    temperature?: number;
+    top_p?: number;
+    max_completion_tokens?: number;
+    stop?: string[];
+  } | null;
 }
 
 serve(async (req) => {
@@ -51,36 +62,29 @@ serve(async (req) => {
     const { conversationId, userMessage, personaId } = await parseJsonBody<ChatRequest>(req);
     requireFields({ conversationId, userMessage, personaId }, ['conversationId', 'userMessage', 'personaId']);
 
-    // Get persona configuration
-    let systemPrompt: string;
-    let settings = {};
+    // Get persona configuration from database
+    const { data: dbPersona, error: personaError } = await supabase
+      .from('personas')
+      .select('id, name, challenge_style, system_prompt, ai_config')
+      .eq('id', personaId)
+      .single();
 
-    // First try local config
-    let config = getPersonaConfig(personaId);
-
-    // If not found locally, get from database
-    if (!config) {
-      const { data: dbPersona, error: personaError } = await supabase
-        .from('personas')
-        .select('id, name, challenge_style, system_prompt')
-        .eq('id', personaId)
-        .single();
-
-      if (personaError || !dbPersona) {
-        return errorResponse('Persona not found', 404);
-      }
-
-      // Create config from database persona
-      config = createPersonaConfig(
-        dbPersona.id,
-        dbPersona.name,
-        dbPersona.challenge_style as ChallengeStyle,
-        dbPersona.system_prompt || undefined
-      );
+    if (personaError || !dbPersona) {
+      console.error('Persona lookup error:', personaError);
+      return errorResponse('Persona not found', 404);
     }
 
-    systemPrompt = config.systemPrompt;
-    settings = config.settings;
+    const persona = dbPersona as DbPersona;
+    const systemPrompt = persona.system_prompt;
+
+    // Build settings from database ai_config
+    const settings: Partial<GroqCompletionSettings> = {
+      model: (persona.ai_config?.model as GroqCompletionSettings['model']) || 'llama-3.3-70b-versatile',
+      temperature: persona.ai_config?.temperature ?? 0.7,
+      top_p: persona.ai_config?.top_p ?? 0.9,
+      max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
+      stop: persona.ai_config?.stop,
+    };
 
     // Get conversation history
     const { data: messages, error: messagesError } = await supabase
