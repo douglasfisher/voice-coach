@@ -29,8 +29,9 @@ import {
 
 interface ChatRequest {
   conversationId: string;
-  userMessage: string;
+  userMessage?: string;
   personaId: string;
+  generateGreeting?: boolean;
 }
 
 interface DbPersona {
@@ -79,8 +80,13 @@ serve(async (req) => {
     const supabase = createSupabaseClient();
 
     // Parse and validate request
-    const { conversationId, userMessage, personaId } = await parseJsonBody<ChatRequest>(req);
-    requireFields({ conversationId, userMessage, personaId }, ['conversationId', 'userMessage', 'personaId']);
+    const { conversationId, userMessage, personaId, generateGreeting } = await parseJsonBody<ChatRequest>(req);
+    requireFields({ conversationId, personaId }, ['conversationId', 'personaId']);
+
+    // If not generating greeting, userMessage is required
+    if (!generateGreeting && !userMessage) {
+      return errorResponse('userMessage is required when not generating greeting', 400);
+    }
 
     // Get persona configuration from database
     const { data: dbPersona, error: personaError } = await supabase
@@ -105,6 +111,63 @@ serve(async (req) => {
       max_completion_tokens: persona.ai_config?.max_completion_tokens ?? 1024,
       stop: persona.ai_config?.stop,
     };
+
+    // Handle greeting generation
+    if (generateGreeting) {
+      const greetingPrompt = `You are starting a new conversation. Introduce yourself briefly (just your first name), then propose a specific thought-provoking topic and ask an engaging opening question related to your expertise and challenge style.
+
+Be creative - pick an interesting, unexpected angle on topics like: human nature, society, technology, relationships, success, morality, happiness, decision-making, beliefs, or current events.
+
+Keep it conversational and warm but intellectually stimulating. The greeting should be 2-3 sentences max. End with your question.
+
+Do NOT ask the user what they want to talk about - YOU choose the topic and question.`;
+
+      const { content: greeting, usage } = await groq.completeWithHistoryAndUsage(
+        systemPrompt,
+        [],
+        greetingPrompt,
+        { ...settings, temperature: 0.9 } // Higher temperature for variety
+      );
+
+      // Save the greeting as the first message
+      const { error: saveGreetingError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: greeting,
+          sequence: 1,
+        });
+
+      if (saveGreetingError) {
+        console.error('Failed to save greeting:', saveGreetingError);
+      }
+
+      // Log usage
+      if (usage) {
+        const { data: conversation } = await supabase
+          .from('conversations')
+          .select('user_id')
+          .eq('id', conversationId)
+          .single();
+
+        const model = settings.model || 'llama-3.3-70b-versatile';
+        const estimatedCost = calculateCost(model, usage.prompt_tokens, usage.completion_tokens);
+
+        await supabase.from('ai_usage').insert({
+          user_id: conversation?.user_id || null,
+          conversation_id: conversationId,
+          persona_id: personaId,
+          model,
+          prompt_tokens: usage.prompt_tokens,
+          completion_tokens: usage.completion_tokens,
+          total_tokens: usage.total_tokens,
+          estimated_cost_cents: estimatedCost,
+        });
+      }
+
+      return jsonResponse({ response: greeting });
+    }
 
     // Get conversation history
     const { data: messages, error: messagesError } = await supabase
