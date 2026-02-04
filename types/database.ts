@@ -483,6 +483,44 @@ export interface Database {
           updated_by?: string | null;
         };
       };
+      ai_models: {
+        Row: {
+          id: string;
+          name: string;
+          provider: string;
+          context_window: number | null;
+          active: boolean;
+          owned_by: string | null;
+          cost_per_million_input: number;
+          cost_per_million_output: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          provider?: string;
+          context_window?: number | null;
+          active?: boolean;
+          owned_by?: string | null;
+          cost_per_million_input?: number;
+          cost_per_million_output?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          provider?: string;
+          context_window?: number | null;
+          active?: boolean;
+          owned_by?: string | null;
+          cost_per_million_input?: number;
+          cost_per_million_output?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -509,3 +547,4 @@ export type UserPattern = Tables<'user_patterns'>;
 export type GrowthSnapshot = Tables<'growth_snapshots'>;
 export type AIUsage = Tables<'ai_usage'>;
 export type AppSettings = Tables<'app_settings'>;
+export type AIModel = Tables<'ai_models'>;

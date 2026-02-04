@@ -26,20 +26,19 @@ import {
   AlertTriangle,
   Bot,
   ChevronDown,
+  RefreshCw,
 } from 'lucide-react-native';
 import { useAdminStatsStore } from '../../stores/adminStatsStore';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { AppSettingsMap } from '../../types/admin';
+import { supabase } from '../../lib/supabase';
 
-// Common models shown as quick options - actual model can be any valid Groq model ID
-// Full list at: https://console.groq.com/docs/models
-const COMMON_AI_MODELS = [
-  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Best)' },
-  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fast)' },
-  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
-  { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
-  { value: 'custom', label: '+ Custom Model...' },
-];
+// Simplified AI model for the dropdown
+interface AIModelOption {
+  id: string;
+  name: string;
+  context_window: number | null;
+}
 
 function formatNumber(num: number): string {
   if (num >= 1000000) {
@@ -146,23 +145,75 @@ export default function AdminSettingsScreen() {
   const [hasChanges, setHasChanges] = useState(false);
   const [showCustomModelInput, setShowCustomModelInput] = useState(false);
   const [customModelValue, setCustomModelValue] = useState('');
+  const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [isRefreshingModels, setIsRefreshingModels] = useState(false);
+
+  // Fetch AI models from database
+  const fetchModels = async () => {
+    setIsLoadingModels(true);
+    try {
+      const { data, error } = await supabase
+        .from('ai_models')
+        .select('id, name, context_window, active')
+        .eq('active', true)
+        .order('name');
+
+      if (error) throw error;
+      setAiModels(data || []);
+    } catch (error) {
+      console.error('Failed to fetch models:', error);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
+  // Refresh models from Groq API
+  const refreshModelsFromAPI = async () => {
+    setIsRefreshingModels(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('models', {
+        body: { action: 'refresh' },
+      });
+
+      if (error) throw error;
+
+      Alert.alert('Success', `Refreshed ${data.count} models from Groq API`);
+      await fetchModels();
+    } catch (error) {
+      console.error('Failed to refresh models:', error);
+      Alert.alert('Error', 'Failed to refresh models from Groq API');
+    } finally {
+      setIsRefreshingModels(false);
+    }
+  };
+
+  // Build model options from database
+  const modelOptions = [
+    ...aiModels.map(m => ({
+      value: m.id,
+      label: `${m.name}${m.context_window ? ` (${Math.round(m.context_window / 1000)}K)` : ''}`,
+    })),
+    { value: 'custom', label: '+ Custom Model...' },
+  ];
 
   useEffect(() => {
     fetchSettings();
     fetchPersonas();
+    fetchModels();
   }, []);
 
   useEffect(() => {
     setLocalSettings(settings);
     setHasChanges(false);
-    // Check if current model is not in the common list
+    // Check if current model is not in the model list
     const currentModel = settings.default_model;
-    const isKnownModel = COMMON_AI_MODELS.some(m => m.value === currentModel && m.value !== 'custom');
-    if (currentModel && !isKnownModel) {
+    const isKnownModel = aiModels.some(m => m.id === currentModel);
+    if (currentModel && !isKnownModel && aiModels.length > 0) {
       setShowCustomModelInput(true);
       setCustomModelValue(currentModel);
     }
-  }, [settings]);
+  }, [settings, aiModels]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -221,17 +272,40 @@ export default function AdminSettingsScreen() {
         ) : (
           <>
             {/* AI Settings */}
-            <Text
-              style={{
-                color: 'rgba(255,255,255,0.5)',
-                fontSize: 12,
-                fontWeight: '600',
-                letterSpacing: 1,
-                marginBottom: 16,
-              }}
-            >
-              AI SETTINGS
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.5)',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  letterSpacing: 1,
+                }}
+              >
+                AI SETTINGS
+              </Text>
+              <Pressable
+                onPress={refreshModelsFromAPI}
+                disabled={isRefreshingModels}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(96, 165, 250, 0.15)',
+                  opacity: isRefreshingModels ? 0.5 : 1,
+                }}
+              >
+                {isRefreshingModels ? (
+                  <ActivityIndicator size="small" color="#60a5fa" />
+                ) : (
+                  <RefreshCw size={14} color="#60a5fa" />
+                )}
+                <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '500', marginLeft: 6 }}>
+                  Scan Models
+                </Text>
+              </Pressable>
+            </View>
 
             <View
               style={{
@@ -246,48 +320,59 @@ export default function AdminSettingsScreen() {
                 colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
                 style={{ padding: 16 }}
               >
-                <SelectInput
-                  label="Default AI Model"
-                  value={showCustomModelInput ? 'custom' : (localSettings.default_model || '')}
-                  options={COMMON_AI_MODELS}
-                  onValueChange={(value) => {
-                    if (value === 'custom') {
-                      setShowCustomModelInput(true);
-                      setCustomModelValue(localSettings.default_model || '');
-                    } else {
-                      setShowCustomModelInput(false);
-                      updateLocal('default_model', value);
-                    }
-                  }}
-                  icon={<Bot size={16} color="#F59E0B" />}
-                />
-
-                {showCustomModelInput && (
-                  <View style={{ marginBottom: 16 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginBottom: 8 }}>
-                      Custom Model ID (from Groq)
+                {isLoadingModels ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#F59E0B" />
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', marginTop: 8, fontSize: 13 }}>
+                      Loading models...
                     </Text>
-                    <TextInput
-                      value={customModelValue}
-                      onChangeText={(text) => {
-                        setCustomModelValue(text);
-                        updateLocal('default_model', text);
-                      }}
-                      placeholder="e.g., llama-3.3-70b-versatile"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      style={{
-                        backgroundColor: 'rgba(255,255,255,0.05)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        borderRadius: 12,
-                        padding: 14,
-                        color: '#fff',
-                        fontSize: 15,
-                      }}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
                   </View>
+                ) : (
+                  <>
+                    <SelectInput
+                      label="Default AI Model"
+                      value={showCustomModelInput ? 'custom' : (localSettings.default_model || '')}
+                      options={modelOptions}
+                      onValueChange={(value) => {
+                        if (value === 'custom') {
+                          setShowCustomModelInput(true);
+                          setCustomModelValue(localSettings.default_model || '');
+                        } else {
+                          setShowCustomModelInput(false);
+                          updateLocal('default_model', value);
+                        }
+                      }}
+                      icon={<Bot size={16} color="#F59E0B" />}
+                    />
+
+                    {showCustomModelInput && (
+                      <View style={{ marginBottom: 16 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginBottom: 8 }}>
+                          Custom Model ID (from Groq)
+                        </Text>
+                        <TextInput
+                          value={customModelValue}
+                          onChangeText={(text) => {
+                            setCustomModelValue(text);
+                            updateLocal('default_model', text);
+                          }}
+                          placeholder="e.g., llama-3.3-70b-versatile"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          style={{
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderRadius: 12,
+                            padding: 14,
+                            color: '#fff',
+                            fontSize: 15,
+                          }}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                      </View>
+                    )}
+                  </>
                 )}
 
                 <View style={{ marginBottom: 16 }}>
