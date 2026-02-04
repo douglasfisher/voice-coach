@@ -37,7 +37,6 @@ interface ChatRequest {
 interface DbPersona {
   id: string;
   name: string;
-  title?: string;
   challenge_style: string;
   system_prompt: string;
   formality?: number;
@@ -104,7 +103,7 @@ serve(async (req) => {
     // Get persona configuration from database
     const { data: dbPersona, error: personaError } = await supabase
       .from('personas')
-      .select('id, name, title, challenge_style, system_prompt, formality, ai_config')
+      .select('id, name, challenge_style, system_prompt, formality, ai_config')
       .eq('id', personaId)
       .single();
 
@@ -157,7 +156,7 @@ serve(async (req) => {
         // Generate intro based on formality
         const formality = persona.formality ?? 50;
         const introStyle = formality >= 60
-          ? `Introduce yourself formally as "${persona.title || ''} ${persona.name}".`
+          ? `Introduce yourself formally as "${persona.name}".`
           : `Introduce yourself casually as "${persona.name}".`;
 
         const introPrompt = `Write ONLY a brief self-introduction (1-2 sentences).
