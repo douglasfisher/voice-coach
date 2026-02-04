@@ -189,20 +189,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ isSending: true, error: null });
     try {
-      // Don't pass explicit Authorization header - let Supabase client handle it
-      // The edge function has verify_jwt = false anyway
-      const { data, error } = await supabase.functions.invoke('chat', {
-        body: {
+      // Use direct fetch to avoid Supabase client auto-attaching potentially invalid JWT
+      // The edge function has verify_jwt = false, so we only need the apikey
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+        },
+        body: JSON.stringify({
           conversationId: activeConversation.id,
           personaId: activeConversation.persona_id,
           generateGreeting: true,
-        },
+        }),
       });
 
-      if (error) {
-        console.error('Start chat error:', error);
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Start chat error:', response.status, errorData);
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
+
+      const data = await response.json();
 
       // Refresh messages to show greeting
       await get().fetchMessages(activeConversation.id);
