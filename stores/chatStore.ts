@@ -153,6 +153,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       audio_url: msg.audio_url as string | null,
       audio_duration_ms: msg.audio_duration_ms as number | null,
       sequence: msg.sequence as number,
+      response_time_ms: msg.response_time_ms as number | null,
       created_at: msg.created_at as string,
     }));
 
@@ -262,6 +263,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         audio_url: null,
         audio_duration_ms: null,
         sequence,
+        response_time_ms: null,
         created_at: new Date().toISOString(),
       };
 

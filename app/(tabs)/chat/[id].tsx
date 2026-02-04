@@ -37,6 +37,7 @@ import {
   ChatInput,
   ChatHeroEmptyState,
   EndChatModal,
+  SessionTimer,
 } from '../../../components/chat';
 import { ChallengeStyle } from '../../../types/persona';
 
@@ -113,6 +114,7 @@ export default function ChatScreen() {
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const {
     fetchMessages,
     clearMessages,
@@ -232,6 +234,19 @@ export default function ChatScreen() {
       clearPreview();
     };
   }, []);
+
+  // Track session start time when first message appears
+  useEffect(() => {
+    if (messages.length > 0 && !sessionStartTime) {
+      // Use the timestamp of the first message as the session start time
+      const firstMessage = messages[0];
+      if (firstMessage?.created_at) {
+        setSessionStartTime(new Date(firstMessage.created_at));
+      } else {
+        setSessionStartTime(new Date());
+      }
+    }
+  }, [messages.length, sessionStartTime]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -356,15 +371,31 @@ export default function ChatScreen() {
             <ChevronLeft size={24} color={theme?.accent || '#F59E0B'} />
           </Pressable>
           {chatStarted && !showImmersiveLayout && (
-            <View style={{ flex: 1 }}>
-              <PersonaHeader persona={persona} compact />
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ flex: 1 }}>
+                <PersonaHeader persona={persona} compact />
+              </View>
+              {sessionStartTime && (
+                <SessionTimer
+                  startTime={sessionStartTime}
+                  accentColor={theme?.accent}
+                  isImmersive={false}
+                />
+              )}
             </View>
           )}
           {chatStarted && showImmersiveLayout && (
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', flex: 1 }}>
                 {persona.name}
               </Text>
+              {sessionStartTime && (
+                <SessionTimer
+                  startTime={sessionStartTime}
+                  accentColor={theme?.accent}
+                  isImmersive={true}
+                />
+              )}
             </View>
           )}
           {!chatStarted && <View style={{ flex: 1 }} />}

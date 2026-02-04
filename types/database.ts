@@ -214,6 +214,13 @@ export interface Database {
           ended_at: string | null;
           analysis_summary: Json | null;
           overall_score: number | null;
+          timing_metrics: {
+            total_duration_ms: number;
+            user_avg_response_ms: number;
+            assistant_avg_response_ms: number;
+            exchange_count: number;
+            word_count_total: number;
+          } | null;
           created_at: string;
         };
         Insert: {
@@ -228,6 +235,13 @@ export interface Database {
           ended_at?: string | null;
           analysis_summary?: Json | null;
           overall_score?: number | null;
+          timing_metrics?: {
+            total_duration_ms: number;
+            user_avg_response_ms: number;
+            assistant_avg_response_ms: number;
+            exchange_count: number;
+            word_count_total: number;
+          } | null;
           created_at?: string;
         };
         Update: {
@@ -242,6 +256,13 @@ export interface Database {
           ended_at?: string | null;
           analysis_summary?: Json | null;
           overall_score?: number | null;
+          timing_metrics?: {
+            total_duration_ms: number;
+            user_avg_response_ms: number;
+            assistant_avg_response_ms: number;
+            exchange_count: number;
+            word_count_total: number;
+          } | null;
           created_at?: string;
         };
       };
@@ -255,6 +276,7 @@ export interface Database {
           audio_duration_ms: number | null;
           analysis: Json | null;
           sequence: number;
+          response_time_ms: number | null;
           created_at: string;
         };
         Insert: {
@@ -266,6 +288,7 @@ export interface Database {
           audio_duration_ms?: number | null;
           analysis?: Json | null;
           sequence: number;
+          response_time_ms?: number | null;
           created_at?: string;
         };
         Update: {
@@ -277,6 +300,7 @@ export interface Database {
           audio_duration_ms?: number | null;
           analysis?: Json | null;
           sequence?: number;
+          response_time_ms?: number | null;
           created_at?: string;
         };
       };

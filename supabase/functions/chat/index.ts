@@ -251,7 +251,7 @@ Guidelines:
     // Regular message handling
     const { data: messages } = await supabase
       .from('messages')
-      .select('role, content')
+      .select('role, content, created_at')
       .eq('conversation_id', conversationId)
       .order('sequence', { ascending: true });
 
@@ -262,12 +262,21 @@ Guidelines:
 
     const nextSequence = (messages?.length || 0) + 1;
 
-    // Save user message
+    // Calculate response time since last message
+    const lastMessage = messages?.[messages.length - 1];
+    const userResponseTimeMs = lastMessage?.created_at
+      ? Date.now() - new Date(lastMessage.created_at).getTime()
+      : null;
+
+    // Save user message with response time
+    const userMessageCreatedAt = new Date().toISOString();
     await supabase.from('messages').insert({
       conversation_id: conversationId,
       role: 'user',
       content: userMessage,
       sequence: nextSequence,
+      response_time_ms: userResponseTimeMs,
+      created_at: userMessageCreatedAt,
     });
 
     // Generate response
@@ -279,12 +288,16 @@ Guidelines:
 
     const assistantMessage = groqResponse.choices[0]?.message?.content || '';
 
-    // Save assistant message
+    // Calculate assistant response time (time since user message was saved)
+    const assistantResponseTimeMs = Date.now() - new Date(userMessageCreatedAt).getTime();
+
+    // Save assistant message with response time
     await supabase.from('messages').insert({
       conversation_id: conversationId,
       role: 'assistant',
       content: assistantMessage,
       sequence: nextSequence + 1,
+      response_time_ms: assistantResponseTimeMs,
     });
 
     // Log usage

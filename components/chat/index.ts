@@ -10,3 +10,4 @@ export { LiveTranscription } from './LiveTranscription';
 export { VoiceInputOverlay } from './VoiceInputOverlay';
 export { ChatHeroEmptyState } from './ChatHeroEmptyState';
 export { EndChatModal } from './EndChatModal';
+export { SessionTimer } from './SessionTimer';

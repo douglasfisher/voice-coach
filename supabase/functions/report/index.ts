@@ -20,6 +20,65 @@ interface ReportRequest {
   conversationId: string;
 }
 
+interface TimingMetrics {
+  total_duration_ms: number;
+  user_avg_response_ms: number;
+  assistant_avg_response_ms: number;
+  exchange_count: number;
+  word_count_total: number;
+}
+
+interface MessageWithTiming {
+  role: string;
+  content: string;
+  sequence: number;
+  created_at: string;
+  response_time_ms: number | null;
+}
+
+function calculateTimingMetrics(
+  messages: MessageWithTiming[],
+  startedAt: string
+): TimingMetrics {
+  const endTime = Date.now();
+  const startTime = new Date(startedAt).getTime();
+  const totalDurationMs = endTime - startTime;
+
+  // Calculate average response times by role
+  const userMessages = messages.filter(m => m.role === 'user');
+  const assistantMessages = messages.filter(m => m.role === 'assistant');
+
+  const userResponseTimes = userMessages
+    .map(m => m.response_time_ms)
+    .filter((t): t is number => t !== null && t > 0);
+
+  const assistantResponseTimes = assistantMessages
+    .map(m => m.response_time_ms)
+    .filter((t): t is number => t !== null && t > 0);
+
+  const avgUserResponse = userResponseTimes.length > 0
+    ? Math.round(userResponseTimes.reduce((a, b) => a + b, 0) / userResponseTimes.length)
+    : 0;
+
+  const avgAssistantResponse = assistantResponseTimes.length > 0
+    ? Math.round(assistantResponseTimes.reduce((a, b) => a + b, 0) / assistantResponseTimes.length)
+    : 0;
+
+  // Count words across all messages
+  const wordCountTotal = messages.reduce((total, m) => {
+    const words = m.content.trim().split(/\s+/).filter(w => w.length > 0);
+    return total + words.length;
+  }, 0);
+
+  return {
+    total_duration_ms: totalDurationMs,
+    user_avg_response_ms: avgUserResponse,
+    assistant_avg_response_ms: avgAssistantResponse,
+    exchange_count: userMessages.length,
+    word_count_total: wordCountTotal,
+  };
+}
+
 interface SessionReport {
   tldr: string;
   strengths: string[];
@@ -83,7 +142,7 @@ serve(async (req) => {
     // Fetch conversation with persona info
     const { data: conversation, error: convError } = await supabase
       .from('conversations')
-      .select('*, personas(name, challenge_style)')
+      .select('*, started_at, created_at, personas(name, challenge_style)')
       .eq('id', conversationId)
       .single();
 
@@ -106,10 +165,10 @@ serve(async (req) => {
       max_tokens: config.max_completion_tokens,
     });
 
-    // Fetch all messages
+    // Fetch all messages with timing data
     const { data: messages, error: msgError } = await supabase
       .from('messages')
-      .select('role, content, sequence')
+      .select('role, content, sequence, created_at, response_time_ms')
       .eq('conversation_id', conversationId)
       .order('sequence', { ascending: true });
 
@@ -119,6 +178,12 @@ serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Calculate timing metrics
+    const timingMetrics = calculateTimingMetrics(
+      messages as MessageWithTiming[],
+      conversation.started_at || conversation.created_at
+    );
 
     // Build conversation transcript
     const transcript = messages
@@ -182,12 +247,13 @@ Generate a comprehensive session report.`;
     // Ensure score is within bounds
     report.overall_score = Math.max(0, Math.min(100, report.overall_score || 50));
 
-    // Save report to conversation
+    // Save report and timing metrics to conversation
     const { error: updateError } = await supabase
       .from('conversations')
       .update({
         analysis_summary: report,
         overall_score: report.overall_score,
+        timing_metrics: timingMetrics,
         status: 'completed',
         ended_at: new Date().toISOString(),
       })

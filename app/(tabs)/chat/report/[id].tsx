@@ -24,6 +24,7 @@ import {
 import { supabase } from '../../../../lib/supabase';
 import { usePersonaStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
+import { SessionStats } from '../../../../components/report';
 
 interface SessionReport {
   tldr: string;
@@ -40,6 +41,14 @@ interface Message {
   sequence: number;
 }
 
+interface TimingMetrics {
+  total_duration_ms: number;
+  user_avg_response_ms: number;
+  assistant_avg_response_ms: number;
+  exchange_count: number;
+  word_count_total: number;
+}
+
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getPersonaById } = usePersonaStore();
@@ -48,6 +57,7 @@ export default function ReportScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [persona, setPersona] = useState<PersonaDisplay | null>(null);
   const [sessionDate, setSessionDate] = useState<string>('');
+  const [timingMetrics, setTimingMetrics] = useState<TimingMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
@@ -60,10 +70,10 @@ export default function ReportScreen() {
     if (!id) return;
 
     try {
-      // Fetch conversation with report
+      // Fetch conversation with report and timing metrics
       const { data: conversation, error: convError } = await supabase
         .from('conversations')
-        .select('analysis_summary, overall_score, persona_id, ended_at, created_at')
+        .select('analysis_summary, overall_score, persona_id, ended_at, created_at, timing_metrics')
         .eq('id', id)
         .single();
 
@@ -71,6 +81,10 @@ export default function ReportScreen() {
 
       if (conversation?.analysis_summary) {
         setReport(conversation.analysis_summary as SessionReport);
+      }
+
+      if (conversation?.timing_metrics) {
+        setTimingMetrics(conversation.timing_metrics as TimingMetrics);
       }
 
       // Set session date
@@ -338,6 +352,9 @@ export default function ReportScreen() {
             </View>
           </LinearGradient>
         </View>
+
+        {/* Session Stats */}
+        {timingMetrics && <SessionStats timingMetrics={timingMetrics} />}
 
         {/* Strengths */}
         <View
