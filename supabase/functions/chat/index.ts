@@ -152,9 +152,9 @@ serve(async (req) => {
         ? `Introduce yourself formally as "${persona.name}".`
         : `Introduce yourself casually as "${persona.name}".`;
 
-      const introPrompt = `Write ONLY a brief self-introduction (1-2 sentences).
+      const introPrompt = `Write a very brief greeting (1 short sentence only, under 15 words).
 ${introStyle}${userName ? ` Address the user as "${userName}".` : ''}
-Keep it short and natural. Do NOT ask questions yet.`;
+Be warm but extremely concise. Do NOT ask questions.`;
 
       return callGroq([
         { role: 'system', content: systemPrompt },
@@ -164,7 +164,7 @@ Keep it short and natural. Do NOT ask questions yet.`;
 
     // Helper to generate question content
     async function generateQuestion(introContent: string) {
-      const questionPrompt = `You just introduced yourself. Now propose a thought-provoking topic and ask an engaging opening question. 2-3 sentences max. Do NOT re-introduce yourself.`;
+      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max, under 30 words total). Be direct and intriguing. Do NOT re-introduce yourself or add preamble.`;
 
       return callGroq([
         { role: 'system', content: systemPrompt },
