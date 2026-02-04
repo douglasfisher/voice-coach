@@ -18,6 +18,7 @@ import {
   Award,
   MessageSquare,
   Flame,
+  LayoutDashboard,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -295,6 +296,70 @@ export default function ProfileScreen() {
           value={notifications}
           onValueChange={toggleNotifications}
         />
+
+        {/* Admin Section - Only show for admins */}
+        {profile?.is_admin && (
+          <>
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+                marginTop: 8,
+                marginBottom: 12,
+                marginLeft: 4,
+              }}
+            >
+              ADMIN
+            </Text>
+
+            <Pressable
+              onPress={() => router.push('/admin')}
+              style={{
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginBottom: 20,
+                borderWidth: 1,
+                borderColor: 'rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              <LinearGradient
+                colors={['rgba(245, 158, 11, 0.15)', 'rgba(245, 158, 11, 0.05)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 18,
+                }}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}
+                >
+                  <LayoutDashboard size={20} color="#F59E0B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                    Admin Panel
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+                    Manage personas, users & settings
+                  </Text>
+                </View>
+                <ChevronRight size={20} color="#F59E0B" />
+              </LinearGradient>
+            </Pressable>
+          </>
+        )}
 
         {/* About Section */}
         <Text

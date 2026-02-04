@@ -21,6 +21,7 @@ export interface Database {
           total_sessions: number;
           streak_days: number;
           last_session_at: string | null;
+          is_admin: boolean;
         };
         Insert: {
           id: string;
@@ -33,6 +34,7 @@ export interface Database {
           total_sessions?: number;
           streak_days?: number;
           last_session_at?: string | null;
+          is_admin?: boolean;
         };
         Update: {
           id?: string;
@@ -45,6 +47,7 @@ export interface Database {
           total_sessions?: number;
           streak_days?: number;
           last_session_at?: string | null;
+          is_admin?: boolean;
         };
       };
       user_preferences: {
@@ -419,6 +422,67 @@ export interface Database {
           created_at?: string;
         };
       };
+      ai_usage: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          conversation_id: string | null;
+          persona_id: string | null;
+          model: string;
+          prompt_tokens: number;
+          completion_tokens: number;
+          total_tokens: number;
+          estimated_cost_cents: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          conversation_id?: string | null;
+          persona_id?: string | null;
+          model: string;
+          prompt_tokens: number;
+          completion_tokens: number;
+          total_tokens: number;
+          estimated_cost_cents: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          conversation_id?: string | null;
+          persona_id?: string | null;
+          model?: string;
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+          estimated_cost_cents?: number;
+          created_at?: string;
+        };
+      };
+      app_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          description: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          key: string;
+          value: Json;
+          description?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          key?: string;
+          value?: Json;
+          description?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -443,3 +507,5 @@ export type DailyChallenge = Tables<'daily_challenges'>;
 export type AnalysisItem = Tables<'analysis_items'>;
 export type UserPattern = Tables<'user_patterns'>;
 export type GrowthSnapshot = Tables<'growth_snapshots'>;
+export type AIUsage = Tables<'ai_usage'>;
+export type AppSettings = Tables<'app_settings'>;

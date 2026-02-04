@@ -26,6 +26,7 @@ const MOCK_PROFILE: UserProfile = {
   total_sessions: 5,
   streak_days: 3,
   last_session_at: new Date().toISOString(),
+  is_admin: true,
 };
 
 const MOCK_PREFERENCES: UserPreferences = {

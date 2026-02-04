@@ -120,6 +120,28 @@ export class GroqClient {
   }
 
   /**
+   * Completion with conversation history - returns full response with usage
+   */
+  async completeWithHistoryAndUsage(
+    systemPrompt: string,
+    history: GroqMessage[],
+    userPrompt: string,
+    settings?: Partial<GroqCompletionSettings>
+  ): Promise<{ content: string; usage: GroqResponse['usage'] }> {
+    const messages: GroqMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...history,
+      { role: 'user', content: userPrompt },
+    ];
+
+    const response = await this.chat(messages, settings);
+    return {
+      content: response.choices[0]?.message?.content || '',
+      usage: response.usage,
+    };
+  }
+
+  /**
    * JSON-mode completion - instructs model to return valid JSON
    */
   async completeJSON<T = unknown>(

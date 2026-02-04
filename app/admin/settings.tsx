@@ -1,0 +1,439 @@
+/**
+ * Admin Settings Screen
+ *
+ * App-wide configuration settings.
+ */
+
+import {
+  View,
+  Text,
+  ScrollView,
+  RefreshControl,
+  Pressable,
+  Switch,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import Slider from '@react-native-community/slider';
+import {
+  Save,
+  Settings,
+  Zap,
+  AlertTriangle,
+  Bot,
+  ChevronDown,
+} from 'lucide-react-native';
+import { useAdminStatsStore } from '../../stores/adminStatsStore';
+import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
+import { AppSettingsMap } from '../../types/admin';
+
+const AI_MODELS = [
+  { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Best)' },
+  { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fast)' },
+  { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+  { value: 'gemma2-9b-it', label: 'Gemma 2 9B' },
+];
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(0) + 'K';
+  }
+  return num.toString();
+}
+
+interface SelectInputProps {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onValueChange: (value: string) => void;
+  icon?: React.ReactNode;
+}
+
+function SelectInput({ label, value, options, onValueChange, icon }: SelectInputProps) {
+  const [showOptions, setShowOptions] = useState(false);
+  const selectedOption = options.find((o) => o.value === value);
+
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        {icon && <View style={{ marginRight: 8 }}>{icon}</View>}
+        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>{label}</Text>
+      </View>
+      <Pressable
+        onPress={() => setShowOptions(!showOptions)}
+        style={{
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderRadius: 12,
+          padding: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Text style={{ color: '#fff', fontSize: 15 }}>
+          {selectedOption?.label || value || 'Select...'}
+        </Text>
+        <ChevronDown size={18} color="rgba(255,255,255,0.5)" />
+      </Pressable>
+
+      {showOptions && (
+        <View
+          style={{
+            marginTop: 8,
+            backgroundColor: '#1A1A1F',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+            borderRadius: 12,
+            overflow: 'hidden',
+          }}
+        >
+          {options.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => {
+                onValueChange(option.value);
+                setShowOptions(false);
+              }}
+              style={{
+                padding: 14,
+                backgroundColor:
+                  option.value === value ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                borderBottomWidth: 1,
+                borderBottomColor: 'rgba(255,255,255,0.05)',
+              }}
+            >
+              <Text
+                style={{
+                  color: option.value === value ? '#F59E0B' : '#fff',
+                  fontSize: 15,
+                }}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+export default function AdminSettingsScreen() {
+  const {
+    settings,
+    isLoadingSettings,
+    isSavingSettings,
+    fetchSettings,
+    updateSetting,
+  } = useAdminStatsStore();
+
+  const { personas, fetchPersonas } = useAdminPersonaStore();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [localSettings, setLocalSettings] = useState<Partial<AppSettingsMap>>({});
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    fetchSettings();
+    fetchPersonas();
+  }, []);
+
+  useEffect(() => {
+    setLocalSettings(settings);
+    setHasChanges(false);
+  }, [settings]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchSettings();
+    setRefreshing(false);
+  };
+
+  const updateLocal = <K extends keyof AppSettingsMap>(key: K, value: AppSettingsMap[K]) => {
+    setLocalSettings((prev) => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    const updates = Object.keys(localSettings).filter(
+      (key) => localSettings[key as keyof AppSettingsMap] !== settings[key as keyof AppSettingsMap]
+    );
+
+    for (const key of updates) {
+      const { error } = await updateSetting(
+        key as keyof AppSettingsMap,
+        localSettings[key as keyof AppSettingsMap] as any
+      );
+      if (error) {
+        Alert.alert('Error', `Failed to update ${key}: ${error.message}`);
+        return;
+      }
+    }
+
+    setHasChanges(false);
+    Alert.alert('Success', 'Settings saved successfully');
+  };
+
+  const personaOptions = [
+    { value: 'null', label: 'None' },
+    ...personas.map((p) => ({ value: p.id, label: p.name })),
+  ];
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }} edges={['bottom']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#F59E0B"
+          />
+        }
+      >
+        {isLoadingSettings ? (
+          <View style={{ padding: 40, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#F59E0B" />
+          </View>
+        ) : (
+          <>
+            {/* AI Settings */}
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+                marginBottom: 16,
+              }}
+            >
+              AI SETTINGS
+            </Text>
+
+            <View
+              style={{
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginBottom: 24,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
+              }}
+            >
+              <LinearGradient
+                colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+                style={{ padding: 16 }}
+              >
+                <SelectInput
+                  label="Default AI Model"
+                  value={localSettings.default_model || 'llama-3.3-70b-versatile'}
+                  options={AI_MODELS}
+                  onValueChange={(value) => updateLocal('default_model', value)}
+                  icon={<Bot size={16} color="#F59E0B" />}
+                />
+
+                <View style={{ marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Zap size={16} color="#60a5fa" />
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginLeft: 8 }}>
+                      Max Tokens per Request
+                    </Text>
+                    <Text style={{ color: '#F59E0B', fontSize: 14, fontWeight: '600', marginLeft: 'auto' }}>
+                      {localSettings.max_tokens_per_request || 1024}
+                    </Text>
+                  </View>
+                  <Slider
+                    value={localSettings.max_tokens_per_request || 1024}
+                    onValueChange={(value) => updateLocal('max_tokens_per_request', Math.round(value))}
+                    minimumValue={256}
+                    maximumValue={4096}
+                    step={128}
+                    minimumTrackTintColor="#60a5fa"
+                    maximumTrackTintColor="rgba(255,255,255,0.1)"
+                    thumbTintColor="#60a5fa"
+                  />
+                </View>
+              </LinearGradient>
+            </View>
+
+            {/* Token Limits */}
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+                marginBottom: 16,
+              }}
+            >
+              DAILY TOKEN LIMITS
+            </Text>
+
+            <View
+              style={{
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginBottom: 24,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
+              }}
+            >
+              <LinearGradient
+                colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+                style={{ padding: 16 }}
+              >
+                <View style={{ marginBottom: 20 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
+                      Free Users
+                    </Text>
+                    <Text style={{ color: '#4ade80', fontSize: 14, fontWeight: '600' }}>
+                      {formatNumber(localSettings.daily_token_limit_free || 50000)}
+                    </Text>
+                  </View>
+                  <Slider
+                    value={localSettings.daily_token_limit_free || 50000}
+                    onValueChange={(value) => updateLocal('daily_token_limit_free', Math.round(value))}
+                    minimumValue={10000}
+                    maximumValue={200000}
+                    step={10000}
+                    minimumTrackTintColor="#4ade80"
+                    maximumTrackTintColor="rgba(255,255,255,0.1)"
+                    thumbTintColor="#4ade80"
+                  />
+                </View>
+
+                <View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
+                      Premium Users
+                    </Text>
+                    <Text style={{ color: '#fbbf24', fontSize: 14, fontWeight: '600' }}>
+                      {formatNumber(localSettings.daily_token_limit_premium || 500000)}
+                    </Text>
+                  </View>
+                  <Slider
+                    value={localSettings.daily_token_limit_premium || 500000}
+                    onValueChange={(value) => updateLocal('daily_token_limit_premium', Math.round(value))}
+                    minimumValue={100000}
+                    maximumValue={2000000}
+                    step={50000}
+                    minimumTrackTintColor="#fbbf24"
+                    maximumTrackTintColor="rgba(255,255,255,0.1)"
+                    thumbTintColor="#fbbf24"
+                  />
+                </View>
+              </LinearGradient>
+            </View>
+
+            {/* App Features */}
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+                marginBottom: 16,
+              }}
+            >
+              APP FEATURES
+            </Text>
+
+            <View
+              style={{
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginBottom: 24,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
+              }}
+            >
+              <LinearGradient
+                colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+                style={{ padding: 16 }}
+              >
+                <SelectInput
+                  label="Featured Persona"
+                  value={localSettings.featured_persona_id || 'null'}
+                  options={personaOptions}
+                  onValueChange={(value) => updateLocal('featured_persona_id', value === 'null' ? null : value)}
+                  icon={<Bot size={16} color="#c084fc" />}
+                />
+
+                {/* Maintenance Mode */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(255,255,255,0.05)',
+                    marginTop: 8,
+                  }}
+                >
+                  <AlertTriangle size={18} color="#ef4444" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                      Maintenance Mode
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                      Block new conversations
+                    </Text>
+                  </View>
+                  <Switch
+                    value={localSettings.maintenance_mode || false}
+                    onValueChange={(value) => updateLocal('maintenance_mode', value)}
+                    trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(239, 68, 68, 0.5)' }}
+                    thumbColor={localSettings.maintenance_mode ? '#ef4444' : 'rgba(255,255,255,0.5)'}
+                    ios_backgroundColor="rgba(255,255,255,0.1)"
+                  />
+                </View>
+              </LinearGradient>
+            </View>
+
+            {/* Save Button */}
+            {hasChanges && (
+              <Pressable
+                onPress={handleSave}
+                disabled={isSavingSettings}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                  borderRadius: 16,
+                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(245, 158, 11, 0.3)',
+                  marginBottom: 24,
+                  opacity: isSavingSettings ? 0.5 : 1,
+                }}
+              >
+                {isSavingSettings ? (
+                  <ActivityIndicator size="small" color="#F59E0B" />
+                ) : (
+                  <>
+                    <Save size={20} color="#F59E0B" />
+                    <Text style={{ color: '#F59E0B', fontSize: 16, fontWeight: '600', marginLeft: 8 }}>
+                      Save Changes
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
