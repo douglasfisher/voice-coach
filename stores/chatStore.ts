@@ -45,6 +45,12 @@ interface ChatState {
     personaId: string,
     topic?: string
   ) => Promise<string | null>;
+  startChallengeChat: (
+    userId: string,
+    personaId: string,
+    challengeQuestion: string,
+    topic?: string
+  ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string } | null>;
   startChat: () => Promise<boolean>;
   startChatWithPreview: () => Promise<boolean>;
@@ -175,6 +181,47 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return data.id;
     } catch (error) {
       console.error('createConversation error:', error);
+      set({ error: (error as Error).message });
+      return null;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  startChallengeChat: async (userId, personaId, challengeQuestion, topic) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Create the conversation
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert({
+          user_id: userId,
+          persona_id: personaId,
+          topic: topic || 'Daily Challenge',
+          status: 'active',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Save the challenge question as the first assistant message
+      const { error: msgError } = await supabase.from('messages').insert({
+        conversation_id: data.id,
+        role: 'assistant',
+        content: challengeQuestion,
+        sequence: 1,
+      });
+
+      if (msgError) throw msgError;
+
+      // Set active conversation and fetch the message
+      set({ activeConversation: data });
+      await get().fetchMessages(data.id);
+
+      return data.id;
+    } catch (error) {
+      console.error('startChallengeChat error:', error);
       set({ error: (error as Error).message });
       return null;
     } finally {

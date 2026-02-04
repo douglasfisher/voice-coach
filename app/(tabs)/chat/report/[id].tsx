@@ -189,7 +189,7 @@ export default function ReportScreen() {
             }}
           >
             {/* Persona Image */}
-            <View style={{ height: 160, position: 'relative' }}>
+            <View style={{ height: 280, position: 'relative' }}>
               <Image
                 source={
                   typeof persona.avatarUrl === 'string'
@@ -200,13 +200,13 @@ export default function ReportScreen() {
                 resizeMode="cover"
               />
               <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)']}
+                colors={['transparent', 'rgba(0,0,0,0.9)']}
                 style={{
                   position: 'absolute',
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  height: 80,
+                  height: 120,
                 }}
               />
             </View>
