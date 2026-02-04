@@ -79,7 +79,15 @@ serve(async (req) => {
       .eq('key', 'default_model')
       .single();
 
-    const model = modelSetting?.value || 'llama-3.3-70b-versatile';
+    // Parse the value - it's JSON stringified in the DB
+    let model = 'llama-3.3-70b-versatile';
+    if (modelSetting?.value) {
+      try {
+        model = JSON.parse(modelSetting.value);
+      } catch {
+        model = modelSetting.value;
+      }
+    }
     const systemPrompt = persona.system_prompt;
 
     console.log('Chat request:', { conversationId, personaId, model, generateGreeting });
