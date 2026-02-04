@@ -332,7 +332,7 @@ export default function ChatScreen() {
               analysis={item.role === 'user' ? item.analysis : null}
               audioUrl={item.audio_url}
               onPlayAudio={
-                item.role === 'assistant'
+                item.role === 'assistant' && preferences?.tts_enabled
                   ? () => handlePlayAudio(item.audio_url, item.content)
                   : undefined
               }
