@@ -45,7 +45,6 @@ const STYLE_THEMES: Record<ChallengeStyle, {
 
 interface ChatHeroEmptyStateProps {
   persona: PersonaDisplay;
-  introMessage: string | null;
   questionMessage: string | null;
   refreshCount: number;
   maxRefreshes: number;
@@ -58,7 +57,6 @@ interface ChatHeroEmptyStateProps {
 
 export function ChatHeroEmptyState({
   persona,
-  introMessage,
   questionMessage,
   refreshCount,
   maxRefreshes,
@@ -75,8 +73,8 @@ export function ChatHeroEmptyState({
     : persona.avatarUrl;
 
   const refreshesRemaining = maxRefreshes - refreshCount;
-  const canRefresh = refreshesRemaining > 0 && !isRefreshing && !isLoading && introMessage;
-  const hasPreview = introMessage && questionMessage;
+  const canRefresh = refreshesRemaining > 0 && !isRefreshing && !isLoading && questionMessage;
+  const hasPreview = !!questionMessage;
 
   return (
     <View style={{ flex: 1 }}>
@@ -127,40 +125,6 @@ export function ChatHeroEmptyState({
             {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
           </Text>
         </View>
-
-        {/* Intro message or loading skeleton */}
-        {isLoading && !hasPreview ? (
-          <View style={{ marginBottom: 12 }}>
-            <View
-              style={{
-                height: 16,
-                width: '80%',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                borderRadius: 8,
-                marginBottom: 8,
-              }}
-            />
-            <View
-              style={{
-                height: 16,
-                width: '60%',
-                backgroundColor: 'rgba(255,255,255,0.1)',
-                borderRadius: 8,
-              }}
-            />
-          </View>
-        ) : introMessage ? (
-          <Text
-            style={{
-              color: 'rgba(255,255,255,0.85)',
-              fontSize: 15,
-              lineHeight: 22,
-              marginBottom: 12,
-            }}
-          >
-            {introMessage}
-          </Text>
-        ) : null}
 
         {/* Question or loading skeleton */}
         {isLoading && !hasPreview ? (

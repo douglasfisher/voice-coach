@@ -52,6 +52,7 @@ interface MessageBubbleProps {
   onPlayAudio?: () => void;
   isPlaying?: boolean;
   timestamp?: string;
+  immersiveMode?: boolean;
 }
 
 export function MessageBubble({
@@ -63,6 +64,7 @@ export function MessageBubble({
   onPlayAudio,
   isPlaying,
   timestamp,
+  immersiveMode = false,
 }: MessageBubbleProps) {
   const isUser = role === 'user';
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
@@ -71,6 +73,10 @@ export function MessageBubble({
       ? { uri: persona.avatarUrl }
       : persona.avatarUrl
     : null;
+
+  // Immersive mode styles - more transparent backgrounds
+  const immersiveAssistantGradient: [string, string] = ['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.4)'];
+  const immersiveUserGradient: [string, string] = ['rgba(245, 158, 11, 0.85)', 'rgba(217, 119, 6, 0.85)'];
 
   return (
     <View style={{ marginBottom: 16, alignItems: isUser ? 'flex-end' : 'flex-start' }}>
@@ -111,7 +117,7 @@ export function MessageBubble({
           {/* Message bubble */}
           {isUser ? (
             <LinearGradient
-              colors={['#F59E0B', '#D97706']}
+              colors={immersiveMode ? immersiveUserGradient : ['#F59E0B', '#D97706']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
@@ -128,8 +134,8 @@ export function MessageBubble({
           ) : (
             <View
               style={{
-                backgroundColor: 'rgba(255,255,255,0.08)',
-                borderWidth: 1,
+                backgroundColor: immersiveMode ? 'transparent' : 'rgba(255,255,255,0.08)',
+                borderWidth: immersiveMode ? 0 : 1,
                 borderColor: `${theme?.accent || '#F59E0B'}30`,
                 borderRadius: 20,
                 borderBottomLeftRadius: 6,
@@ -137,7 +143,7 @@ export function MessageBubble({
               }}
             >
               <LinearGradient
-                colors={theme?.bubbleGradient || ['rgba(30, 30, 40, 0.6)', 'rgba(30, 30, 40, 0.3)']}
+                colors={immersiveMode ? immersiveAssistantGradient : (theme?.bubbleGradient || ['rgba(30, 30, 40, 0.6)', 'rgba(30, 30, 40, 0.3)'])}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={{

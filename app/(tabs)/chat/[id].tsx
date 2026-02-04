@@ -7,7 +7,10 @@ import {
   Platform,
   ActivityIndicator,
   Pressable,
+  Image,
+  ImageSourcePropType,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -123,7 +126,6 @@ export default function ChatScreen() {
     regenerateQuestion,
     startChatWithPreview,
     clearPreview,
-    previewIntro,
     previewQuestion,
     questionRefreshCount,
     isGeneratingPreview,
@@ -131,6 +133,17 @@ export default function ChatScreen() {
   const chatStarted = messages.length > 0;
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
+
+  // Immersive mode: show full-bleed persona image with messages overlaid
+  const immersiveModeEnabled = preferences?.immersive_chat_enabled ?? true;
+  const showImmersiveLayout = immersiveModeEnabled && chatStarted && !!persona;
+
+  // Get persona image source for immersive mode
+  const personaImageSource = persona
+    ? typeof persona.avatarUrl === 'string'
+      ? { uri: persona.avatarUrl }
+      : persona.avatarUrl
+    : null;
 
   const handleSend = async (content: string) => {
     const result = await send(content);
@@ -174,8 +187,8 @@ export default function ChatScreen() {
 
     setIsStartingChat(true);
     try {
-      // If we have preview messages, save them and start
-      if (previewIntro && previewQuestion) {
+      // If we have preview question, save it and start
+      if (previewQuestion) {
         await startChatWithPreview();
       } else {
         // Fallback to original behavior
@@ -206,7 +219,7 @@ export default function ChatScreen() {
 
   // Generate preview when conversation loads and chat hasn't started
   useEffect(() => {
-    if (conversation && !chatStarted && !previewIntro && !isGeneratingPreview) {
+    if (conversation && !chatStarted && !previewQuestion && !isGeneratingPreview) {
       generatePreview();
     }
   }, [conversation?.id, chatStarted]);
@@ -281,24 +294,48 @@ export default function ChatScreen() {
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: '#0a0a0f' }}
-      edges={chatStarted ? ['top'] : []}
+      edges={chatStarted && !showImmersiveLayout ? ['top'] : []}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
         keyboardVerticalOffset={0}
       >
-        {/* Header - overlays hero when pre-chat, fixed when active */}
+        {/* Immersive mode background - full bleed persona image */}
+        {showImmersiveLayout && personaImageSource && (
+          <>
+            <Image
+              source={personaImageSource as ImageSourcePropType}
+              style={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+              }}
+              resizeMode="cover"
+            />
+            <LinearGradient
+              colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.85)']}
+              locations={[0, 0.25, 0.5, 1]}
+              style={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+              }}
+            />
+          </>
+        )}
+
+        {/* Header - overlays hero when pre-chat or immersive, fixed when standard active */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             paddingRight: 16,
-            paddingTop: chatStarted ? 0 : insets.top,
-            borderBottomWidth: chatStarted ? 1 : 0,
+            paddingTop: (chatStarted && !showImmersiveLayout) ? 0 : insets.top,
+            borderBottomWidth: (chatStarted && !showImmersiveLayout) ? 1 : 0,
             borderBottomColor: 'rgba(255,255,255,0.08)',
-            backgroundColor: chatStarted ? 'rgba(10, 10, 15, 0.95)' : 'transparent',
-            ...(chatStarted ? {} : {
+            backgroundColor: (chatStarted && !showImmersiveLayout) ? 'rgba(10, 10, 15, 0.95)' : 'transparent',
+            ...((chatStarted && !showImmersiveLayout) ? {} : {
               position: 'absolute',
               top: 0,
               left: 0,
@@ -316,9 +353,16 @@ export default function ChatScreen() {
           >
             <ChevronLeft size={24} color={theme?.accent || '#F59E0B'} />
           </Pressable>
-          {chatStarted && (
+          {chatStarted && !showImmersiveLayout && (
             <View style={{ flex: 1 }}>
               <PersonaHeader persona={persona} compact />
+            </View>
+          )}
+          {chatStarted && showImmersiveLayout && (
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                {persona.name}
+              </Text>
             </View>
           )}
           {!chatStarted && <View style={{ flex: 1 }} />}
@@ -332,9 +376,9 @@ export default function ChatScreen() {
                   style={{
                     padding: 8,
                     borderRadius: 10,
-                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    backgroundColor: showImmersiveLayout ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.08)',
                     borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderColor: showImmersiveLayout ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
                     opacity: isClearing ? 0.5 : 1,
                   }}
                 >
@@ -347,9 +391,9 @@ export default function ChatScreen() {
                   paddingHorizontal: 14,
                   paddingVertical: 8,
                   borderRadius: 12,
-                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  backgroundColor: showImmersiveLayout ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.08)',
                   borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.1)',
+                  borderColor: showImmersiveLayout ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
                 }}
               >
                 <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
@@ -366,8 +410,13 @@ export default function ChatScreen() {
             ref={flatListRef}
             data={messages}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 8,
+              paddingTop: showImmersiveLayout ? insets.top + 60 : 16,
+            }}
             showsVerticalScrollIndicator={false}
+            style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
             renderItem={({ item }) => (
               <MessageBubble
                 content={item.content}
@@ -382,6 +431,7 @@ export default function ChatScreen() {
                 }
                 isPlaying={isPlaying}
                 timestamp={item.created_at}
+                immersiveMode={showImmersiveLayout}
               />
             )}
             ListFooterComponent={
@@ -391,12 +441,11 @@ export default function ChatScreen() {
         ) : (
           <ChatHeroEmptyState
             persona={persona}
-            introMessage={previewIntro}
             questionMessage={previewQuestion}
             refreshCount={questionRefreshCount}
             maxRefreshes={3}
             isLoading={isGeneratingPreview}
-            isRefreshing={isGeneratingPreview && previewIntro !== null}
+            isRefreshing={isGeneratingPreview && previewQuestion !== null}
             onRefreshQuestion={handleRefreshQuestion}
             onStartChat={handleStartChat}
             isStarting={isStartingChat}
@@ -432,26 +481,29 @@ export default function ChatScreen() {
 
         {/* Input - only show after chat has started */}
         {conversation.status === 'active' && chatStarted ? (
-          <ChatInput
-            onSend={handleSend}
-            disabled={isSending}
-            accentColor={theme?.accent}
-            voiceInputEnabled={voiceInputEnabled}
-            voiceState={voiceState}
-            transcript={voiceTranscript}
-            interimTranscript={interimTranscript}
-            audioLevel={audioLevel}
-            hasVoicePermission={hasVoicePermission}
-            onVoicePressIn={voiceHandlers.onPressIn}
-            onVoicePressOut={voiceHandlers.onPressOut}
-            onVoiceCancel={voiceHandlers.onCancel}
-          />
+          <View style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}>
+            <ChatInput
+              onSend={handleSend}
+              disabled={isSending}
+              accentColor={theme?.accent}
+              voiceInputEnabled={voiceInputEnabled}
+              voiceState={voiceState}
+              transcript={voiceTranscript}
+              interimTranscript={interimTranscript}
+              audioLevel={audioLevel}
+              hasVoicePermission={hasVoicePermission}
+              onVoicePressIn={voiceHandlers.onPressIn}
+              onVoicePressOut={voiceHandlers.onPressOut}
+              onVoiceCancel={voiceHandlers.onCancel}
+              immersiveMode={showImmersiveLayout}
+            />
+          </View>
         ) : conversation.status !== 'active' ? (
           <View
             style={{
               padding: 16,
               paddingBottom: 24,
-              backgroundColor: 'rgba(10, 10, 15, 0.95)',
+              backgroundColor: showImmersiveLayout ? 'rgba(0, 0, 0, 0.6)' : 'rgba(10, 10, 15, 0.95)',
               borderTopWidth: 1,
               borderTopColor: 'rgba(255,255,255,0.08)',
               alignItems: 'center',

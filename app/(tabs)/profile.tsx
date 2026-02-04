@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Flame,
   LayoutDashboard,
+  Maximize2,
 } from 'lucide-react-native';
 import { requestSTTPermission, getSTTPermissionStatus, checkSTTAvailability, isSTTModuleAvailable } from '../../lib/stt';
 import { useAuthStore } from '../../stores/authStore';
@@ -38,6 +39,9 @@ export default function ProfileScreen() {
   const [voiceInputAvailable, setVoiceInputAvailable] = useState(false);
   const [notifications, setNotifications] = useState(
     preferences?.notification_daily_challenge ?? true
+  );
+  const [immersiveChatEnabled, setImmersiveChatEnabled] = useState(
+    preferences?.immersive_chat_enabled ?? true
   );
 
   // Check if voice input is available on mount
@@ -101,6 +105,11 @@ export default function ProfileScreen() {
   const toggleNotifications = async (value: boolean) => {
     setNotifications(value);
     await updatePreferences({ notification_daily_challenge: value });
+  };
+
+  const toggleImmersiveChat = async (value: boolean) => {
+    setImmersiveChatEnabled(value);
+    await updatePreferences({ immersive_chat_enabled: value });
   };
 
   const intensityLabels = ['Gentle', 'Moderate', 'Challenging', 'Intense'];
@@ -344,6 +353,16 @@ export default function ProfileScreen() {
           description="Remind me about daily challenges"
           value={notifications}
           onValueChange={toggleNotifications}
+        />
+
+        {/* Immersive Chat Mode */}
+        <SettingToggle
+          icon={Maximize2}
+          iconColor="#2dd4bf"
+          title="Immersive Chat Mode"
+          description="Show chat messages overlaid on persona image"
+          value={immersiveChatEnabled}
+          onValueChange={toggleImmersiveChat}
         />
 
         {/* Admin Section - Only show for admins */}

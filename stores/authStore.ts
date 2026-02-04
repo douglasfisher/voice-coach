@@ -39,6 +39,7 @@ const MOCK_PREFERENCES: UserPreferences = {
   theme: 'dark',
   preferred_persona_ids: null,
   avoided_topics: null,
+  immersive_chat_enabled: true,
   updated_at: new Date().toISOString(),
 };
 

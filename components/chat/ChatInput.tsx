@@ -28,6 +28,7 @@ interface ChatInputProps {
   onVoicePressIn?: () => void;
   onVoicePressOut?: () => Promise<string>;
   onVoiceCancel?: () => void;
+  immersiveMode?: boolean;
 }
 
 const CANCEL_THRESHOLD = 100;
@@ -45,6 +46,7 @@ export function ChatInput({
   onVoicePressIn,
   onVoicePressOut,
   onVoiceCancel,
+  immersiveMode = false,
 }: ChatInputProps) {
   const isRecording = voiceState === 'recording';
   const isProcessing = voiceState === 'processing';
@@ -189,7 +191,7 @@ export function ChatInput({
           paddingHorizontal: 16,
           paddingTop: 12,
           paddingBottom: 28,
-          backgroundColor: 'rgba(10, 10, 15, 0.95)',
+          backgroundColor: immersiveMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(10, 10, 15, 0.95)',
           borderTopWidth: 1,
           borderTopColor: 'rgba(255, 255, 255, 0.08)',
         }}
@@ -198,10 +200,10 @@ export function ChatInput({
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: 'rgba(255,255,255,0.06)',
+            backgroundColor: immersiveMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.06)',
             borderRadius: 24,
             borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.1)',
+            borderColor: immersiveMode ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
           }}
         >
           <TextInput
@@ -245,7 +247,7 @@ export function ChatInput({
         paddingHorizontal: 24,
         paddingTop: 16,
         paddingBottom: 28,
-        backgroundColor: 'rgba(10, 10, 15, 0.95)',
+        backgroundColor: immersiveMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(10, 10, 15, 0.95)',
         borderTopWidth: 1,
         borderTopColor: showRecordingUI ? `${accentColor}40` : 'rgba(255, 255, 255, 0.08)',
         alignItems: 'center',

@@ -61,6 +61,7 @@ export interface Database {
           theme: string;
           preferred_persona_ids: string[] | null;
           avoided_topics: string[] | null;
+          immersive_chat_enabled: boolean;
           updated_at: string;
         };
         Insert: {
@@ -73,6 +74,7 @@ export interface Database {
           theme?: string;
           preferred_persona_ids?: string[] | null;
           avoided_topics?: string[] | null;
+          immersive_chat_enabled?: boolean;
           updated_at?: string;
         };
         Update: {
@@ -85,6 +87,7 @@ export interface Database {
           theme?: string;
           preferred_persona_ids?: string[] | null;
           avoided_topics?: string[] | null;
+          immersive_chat_enabled?: boolean;
           updated_at?: string;
         };
       };

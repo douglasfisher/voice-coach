@@ -19,7 +19,6 @@ interface ChatRequest {
   generateGreeting?: boolean;
   previewGreeting?: boolean;      // Generate but don't save
   regenerateQuestion?: boolean;   // Regenerate question only
-  existingIntro?: string;         // Pass intro when regenerating question
 }
 
 interface GroqMessage {
@@ -45,7 +44,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request
-    const { conversationId, userMessage, personaId, generateGreeting, previewGreeting, regenerateQuestion, existingIntro } = await req.json() as ChatRequest;
+    const { conversationId, userMessage, personaId, generateGreeting, previewGreeting, regenerateQuestion } = await req.json() as ChatRequest;
 
     if (!conversationId || !personaId) {
       return new Response(
@@ -145,37 +144,27 @@ serve(async (req) => {
       return '';
     }
 
-    // Helper to generate intro content
-    async function generateIntro(userName: string) {
+    // Helper to generate opening question content (no intro, just the question)
+    async function generateQuestion(userName: string) {
       const formality = persona.formality ?? 50;
-      const introStyle = formality >= 60
-        ? `Introduce yourself formally as "${persona.name}".`
-        : `Introduce yourself casually as "${persona.name}".`;
+      const addressStyle = userName
+        ? formality >= 60
+          ? ` Address the user as "${userName}".`
+          : ` Feel free to address the user as "${userName}" casually.`
+        : '';
 
-      const introPrompt = `Write a very brief greeting (1 short sentence only, under 15 words).
-${introStyle}${userName ? ` Address the user as "${userName}".` : ''}
-Be warm but extremely concise. Do NOT ask questions.`;
-
-      return callGroq([
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: introPrompt },
-      ]);
-    }
-
-    // Helper to generate question content
-    async function generateQuestion(introContent: string) {
-      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max, under 30 words total). Be direct and intriguing. Do NOT re-introduce yourself or add preamble.`;
+      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max, under 30 words total).${addressStyle} Be direct and intriguing. No introduction or preamble needed - just ask the question.`;
 
       return callGroq([
         { role: 'system', content: systemPrompt },
-        { role: 'assistant', content: introContent },
         { role: 'user', content: questionPrompt },
       ]);
     }
 
     // Handle regenerate question only (preview mode)
-    if (regenerateQuestion && existingIntro) {
-      const questionResponse = await generateQuestion(existingIntro);
+    if (regenerateQuestion) {
+      const userName = await getUserName();
+      const questionResponse = await generateQuestion(userName);
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
       return new Response(
@@ -184,23 +173,20 @@ Be warm but extremely concise. Do NOT ask questions.`;
       );
     }
 
-    // Handle preview greeting (generate but don't save)
+    // Handle preview greeting (generate but don't save) - now only generates question
     if (previewGreeting) {
       const userName = await getUserName();
-      const introResponse = await generateIntro(userName);
-      const introContent = introResponse.choices[0]?.message?.content || '';
-      const questionResponse = await generateQuestion(introContent);
+      const questionResponse = await generateQuestion(userName);
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
       return new Response(
-        JSON.stringify({ intro: introContent, question: questionContent, preview: true }),
+        JSON.stringify({ question: questionContent, preview: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Handle greeting generation (generate and save)
+    // Handle greeting generation (generate and save) - now only saves question
     if (generateGreeting) {
-      // Get user name for personalization
       const { data: conv } = await supabase
         .from('conversations')
         .select('user_id')
@@ -208,33 +194,30 @@ Be warm but extremely concise. Do NOT ask questions.`;
         .single();
 
       const userName = await getUserName();
-      const introResponse = await generateIntro(userName);
-      const introContent = introResponse.choices[0]?.message?.content || '';
-      const questionResponse = await generateQuestion(introContent);
+      const questionResponse = await generateQuestion(userName);
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
-      // Save messages
-      await supabase.from('messages').insert([
-        { conversation_id: conversationId, role: 'assistant', content: introContent, sequence: 1 },
-        { conversation_id: conversationId, role: 'assistant', content: questionContent, sequence: 2 },
-      ]);
+      // Save only the question message
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: questionContent,
+        sequence: 1,
+      });
 
       // Log usage
-      const totalPromptTokens = (introResponse.usage?.prompt_tokens || 0) + (questionResponse.usage?.prompt_tokens || 0);
-      const totalCompletionTokens = (introResponse.usage?.completion_tokens || 0) + (questionResponse.usage?.completion_tokens || 0);
-
       await supabase.from('ai_usage').insert({
         user_id: conv?.user_id || null,
         conversation_id: conversationId,
         persona_id: personaId,
         model,
-        prompt_tokens: totalPromptTokens,
-        completion_tokens: totalCompletionTokens,
-        total_tokens: totalPromptTokens + totalCompletionTokens,
+        prompt_tokens: questionResponse.usage?.prompt_tokens || 0,
+        completion_tokens: questionResponse.usage?.completion_tokens || 0,
+        total_tokens: questionResponse.usage?.total_tokens || 0,
       });
 
       return new Response(
-        JSON.stringify({ response: introContent, intro: introContent, question: questionContent }),
+        JSON.stringify({ response: questionContent, question: questionContent }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

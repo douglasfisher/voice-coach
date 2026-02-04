@@ -15,8 +15,7 @@ interface ChatState {
   isSending: boolean;
   error: string | null;
 
-  // Preview state
-  previewIntro: string | null;
+  // Preview state (question only, no intro)
   previewQuestion: string | null;
   questionRefreshCount: number;
   isGeneratingPreview: boolean;
@@ -50,8 +49,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isSending: false,
   error: null,
 
-  // Preview state
-  previewIntro: null,
+  // Preview state (question only, no intro)
   previewQuestion: null,
   questionRefreshCount: 0,
   isGeneratingPreview: false,
@@ -280,7 +278,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       const data = await response.json();
       set({
-        previewIntro: data.intro,
         previewQuestion: data.question,
         questionRefreshCount: 0,
       });
@@ -293,8 +290,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   regenerateQuestion: async () => {
-    const { activeConversation, previewIntro, questionRefreshCount } = get();
-    if (!activeConversation || !previewIntro) return false;
+    const { activeConversation, questionRefreshCount } = get();
+    if (!activeConversation) return false;
     if (questionRefreshCount >= MAX_QUESTION_REFRESHES) return false;
 
     console.log('Regenerating question:', {
@@ -317,7 +314,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
           conversationId: activeConversation.id,
           personaId: activeConversation.persona_id,
           regenerateQuestion: true,
-          existingIntro: previewIntro,
         }),
       });
 
@@ -343,8 +339,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   startChatWithPreview: async () => {
-    const { activeConversation, previewIntro, previewQuestion } = get();
-    if (!activeConversation || !previewIntro || !previewQuestion) return false;
+    const { activeConversation, previewQuestion } = get();
+    if (!activeConversation || !previewQuestion) return false;
 
     console.log('Starting chat with preview:', {
       conversationId: activeConversation.id,
@@ -353,17 +349,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ isSending: true, error: null });
     try {
-      // Save the preview messages to the database
-      const { error: insertError } = await supabase.from('messages').insert([
-        { conversation_id: activeConversation.id, role: 'assistant', content: previewIntro, sequence: 1 },
-        { conversation_id: activeConversation.id, role: 'assistant', content: previewQuestion, sequence: 2 },
-      ]);
+      // Save only the question message to the database
+      const { error: insertError } = await supabase.from('messages').insert({
+        conversation_id: activeConversation.id,
+        role: 'assistant',
+        content: previewQuestion,
+        sequence: 1,
+      });
 
       if (insertError) throw insertError;
 
       // Clear preview state
       set({
-        previewIntro: null,
         previewQuestion: null,
         questionRefreshCount: 0,
       });
@@ -382,7 +379,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearPreview: () => {
     set({
-      previewIntro: null,
       previewQuestion: null,
       questionRefreshCount: 0,
     });
