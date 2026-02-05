@@ -20,7 +20,7 @@ import {
 // TYPES
 // =============================================================================
 
-export type AITaskType = 'chat' | 'analysis' | 'report' | 'challenge' | 'coaching' | 'coaching_feedback';
+export type AITaskType = 'chat' | 'analysis' | 'report' | 'challenge' | 'coaching' | 'coaching_feedback' | 'scenario';
 
 export interface AIResponseStyle {
   brevity: 'terse' | 'conversational' | 'detailed';

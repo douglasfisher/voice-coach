@@ -26,6 +26,7 @@ interface ChatRequest {
   previewGreeting?: boolean;
   regenerateQuestion?: boolean;
   generateChallenge?: boolean;
+  generateScenario?: boolean;
   // Coaching-specific fields
   scenarioId?: string;
   interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
@@ -64,6 +65,7 @@ serve(async (req) => {
       previewGreeting,
       regenerateQuestion,
       generateChallenge,
+      generateScenario,
       // Coaching fields
       scenarioId,
       interactionMode,
@@ -138,6 +140,59 @@ Guidelines:
 
       return new Response(
         JSON.stringify(result),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle scenario generation for Q&A mode (doesn't require conversationId)
+    if (generateScenario) {
+      // Fetch persona's qa_scenario_prompt
+      const { data: persona, error: personaError } = await supabase
+        .from('personas')
+        .select('qa_scenario_prompt')
+        .eq('id', personaId)
+        .single();
+
+      if (personaError) {
+        console.error('Failed to fetch persona for scenario:', personaError);
+      }
+
+      const scenarioPrompt = persona?.qa_scenario_prompt ||
+        'Generate a brief practice scenario (2-3 sentences). Set a realistic scene. Second person, present tense.';
+
+      const scenarioConfig = await resolveAIConfig(supabase, {
+        task: 'scenario',
+        personaId,
+      });
+
+      const systemPrompt = `You are a creative scenario writer. Your job is to create immersive, realistic practice scenarios.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Keep it to 2-3 sentences maximum\n- Make it vivid and specific\n- Use second person present tense ("You...")\n- End on the moment of action\n- Vary locations, people, and details each time`;
+
+      const scenarioResponse = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: scenarioConfig.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: 'Generate a new scenario.' },
+          ],
+          temperature: scenarioConfig.temperature,
+          max_tokens: scenarioConfig.max_completion_tokens,
+        }),
+      });
+
+      if (!scenarioResponse.ok) {
+        throw new Error(`Groq API error: ${scenarioResponse.status}`);
+      }
+
+      const scenarioData = await scenarioResponse.json();
+      const scenario = scenarioData.choices[0]?.message?.content || '';
+
+      return new Response(
+        JSON.stringify({ scenario }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
