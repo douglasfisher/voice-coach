@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { Clock, MessageCircle, FileText, Zap, User, Bot, TrendingUp } from 'lucide-react-native';
+import { Clock, MessageCircle, FileText, Zap, TrendingUp, Timer } from 'lucide-react-native';
 
 interface TimingMetrics {
   total_duration_ms: number;
@@ -8,7 +8,7 @@ interface TimingMetrics {
   user_word_count: number;
   user_avg_response_ms: number;
   user_avg_words_per_response?: number;
-  // AI metrics
+  // AI metrics (not displayed, just for completeness)
   ai_word_count: number;
   ai_avg_response_ms: number;
 }
@@ -118,95 +118,30 @@ function StatRow({ icon: Icon, label, value, subValue, color, isLast }: StatRowP
   );
 }
 
-interface ComparisonBarProps {
-  userValue: number;
-  coachValue: number;
-  userColor: string;
-  coachColor: string;
-}
-
-function ComparisonBar({ userValue, coachValue, userColor, coachColor }: ComparisonBarProps) {
-  const maxValue = Math.max(userValue, coachValue, 1);
-  const userWidth = (userValue / maxValue) * 100;
-  const coachWidth = (coachValue / maxValue) * 100;
-
-  return (
-    <View style={{ marginTop: 12 }}>
-      {/* User bar */}
-      <View style={{ marginBottom: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <User size={12} color={userColor} />
-          <Text style={{ color: userColor, fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
-            You
-          </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 'auto' }}>
-            {formatResponseTime(userValue)}
-          </Text>
-        </View>
-        <View style={{ height: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
-          <View
-            style={{
-              width: `${userWidth}%`,
-              height: '100%',
-              backgroundColor: userColor,
-              borderRadius: 4,
-            }}
-          />
-        </View>
-      </View>
-
-      {/* Coach bar */}
-      <View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <Bot size={12} color={coachColor} />
-          <Text style={{ color: coachColor, fontSize: 11, fontWeight: '600', marginLeft: 4 }}>
-            Coach
-          </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginLeft: 'auto' }}>
-            {formatResponseTime(coachValue)}
-          </Text>
-        </View>
-        <View style={{ height: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
-          <View
-            style={{
-              width: `${coachWidth}%`,
-              height: '100%',
-              backgroundColor: coachColor,
-              borderRadius: 4,
-            }}
-          />
-        </View>
-      </View>
-    </View>
-  );
-}
-
 /**
- * Displays comprehensive session timing statistics.
+ * Displays user-focused session statistics.
+ * All metrics are based on user performance, not AI.
  */
 export function SessionStats({ timingMetrics }: SessionStatsProps) {
-  // Safely extract metrics with defaults
+  // Safely extract USER metrics with defaults
   const totalDuration = timingMetrics?.total_duration_ms ?? 0;
   const userAvgResponse = timingMetrics?.user_avg_response_ms ?? 0;
-  const aiAvgResponse = timingMetrics?.ai_avg_response_ms ?? 0;
   const exchangeCount = timingMetrics?.exchange_count ?? 0;
   const userWordCount = timingMetrics?.user_word_count ?? 0;
-  const aiWordCount = timingMetrics?.ai_word_count ?? 0;
-  const wordCountTotal = userWordCount + aiWordCount;
 
-  // Calculate derived metrics
+  // Calculate derived metrics (USER ONLY)
   const durationMinutes = totalDuration / 60000;
-  const wordsPerMinute = durationMinutes > 0
-    ? Math.round(wordCountTotal / durationMinutes)
+  const userWordsPerMinute = durationMinutes > 0
+    ? Math.round(userWordCount / durationMinutes)
     : 0;
 
-  const avgWordsPerExchange = exchangeCount > 0
-    ? Math.round(wordCountTotal / (exchangeCount * 2))
+  const avgWordsPerResponse = exchangeCount > 0
+    ? Math.round(userWordCount / exchangeCount)
     : 0;
 
-  // Engagement score (based on response time and word count)
+  // Engagement score (based on user's response time and word depth)
   const engagementScore = Math.min(100, Math.round(
-    (avgWordsPerExchange / 50) * 50 + // Up to 50 points for word depth
+    (Math.min(avgWordsPerResponse, 50) / 50) * 50 + // Up to 50 points for word depth
     (Math.min(userAvgResponse, 60000) / 60000) * 50 // Up to 50 points for thoughtful responses
   ));
 
@@ -232,33 +167,11 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
           {formatDuration(totalDuration)}
         </Text>
         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 4 }}>
-          {exchangeCount} exchanges • {formatNumber(wordCountTotal)} words
+          {exchangeCount} exchanges • {formatNumber(userWordCount)} words spoken
         </Text>
       </View>
 
-      {/* Response Time Comparison */}
-      <View
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          borderRadius: 16,
-          padding: 20,
-          marginBottom: 12,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.1)',
-        }}
-      >
-        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 4 }}>
-          AVERAGE RESPONSE TIME
-        </Text>
-        <ComparisonBar
-          userValue={userAvgResponse}
-          coachValue={aiAvgResponse}
-          userColor="#F59E0B"
-          coachColor="#4ade80"
-        />
-      </View>
-
-      {/* Detailed Stats */}
+      {/* Your Performance Stats */}
       <View
         style={{
           backgroundColor: 'rgba(255,255,255,0.05)',
@@ -269,8 +182,16 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
         }}
       >
         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 8 }}>
-          CONVERSATION INSIGHTS
+          YOUR PERFORMANCE
         </Text>
+
+        <StatRow
+          icon={Timer}
+          label="Avg Response Time"
+          value={formatResponseTime(userAvgResponse)}
+          subValue="time to respond"
+          color="#F59E0B"
+        />
 
         <StatRow
           icon={MessageCircle}
@@ -282,16 +203,16 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
 
         <StatRow
           icon={FileText}
-          label="Total Words"
-          value={formatNumber(wordCountTotal)}
-          subValue={`~${avgWordsPerExchange} per message`}
+          label="Your Words"
+          value={formatNumber(userWordCount)}
+          subValue={`~${avgWordsPerResponse} per response`}
           color="#f472b6"
         />
 
         <StatRow
           icon={Zap}
-          label="Pace"
-          value={`${wordsPerMinute}`}
+          label="Your Pace"
+          value={`${userWordsPerMinute}`}
           subValue="words per minute"
           color="#2dd4bf"
         />
