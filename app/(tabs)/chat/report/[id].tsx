@@ -45,7 +45,7 @@ function countWords(text: string): number {
 import { supabase } from '../../../../lib/supabase';
 import { usePersonaStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
-import { SessionStats } from '../../../../components/report';
+import { SessionStats, PerformanceAnalysis } from '../../../../components/report';
 
 interface SessionReport {
   tldr: string;
@@ -395,6 +395,9 @@ export default function ReportScreen() {
 
         {/* Session Stats */}
         {timingMetrics && <SessionStats timingMetrics={timingMetrics} />}
+
+        {/* Performance Analysis */}
+        {messages.length > 2 && <PerformanceAnalysis messages={messages} />}
 
         {/* Strengths */}
         <View

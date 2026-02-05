@@ -237,7 +237,7 @@ export function MessageBubble({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                marginTop: 6,
+                marginTop: 8,
                 justifyContent: isUser ? 'flex-end' : 'flex-start',
                 flexWrap: 'wrap',
                 gap: 8,
@@ -253,22 +253,49 @@ export function MessageBubble({
                 </Text>
               )}
 
-              {/* Word count */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <MessageSquare size={10} color="rgba(255,255,255,0.35)" />
-                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>
-                  {countWords(content)} words
+              {/* Word count pill */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 10,
+                }}
+              >
+                <MessageSquare size={10} color="rgba(255,255,255,0.5)" />
+                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '500' }}>
+                  {countWords(content)}
                 </Text>
               </View>
 
-              {/* Response time */}
+              {/* Response time pill - prominent display */}
               {formatResponseTime(responseTimeMs) && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <Clock size={10} color={isUser ? 'rgba(255,255,255,0.35)' : (theme?.accent || '#F59E0B') + '80'} />
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: isUser
+                      ? 'rgba(245, 158, 11, 0.15)'
+                      : `${theme?.accent || '#4ade80'}20`,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: isUser
+                      ? 'rgba(245, 158, 11, 0.3)'
+                      : `${theme?.accent || '#4ade80'}40`,
+                  }}
+                >
+                  <Clock size={10} color={isUser ? '#F59E0B' : (theme?.accent || '#4ade80')} />
                   <Text
                     style={{
                       fontSize: 10,
-                      color: isUser ? 'rgba(255,255,255,0.35)' : (theme?.accent || '#F59E0B') + '80',
+                      color: isUser ? '#F59E0B' : (theme?.accent || '#4ade80'),
+                      fontWeight: '600',
                     }}
                   >
                     {formatResponseTime(responseTimeMs)}
