@@ -3,6 +3,7 @@
  *
  * Utility for calculating AI usage costs based on model pricing.
  * Used by edge functions to calculate costs at insert time.
+ * Supports global markup percentage from app_settings.
  */
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -15,6 +16,33 @@ interface ModelPricing {
 // Cache for model pricing to avoid repeated DB lookups
 const pricingCache: Map<string, { pricing: ModelPricing; timestamp: number }> = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Cache for markup setting
+let markupCache: { value: number; timestamp: number } | null = null;
+
+/**
+ * Get cost markup percentage from app_settings with caching
+ */
+export async function getCostMarkupPercent(
+  supabase: SupabaseClient
+): Promise<number> {
+  // Check cache first
+  if (markupCache && Date.now() - markupCache.timestamp < CACHE_TTL_MS) {
+    return markupCache.value;
+  }
+
+  // Fetch from database
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'cost_markup_percent')
+    .single();
+
+  const markup = data && !error ? Number(data.value) : 0;
+  markupCache = { value: markup, timestamp: Date.now() };
+
+  return markup;
+}
 
 /**
  * Get model pricing from database with caching
@@ -59,21 +87,25 @@ export async function getModelPricing(
  * @param completionTokens - Number of output/completion tokens
  * @param costPerMillionInput - Cost in cents per million input tokens
  * @param costPerMillionOutput - Cost in cents per million output tokens
+ * @param markupPercent - Optional markup percentage (default 0)
  * @returns Cost in cents (rounded up)
  */
 export function calculateCost(
   promptTokens: number,
   completionTokens: number,
   costPerMillionInput: number,
-  costPerMillionOutput: number
+  costPerMillionOutput: number,
+  markupPercent: number = 0
 ): number {
   const inputCost = (promptTokens / 1_000_000) * costPerMillionInput;
   const outputCost = (completionTokens / 1_000_000) * costPerMillionOutput;
-  return Math.ceil(inputCost + outputCost);
+  const baseCost = inputCost + outputCost;
+  const withMarkup = baseCost * (1 + markupPercent / 100);
+  return Math.ceil(withMarkup);
 }
 
 /**
- * Calculate AI usage cost by looking up model pricing
+ * Calculate AI usage cost by looking up model pricing and applying markup
  *
  * @param supabase - Supabase client
  * @param modelId - Model ID to look up pricing
@@ -87,7 +119,10 @@ export async function calculateAICost(
   promptTokens: number,
   completionTokens: number
 ): Promise<number> {
-  const pricing = await getModelPricing(supabase, modelId);
+  const [pricing, markupPercent] = await Promise.all([
+    getModelPricing(supabase, modelId),
+    getCostMarkupPercent(supabase),
+  ]);
 
   if (!pricing) {
     return 0;
@@ -97,7 +132,8 @@ export async function calculateAICost(
     promptTokens,
     completionTokens,
     pricing.cost_per_million_input,
-    pricing.cost_per_million_output
+    pricing.cost_per_million_output,
+    markupPercent
   );
 }
 
