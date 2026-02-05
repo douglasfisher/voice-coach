@@ -1,8 +1,6 @@
--- Migration: Improve Challenger Conversational Responsiveness
--- Updates AI settings to enforce shorter, more natural responses that follow user's lead
--- NO CODE CHANGES REQUIRED - fully database-driven
+-- Migration: Fix Conversational Rules (database-only approach)
+-- Puts all conversational rules in brevity_instruction where they belong
 
--- Update AI System Modifiers with comprehensive conversational rules
 UPDATE app_settings
 SET value = '{
   "brevity_instruction": "CONVERSATION RULES (CRITICAL):\n- Keep responses to 3 sentences maximum\n- RESPOND TO WHAT THEY JUST SAID - their last message is what matters\n- FOLLOW THEIR LEAD - if they change topics, go with them\n- End with ONE follow-up question maximum (sometimes none is fine)\n- Match their energy and length - no speeches\n\nWrite like texting - short, punchy, natural. NO LECTURES.",
