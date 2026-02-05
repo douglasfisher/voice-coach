@@ -339,21 +339,14 @@ export function ChatInput({
             <Pressable
               onPress={onResetPress}
               style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 14,
-                paddingVertical: 8,
+                padding: 10,
                 borderRadius: 20,
                 backgroundColor: 'rgba(255,255,255,0.08)',
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.15)',
-                gap: 6,
               }}
             >
-              <RotateCcw size={16} color="rgba(255,255,255,0.7)" />
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '500' }}>
-                Reset
-              </Text>
+              <RotateCcw size={18} color="rgba(255,255,255,0.7)" />
             </Pressable>
             <Pressable
               onPress={onEndPress}
