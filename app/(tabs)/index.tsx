@@ -58,7 +58,13 @@ export default function HomeScreen() {
     : null;
 
   const handleStartChallenge = async () => {
-    if (!user?.id || !dailyChallenge) return;
+    if (!user?.id) return;
+
+    // If no daily challenge loaded, go to personas page instead
+    if (!dailyChallenge) {
+      router.push('/(tabs)/personas');
+      return;
+    }
 
     setIsStartingChallenge(true);
     try {
@@ -230,7 +236,7 @@ export default function HomeScreen() {
         <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
           <Pressable
             onPress={handleStartChallenge}
-            disabled={isLoadingChallenge || isStartingChallenge || !dailyChallenge}
+            disabled={isLoadingChallenge || isStartingChallenge}
           >
             <LinearGradient
               colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}

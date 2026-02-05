@@ -279,40 +279,48 @@ export function PersonaModal({
         </ScrollView>
 
         {/* Fixed CTA Button */}
-        <LinearGradient
-          colors={['transparent', 'rgba(10,10,15,0.95)', '#0a0a0f']}
+        <View
           style={{
             position: 'absolute',
             bottom: 0,
             left: 0,
             right: 0,
-            paddingHorizontal: 24,
-            paddingTop: 40,
-            paddingBottom: 40,
           }}
+          pointerEvents="box-none"
         >
-          <Pressable
-            onPress={() => onChallenge(persona)}
+          <LinearGradient
+            colors={['transparent', 'rgba(10,10,15,0.95)', '#0a0a0f']}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingVertical: 18,
-              borderRadius: 16,
-              backgroundColor: theme.accent,
-              shadowColor: theme.accent,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.4,
-              shadowRadius: 12,
+              paddingHorizontal: 24,
+              paddingTop: 40,
+              paddingBottom: 40,
             }}
+            pointerEvents="box-none"
           >
-            <StyleIcon size={22} color="#0f0f12" />
-            <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18, marginLeft: 10 }}>
-              Start Challenge
-            </Text>
-            <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
-          </Pressable>
-        </LinearGradient>
+            <Pressable
+              onPress={() => onChallenge(persona)}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 18,
+                borderRadius: 16,
+                backgroundColor: theme.accent,
+                shadowColor: theme.accent,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.4,
+                shadowRadius: 12,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <StyleIcon size={22} color="#0f0f12" />
+              <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18, marginLeft: 10 }}>
+                Start Challenge
+              </Text>
+              <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
+            </Pressable>
+          </LinearGradient>
+        </View>
       </View>
     </Modal>
   );

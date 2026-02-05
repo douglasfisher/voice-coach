@@ -44,16 +44,33 @@ export default function ProfileScreen() {
     preferences?.immersive_chat_enabled ?? true
   );
 
-  // Check if voice input is available on mount
+  // Check if voice input is available and has permission on mount
   useEffect(() => {
-    // First check if native module is even loaded (sync check)
-    if (!isSTTModuleAvailable()) {
-      setVoiceInputAvailable(false);
-      return;
-    }
-    // Then check if speech recognition is available on this device
-    checkSTTAvailability().then(setVoiceInputAvailable);
-  }, []);
+    const checkVoiceInputStatus = async () => {
+      // First check if native module is even loaded (sync check)
+      if (!isSTTModuleAvailable()) {
+        setVoiceInputAvailable(false);
+        return;
+      }
+
+      // Then check if speech recognition is available on this device
+      const available = await checkSTTAvailability();
+      setVoiceInputAvailable(available);
+
+      // If voice input is enabled in preferences but we don't have permission,
+      // disable it to prevent issues
+      if (available && preferences?.voice_input_enabled) {
+        const hasPermission = await getSTTPermissionStatus();
+        if (!hasPermission) {
+          setVoiceInputEnabled(false);
+          // Silently update preferences to reflect reality
+          updatePreferences({ voice_input_enabled: false });
+        }
+      }
+    };
+
+    checkVoiceInputStatus();
+  }, [preferences?.voice_input_enabled]);
 
   const handleSignOut = () => {
     Alert.alert(
