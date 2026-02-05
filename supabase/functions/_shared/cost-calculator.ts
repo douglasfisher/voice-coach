@@ -102,6 +102,20 @@ export async function calculateAICost(
 }
 
 /**
+ * Task types for service breakdown tracking
+ */
+export type AITaskType =
+  | 'chat'           // Regular chat messages
+  | 'greeting'       // Initial greeting generation
+  | 'report'         // Session report generation
+  | 'analyze'        // Message analysis
+  | 'daily_challenge'// Daily challenge question
+  | 'coaching'       // Coaching roleplay
+  | 'feedback'       // Coaching feedback
+  | 'complete'       // Generic completion
+  | 'unknown';       // Fallback
+
+/**
  * Insert AI usage record with calculated cost
  */
 export async function recordAIUsage(
@@ -114,6 +128,7 @@ export async function recordAIUsage(
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+    taskType?: AITaskType;
   }
 ): Promise<void> {
   const costCents = await calculateAICost(
@@ -132,6 +147,7 @@ export async function recordAIUsage(
     completion_tokens: params.completionTokens,
     total_tokens: params.totalTokens,
     estimated_cost_cents: costCents,
+    task_type: params.taskType || 'unknown',
   });
 
   if (error) {

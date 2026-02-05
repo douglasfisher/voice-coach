@@ -343,6 +343,7 @@ Generate a comprehensive session report.`;
         promptTokens: groqData.usage.prompt_tokens,
         completionTokens: groqData.usage.completion_tokens,
         totalTokens: groqData.usage.total_tokens,
+        taskType: 'report',
       });
     }
 

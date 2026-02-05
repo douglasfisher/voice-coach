@@ -30,6 +30,7 @@ interface AdminCostState {
   byModel: CostBreakdown[];
   byPersona: CostBreakdown[];
   byUser: CostBreakdown[];
+  byTaskType: CostBreakdown[];
 
   // Filters
   filters: CostCenterFilters;
@@ -64,6 +65,7 @@ export const useAdminCostStore = create<AdminCostState>((set, get) => ({
   byModel: [],
   byPersona: [],
   byUser: [],
+  byTaskType: [],
   filters: {
     period: '30d',
     groupBy: 'day',
@@ -314,6 +316,7 @@ export const useAdminCostStore = create<AdminCostState>((set, get) => ({
           model,
           persona_id,
           user_id,
+          task_type,
           estimated_cost_cents,
           total_tokens,
           persona:personas(name)
@@ -422,7 +425,44 @@ export const useAdminCostStore = create<AdminCostState>((set, get) => ({
         .sort((a, b) => b.costCents - a.costCents)
         .slice(0, 20);
 
-      set({ byModel, byPersona, byUser });
+      // By task type (service breakdown)
+      const taskTypeMap = new Map<string, CostBreakdown>();
+      const taskTypeLabels: Record<string, string> = {
+        chat: 'Chat Messages',
+        greeting: 'Greetings',
+        report: 'Session Reports',
+        analyze: 'Analysis',
+        daily_challenge: 'Daily Challenges',
+        coaching: 'Coaching',
+        feedback: 'Feedback',
+        complete: 'Completions',
+        unknown: 'Unknown',
+      };
+
+      usage.forEach((u) => {
+        const taskType = (u as any).task_type || 'unknown';
+        const existing = taskTypeMap.get(taskType) || {
+          id: taskType,
+          name: taskTypeLabels[taskType] || taskType,
+          costCents: 0,
+          tokens: 0,
+          requests: 0,
+          percentOfTotal: 0,
+        };
+        existing.costCents += u.estimated_cost_cents || 0;
+        existing.tokens += u.total_tokens || 0;
+        existing.requests += 1;
+        taskTypeMap.set(taskType, existing);
+      });
+
+      const byTaskType = Array.from(taskTypeMap.values())
+        .map((t) => ({
+          ...t,
+          percentOfTotal: totalCost > 0 ? (t.costCents / totalCost) * 100 : 0,
+        }))
+        .sort((a, b) => b.costCents - a.costCents);
+
+      set({ byModel, byPersona, byUser, byTaskType });
     } catch (error) {
       set({ error: (error as Error).message });
     } finally {

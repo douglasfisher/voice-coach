@@ -23,6 +23,7 @@ import {
   User,
   Cpu,
   RefreshCw,
+  Layers,
 } from 'lucide-react-native';
 import { useAdminCostStore } from '../../stores/adminCostStore';
 import { CostHeroCards } from '../../components/admin/CostHeroCards';
@@ -30,7 +31,7 @@ import { CostTrendChart } from '../../components/admin/CostTrendChart';
 import { BudgetManager } from '../../components/admin/BudgetManager';
 import { CostBreakdown, formatCostDollars } from '../../types/costs';
 
-type BreakdownTab = 'model' | 'persona' | 'user';
+type BreakdownTab = 'model' | 'persona' | 'user' | 'task';
 
 function formatNumber(num: number): string {
   if (num >= 1000000) {
@@ -199,6 +200,7 @@ export default function AdminCostsScreen() {
     byModel,
     byPersona,
     byUser,
+    byTaskType,
     filters,
     isLoadingMetrics,
     isLoadingBudgets,
@@ -233,12 +235,14 @@ export default function AdminCostsScreen() {
     model: byModel,
     persona: byPersona,
     user: byUser,
+    task: byTaskType,
   };
 
   const breakdownIcons: Record<BreakdownTab, React.ReactNode> = {
     model: <Cpu size={16} color="#60a5fa" />,
     persona: <Bot size={16} color="#c084fc" />,
     user: <User size={16} color="#fbbf24" />,
+    task: <Layers size={16} color="#10b981" />,
   };
 
   const isLoading = isLoadingMetrics || isLoadingBudgets;
@@ -311,7 +315,7 @@ export default function AdminCostsScreen() {
                   marginBottom: 16,
                 }}
               >
-                {(['model', 'persona', 'user'] as BreakdownTab[]).map((tab) => (
+                {(['model', 'task', 'persona', 'user'] as BreakdownTab[]).map((tab) => (
                   <Pressable
                     key={tab}
                     onPress={() => setBreakdownTab(tab)}

@@ -620,6 +620,7 @@ export interface Database {
           completion_tokens: number;
           total_tokens: number;
           estimated_cost_cents: number;
+          task_type: string;
           created_at: string;
         };
         Insert: {
@@ -632,6 +633,7 @@ export interface Database {
           completion_tokens: number;
           total_tokens: number;
           estimated_cost_cents: number;
+          task_type?: string;
           created_at?: string;
         };
         Update: {
@@ -644,6 +646,7 @@ export interface Database {
           completion_tokens?: number;
           total_tokens?: number;
           estimated_cost_cents?: number;
+          task_type?: string;
           created_at?: string;
         };
       };

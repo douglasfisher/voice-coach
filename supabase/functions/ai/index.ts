@@ -40,6 +40,7 @@ import {
   ChallengeStyle,
   AnalysisResult,
 } from '../_shared/index.ts';
+import { recordAIUsage } from '../_shared/cost-calculator.ts';
 
 // =============================================================================
 // TASK HANDLERS
@@ -98,13 +99,27 @@ async function handleChatTask(
   // Build messages array
   const messages: GroqMessage[] = request.context || [];
 
-  // Generate response
-  const content = await ctx.groq.completeWithHistory(
+  // Generate response with usage tracking
+  const { content, usage } = await ctx.groq.completeWithHistoryAndUsage(
     systemPrompt,
     messages,
     request.userPrompt,
     settings
   );
+
+  // Track AI usage
+  if (usage) {
+    await recordAIUsage(ctx.supabase, {
+      userId: null,
+      conversationId: null,
+      personaId: request.personaId || null,
+      model: settings.model || 'unknown',
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+      totalTokens: usage.total_tokens,
+      taskType: 'chat',
+    });
+  }
 
   return {
     success: true,
@@ -125,11 +140,26 @@ async function handleAnalyzeTask(
     request.context?.map(m => ({ role: m.role, content: m.content }))
   );
 
-  const { content, parsed } = await ctx.groq.completeJSON<AnalysisResult>(
+  const settings = { ...ANALYSIS_SETTINGS, ...request.settings };
+  const { content, parsed, usage, model } = await ctx.groq.completeJSONWithUsage<AnalysisResult>(
     systemPrompt,
     userPrompt,
-    { ...ANALYSIS_SETTINGS, ...request.settings }
+    settings
   );
+
+  // Track AI usage
+  if (usage) {
+    await recordAIUsage(ctx.supabase, {
+      userId: null,
+      conversationId: null,
+      personaId: null,
+      model: model || settings.model || 'unknown',
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+      totalTokens: usage.total_tokens,
+      taskType: 'analyze',
+    });
+  }
 
   return {
     success: true,
@@ -146,21 +176,51 @@ async function handleCompleteTask(
   ctx: TaskContext
 ): Promise<AITaskResponse> {
   const systemPrompt = request.systemPrompt || 'You are a helpful assistant.';
+  const settings = request.settings || {};
 
   if (request.responseFormat === 'json') {
-    const { content, parsed } = await ctx.groq.completeJSON(
+    const { content, parsed, usage, model } = await ctx.groq.completeJSONWithUsage(
       systemPrompt,
       request.userPrompt,
-      request.settings
+      settings
     );
+
+    // Track AI usage
+    if (usage) {
+      await recordAIUsage(ctx.supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: null,
+        model: model || settings.model || 'unknown',
+        promptTokens: usage.prompt_tokens,
+        completionTokens: usage.completion_tokens,
+        totalTokens: usage.total_tokens,
+        taskType: 'complete',
+      });
+    }
+
     return { success: true, content, parsed };
   }
 
-  const content = await ctx.groq.complete(
+  const { content, usage, model } = await ctx.groq.completeWithUsage(
     systemPrompt,
     request.userPrompt,
-    request.settings
+    settings
   );
+
+  // Track AI usage
+  if (usage) {
+    await recordAIUsage(ctx.supabase, {
+      userId: null,
+      conversationId: null,
+      personaId: null,
+      model: model || settings.model || 'unknown',
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+      totalTokens: usage.total_tokens,
+      taskType: 'complete',
+    });
+  }
 
   return { success: true, content };
 }

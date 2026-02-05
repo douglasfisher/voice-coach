@@ -7,6 +7,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig } from '../_shared/config/ai-config-resolver.ts';
+import { recordAIUsage } from '../_shared/cost-calculator.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -88,6 +89,20 @@ serve(async (req) => {
 
     const groqData = await response.json();
     const content = groqData.choices[0]?.message?.content || '';
+
+    // Track AI usage
+    if (groqData.usage) {
+      await recordAIUsage(supabase, {
+        userId: null, // Daily challenge is not user-specific
+        conversationId: null,
+        personaId: personaId || null,
+        model: config.model,
+        promptTokens: groqData.usage.prompt_tokens,
+        completionTokens: groqData.usage.completion_tokens,
+        totalTokens: groqData.usage.total_tokens,
+        taskType: 'daily_challenge',
+      });
+    }
 
     // Parse JSON response
     let result: { question: string; topic: string };

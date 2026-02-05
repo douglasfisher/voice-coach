@@ -30,6 +30,7 @@ import {
   requireFields,
   AnalysisResult,
 } from '../_shared/index.ts';
+import { recordAIUsage } from '../_shared/cost-calculator.ts';
 
 interface AnalyzeRequest {
   message: string;
@@ -65,12 +66,26 @@ serve(async (req) => {
     // Build the analysis prompt
     const userPrompt = buildAnalysisUserPrompt(request.message, request.context);
 
-    // Get analysis from AI
-    const { parsed: analysis } = await groq.completeJSON<AnalysisResult>(
+    // Get analysis from AI with usage tracking
+    const { parsed: analysis, usage, model: usedModel } = await groq.completeJSONWithUsage<AnalysisResult>(
       ANALYSIS_SYSTEM_PROMPT,
       userPrompt,
       { ...ANALYSIS_SETTINGS, model }
     );
+
+    // Track AI usage
+    if (usage) {
+      await recordAIUsage(supabase, {
+        userId: null, // Analysis doesn't have direct user context
+        conversationId: request.conversationId || null,
+        personaId: null,
+        model: usedModel || model,
+        promptTokens: usage.prompt_tokens,
+        completionTokens: usage.completion_tokens,
+        totalTokens: usage.total_tokens,
+        taskType: 'analyze',
+      });
+    }
 
     // Use parsed result or fallback
     const result = analysis || DEFAULT_ANALYSIS;

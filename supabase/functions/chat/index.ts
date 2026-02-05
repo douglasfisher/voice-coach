@@ -311,6 +311,7 @@ Guidelines:
           promptTokens: questionResponse.usage.prompt_tokens,
           completionTokens: questionResponse.usage.completion_tokens,
           totalTokens: questionResponse.usage.total_tokens,
+          taskType: isCoachingTask ? 'coaching' : 'greeting',
         });
       }
 
@@ -364,6 +365,26 @@ Guidelines:
           sequence: nextSequence,
         });
 
+        // Track feedback AI usage
+        if (feedbackResponse.usage) {
+          const { data: conv } = await supabase
+            .from('conversations')
+            .select('user_id')
+            .eq('id', conversationId)
+            .single();
+
+          await recordAIUsage(supabase, {
+            userId: conv?.user_id || null,
+            conversationId: conversationId,
+            personaId: personaId,
+            model: feedbackConfig.model,
+            promptTokens: feedbackResponse.usage.prompt_tokens,
+            completionTokens: feedbackResponse.usage.completion_tokens,
+            totalTokens: feedbackResponse.usage.total_tokens,
+            taskType: 'feedback',
+          });
+        }
+
         return new Response(
           JSON.stringify({ response: feedbackMessage, phase: 'feedback' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -415,6 +436,26 @@ Guidelines:
         content: feedbackMessage,
         sequence: nextSequence,
       });
+
+      // Track quick feedback AI usage
+      if (feedbackResponse.usage) {
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('user_id')
+          .eq('id', conversationId)
+          .single();
+
+        await recordAIUsage(supabase, {
+          userId: conv?.user_id || null,
+          conversationId: conversationId,
+          personaId: personaId,
+          model: config.model,
+          promptTokens: feedbackResponse.usage.prompt_tokens,
+          completionTokens: feedbackResponse.usage.completion_tokens,
+          totalTokens: feedbackResponse.usage.total_tokens,
+          taskType: 'feedback',
+        });
+      }
 
       return new Response(
         JSON.stringify({ response: feedbackMessage, quickFeedback: true }),
@@ -490,6 +531,7 @@ Guidelines:
         promptTokens: groqResponse.usage.prompt_tokens,
         completionTokens: groqResponse.usage.completion_tokens,
         totalTokens: groqResponse.usage.total_tokens,
+        taskType: isCoachingTask ? 'coaching' : 'chat',
       });
     }
 

@@ -1,5 +1,19 @@
 -- AI Cost Center Migration
--- Adds budget tracking, cost snapshots, and fixes cost calculation
+-- Adds budget tracking, cost snapshots, task type tracking, and fixes cost calculation
+
+-- =============================================================================
+-- 0. ADD TASK_TYPE TO AI_USAGE FOR SERVICE BREAKDOWN
+-- =============================================================================
+
+-- Add task_type column if it doesn't exist
+ALTER TABLE public.ai_usage
+ADD COLUMN IF NOT EXISTS task_type TEXT DEFAULT 'chat';
+
+-- Add index for task_type queries
+CREATE INDEX IF NOT EXISTS idx_ai_usage_task_type
+  ON ai_usage(task_type, created_at DESC);
+
+COMMENT ON COLUMN public.ai_usage.task_type IS 'Type of AI task: chat, report, analyze, daily_challenge, greeting, etc.';
 
 -- =============================================================================
 -- 1. BUDGET TRACKING TABLE
