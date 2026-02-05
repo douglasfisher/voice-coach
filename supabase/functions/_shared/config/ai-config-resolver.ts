@@ -264,6 +264,21 @@ function buildSystemModifiers(
 ): string {
   const parts: string[] = [];
 
+  // Generate conversational style instruction from responseStyle
+  const questionGuidance = style.include_questions
+    ? '- End with ONE follow-up question maximum (sometimes none is fine)'
+    : '- Avoid questions unless essential';
+
+  const styleInstruction = [
+    'CONVERSATION RULES (CRITICAL):',
+    `- Keep responses to ${style.max_sentences} sentences maximum`,
+    '- RESPOND TO WHAT THEY JUST SAID - their last message is what matters',
+    '- FOLLOW THEIR LEAD - if they change topics, go with them',
+    questionGuidance,
+    '- Match their energy and length - no speeches',
+  ].join('\n');
+  parts.push(styleInstruction);
+
   // Add brevity instruction
   if (modifiers.brevity_instruction) {
     parts.push(modifiers.brevity_instruction);
