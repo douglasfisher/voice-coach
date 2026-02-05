@@ -260,7 +260,7 @@ function resolveValue<T>(values: (T | null | undefined)[], fallback: T): T {
  */
 function buildSystemModifiers(
   modifiers: AISystemModifiers,
-  _style: AIResponseStyle
+  style: AIResponseStyle
 ): string {
   const parts: string[] = [];
 
