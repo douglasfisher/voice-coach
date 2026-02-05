@@ -46,7 +46,6 @@
       "expo-secure-store",
       "expo-apple-authentication",
       "expo-av",
-      "expo-haptics",
       [
         "expo-speech-recognition",
         {
