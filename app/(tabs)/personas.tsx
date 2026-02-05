@@ -63,7 +63,7 @@ export default function PersonasScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg-primary">
       {/* Header */}
-      <View className="px-6 pt-4 pb-2">
+      <View className="px-4 pt-4 pb-2">
         <View className="flex-row items-center justify-between">
           <View>
             <View className="flex-row items-center">
@@ -137,7 +137,7 @@ export default function PersonasScreen() {
 
           {/* Section Header */}
           {otherPersonas.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
                 {activeFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[activeFilter]}
               </Text>
@@ -151,9 +151,9 @@ export default function PersonasScreen() {
           )}
 
           {/* Grid of Personas */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
             {otherPersonas.map((persona) => (
-              <View key={persona.id} style={{ width: '50%', padding: 8 }}>
+              <View key={persona.id} style={{ width: '50%', padding: 4 }}>
                 <PersonaCard
                   persona={persona}
                   onPress={() => setSelectedPersona(persona)}

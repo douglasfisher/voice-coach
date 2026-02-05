@@ -93,7 +93,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={{ padding: 24, paddingBottom: 16 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
           <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>{greeting}</Text>
           <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 4 }}>
             {displayName}
@@ -104,8 +104,8 @@ export default function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 24, gap: 12 }}
-          style={{ marginBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+          style={{ marginBottom: 20 }}
         >
           {/* Streak Card */}
           <LinearGradient
@@ -233,7 +233,7 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* Daily Challenge */}
-        <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
           <Pressable
             onPress={handleStartChallenge}
             disabled={isLoadingChallenge || isStartingChallenge}
@@ -345,7 +345,7 @@ export default function HomeScreen() {
 
         {/* Active Conversation */}
         {activeConversations.length > 0 && (
-          <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
               CONTINUE WHERE YOU LEFT OFF
             </Text>
@@ -402,7 +402,7 @@ export default function HomeScreen() {
 
         {/* Recent Sessions */}
         {recentConversations.length > 0 && (
-          <View style={{ paddingHorizontal: 24, marginBottom: 24 }}>
+          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
               RECENT SESSIONS
             </Text>
@@ -463,7 +463,7 @@ export default function HomeScreen() {
 
         {/* Empty State */}
         {recentConversations.length === 0 && (
-          <View style={{ paddingHorizontal: 24 }}>
+          <View style={{ paddingHorizontal: 16 }}>
             <LinearGradient
               colors={['rgba(139, 92, 246, 0.15)', 'rgba(139, 92, 246, 0.05)', 'transparent']}
               style={{
@@ -488,7 +488,7 @@ export default function HomeScreen() {
               <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
                 Ready to think sharper?
               </Text>
-              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
                 Challenge your assumptions with our AI personas. Each one brings a unique perspective.
               </Text>
               <Pressable
@@ -497,7 +497,7 @@ export default function HomeScreen() {
                   flexDirection: 'row',
                   alignItems: 'center',
                   backgroundColor: '#8B5CF6',
-                  paddingHorizontal: 24,
+                  paddingHorizontal: 16,
                   paddingVertical: 14,
                   borderRadius: 16,
                 }}
