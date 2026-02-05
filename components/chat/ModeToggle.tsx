@@ -34,12 +34,12 @@ export function ModeToggle({
   const practiceWidth = 92; // Wider for "Practice"
   const qaWidth = 66;       // Narrower for "Q&A" but with right padding
 
-  // Fixed highlight width - compromise that works for both modes
-  const highlightWidth = 78;
+  // Dynamic highlight width based on mode
+  const highlightWidth = mode === 'practice' ? practiceWidth - 4 : qaWidth - 4;
 
   const translateX = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 76], // 158 - 2 - 78 - 2 = 76 (keeps padding on both ends)
+    outputRange: [0, practiceWidth],
   });
 
   return (
