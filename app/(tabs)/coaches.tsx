@@ -117,7 +117,7 @@ export default function CoachesScreen() {
             </View>
             <Text className="text-text-secondary mt-1">
               {globalInteractionMode === 'question'
-                ? 'Ask questions, get expert answers'
+                ? 'You ask the questions!'
                 : 'Practice real-world conversations'}
             </Text>
           </View>
