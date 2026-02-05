@@ -1,44 +1,81 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles } from 'lucide-react-native';
+import { GraduationCap } from 'lucide-react-native';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
-import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+import { PersonaDisplay } from '../../types/persona';
+import { supabase } from '../../lib/supabase';
 
-const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string }[] = [
-  { key: 'all', label: 'All', color: '#F59E0B' },
-  { key: 'socratic', label: 'Socratic', color: '#60a5fa' },
-  { key: 'devils_advocate', label: 'Challenger', color: '#f472b6' },
-  { key: 'steelman', label: 'Builder', color: '#4ade80' },
-  { key: 'logical_surgeon', label: 'Logical', color: '#2dd4bf' },
-  { key: 'perspective_shifter', label: 'Perspective', color: '#c084fc' },
-  { key: 'empathetic_probe', label: 'Empathetic', color: '#fbbf24' },
-];
+interface CoachingDomain {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  icon: string;
+  color: string;
+  tagline: string | null;
+}
 
-export default function PersonasScreen() {
-  const { personas, isLoading, refresh } = usePersonas();
+export default function CoachesScreen() {
+  const { personas, isLoading: personasLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation } = useChatStore();
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<ChallengeStyle | 'all'>('all');
+  const [activeDomain, setActiveDomain] = useState<string | 'all'>('all');
+  const [domains, setDomains] = useState<CoachingDomain[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(true);
 
-  // Filter to only show challengers (not coaches)
-  const challengers = personas.filter(p => p.personaType === 'challenger');
+  // Fetch coaching domains
+  useEffect(() => {
+    async function fetchDomains() {
+      setDomainsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('coaching_domains')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
 
-  const filteredPersonas = activeFilter === 'all'
-    ? challengers
-    : challengers.filter(p => p.challengeStyle === activeFilter);
+        if (error) throw error;
+        setDomains(data || []);
+      } catch (error) {
+        console.error('Failed to fetch coaching domains:', error);
+      } finally {
+        setDomainsLoading(false);
+      }
+    }
+    fetchDomains();
+  }, []);
 
-  const featuredPersona = filteredPersonas[0];
-  const otherPersonas = filteredPersonas.slice(1);
+  // Filter to only show coaches
+  const coaches = personas.filter(p => p.personaType === 'coach');
+
+  const filteredCoaches = activeDomain === 'all'
+    ? coaches
+    : coaches.filter(p => p.domainId === activeDomain);
+
+  const featuredCoach = filteredCoaches[0];
+  const otherCoaches = filteredCoaches.slice(1);
+
+  // Get domain info for display
+  const getDomainName = (domainId: string | 'all'): string => {
+    if (domainId === 'all') return 'All Coaches';
+    const domain = domains.find(d => d.id === domainId);
+    return domain?.name || 'Coaches';
+  };
+
+  const getDomainColor = (domainId: string): string => {
+    const domain = domains.find(d => d.id === domainId);
+    return domain?.color || '#F59E0B';
+  };
 
   const handleChallenge = async (persona: PersonaDisplay) => {
     if (!user?.id) {
@@ -63,6 +100,8 @@ export default function PersonasScreen() {
     }
   };
 
+  const isLoading = personasLoading || domainsLoading;
+
   return (
     <SafeAreaView className="flex-1 bg-bg-primary">
       {/* Header */}
@@ -70,48 +109,72 @@ export default function PersonasScreen() {
         <View className="flex-row items-center justify-between">
           <View>
             <View className="flex-row items-center">
-              <Sparkles size={24} color="#F59E0B" />
+              <GraduationCap size={24} color="#10b981" />
               <Text className="text-text-primary text-2xl font-bold ml-2">
-                Challengers
+                Coaches
               </Text>
             </View>
             <Text className="text-text-secondary mt-1">
-              Choose your intellectual sparring partner
+              Practice real-world conversations
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Filter Pills */}
+      {/* Domain Filter Pills */}
       <View className="py-3">
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
         >
-          {STYLE_FILTERS.map((filter) => {
-            const isActive = activeFilter === filter.key;
+          {/* All filter */}
+          <Pressable
+            onPress={() => setActiveDomain('all')}
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 20,
+              backgroundColor: activeDomain === 'all' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
+              borderWidth: 1,
+              borderColor: activeDomain === 'all' ? '#10b981' : 'rgba(255,255,255,0.1)',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: '500',
+                color: activeDomain === 'all' ? '#10b981' : '#9A9A9E'
+              }}
+            >
+              All
+            </Text>
+          </Pressable>
+
+          {/* Domain filters */}
+          {domains.map((domain) => {
+            const isActive = activeDomain === domain.id;
             return (
               <Pressable
-                key={filter.key}
-                onPress={() => setActiveFilter(filter.key)}
+                key={domain.id}
+                onPress={() => setActiveDomain(domain.id)}
                 style={{
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   borderRadius: 20,
-                  backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
+                  backgroundColor: isActive ? `${domain.color}20` : 'rgba(255,255,255,0.05)',
                   borderWidth: 1,
-                  borderColor: isActive ? filter.color : 'rgba(255,255,255,0.1)',
+                  borderColor: isActive ? domain.color : 'rgba(255,255,255,0.1)',
                 }}
               >
                 <Text
                   style={{
                     fontSize: 14,
                     fontWeight: '500',
-                    color: isActive ? filter.color : '#9A9A9E'
+                    color: isActive ? domain.color : '#9A9A9E'
                   }}
                 >
-                  {filter.label}
+                  {domain.name}
                 </Text>
               </Pressable>
             );
@@ -121,7 +184,7 @@ export default function PersonasScreen() {
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#F59E0B" />
+          <ActivityIndicator size="large" color="#10b981" />
         </View>
       ) : (
         <ScrollView
@@ -129,45 +192,45 @@ export default function PersonasScreen() {
           contentContainerClassName="px-4 pb-6"
           showsVerticalScrollIndicator={false}
         >
-          {/* Featured Persona */}
-          {featuredPersona && (
+          {/* Featured Coach */}
+          {featuredCoach && (
             <PersonaCard
-              persona={featuredPersona}
-              onPress={() => setSelectedPersona(featuredPersona)}
+              persona={featuredCoach}
+              onPress={() => setSelectedPersona(featuredCoach)}
               variant="featured"
             />
           )}
 
           {/* Section Header */}
-          {otherPersonas.length > 0 && (
+          {otherCoaches.length > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {activeFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[activeFilter]}
+                {getDomainName(activeDomain)}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', marginRight: 6 }} />
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 }} />
                 <Text style={{ color: '#6E6E73', fontSize: 12 }}>
-                  {otherPersonas.length + 1} available
+                  {otherCoaches.length + 1} available
                 </Text>
               </View>
             </View>
           )}
 
-          {/* Grid of Personas */}
+          {/* Grid of Coaches */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
-            {otherPersonas.map((persona) => (
-              <View key={persona.id} style={{ width: '50%', padding: 4 }}>
+            {otherCoaches.map((coach) => (
+              <View key={coach.id} style={{ width: '50%', padding: 4 }}>
                 <PersonaCard
-                  persona={persona}
-                  onPress={() => setSelectedPersona(persona)}
+                  persona={coach}
+                  onPress={() => setSelectedPersona(coach)}
                 />
               </View>
             ))}
           </View>
 
-          {filteredPersonas.length === 0 && (
+          {filteredCoaches.length === 0 && (
             <View className="py-20 items-center">
-              <Text className="text-text-muted">No challengers match this filter</Text>
+              <Text className="text-text-muted">No coaches available in this category</Text>
             </View>
           )}
         </ScrollView>
@@ -186,9 +249,9 @@ export default function PersonasScreen() {
             colors={['#1a1a2e', '#16213e', '#0f3460']}
             style={{ borderRadius: 16, padding: 24, alignItems: 'center' }}
           >
-            <ActivityIndicator size="large" color="#F59E0B" />
+            <ActivityIndicator size="large" color="#10b981" />
             <Text className="text-text-primary mt-4">
-              Starting conversation...
+              Starting session...
             </Text>
           </LinearGradient>
         </View>

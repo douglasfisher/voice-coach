@@ -1,14 +1,17 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
-import { Home, Users, TrendingUp, Settings } from 'lucide-react-native';
+import { Home, Users, GraduationCap, TrendingUp, Settings } from 'lucide-react-native';
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const color = focused ? '#F59E0B' : '#6E6E73';
+  // Custom color for coaches tab
+  const coachColor = focused ? '#10b981' : '#6E6E73';
   const size = 24;
 
   const icons: Record<string, React.ReactNode> = {
     index: <Home size={size} color={color} />,
     personas: <Users size={size} color={color} />,
+    coaches: <GraduationCap size={size} color={coachColor} />,
     growth: <TrendingUp size={size} color={color} />,
     profile: <Settings size={size} color={color} />,
   };
@@ -51,8 +54,16 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="personas"
         options={{
-          title: 'Personas',
+          title: 'Challengers',
           tabBarIcon: ({ focused }) => <TabIcon name="personas" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="coaches"
+        options={{
+          title: 'Coaches',
+          tabBarIcon: ({ focused }) => <TabIcon name="coaches" focused={focused} />,
+          tabBarActiveTintColor: '#10b981',
         }}
       />
       <Tabs.Screen

@@ -1,18 +1,17 @@
 -- Migration: Seed Coach Personas
--- 18 coaches across 6 domains (3 per domain)
+-- 20 coaches across 6 domains
 
 -- =============================================================================
 -- DATING COACHES (4)
 -- =============================================================================
 
 INSERT INTO personas (
-  name, title, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
+  name, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
   warmth, directness, patience, humor, formality, challenge_style, specialty_areas, cultural_background,
   system_prompt, is_active, sort_order, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style
 ) VALUES
 (
   'Alex Rivera',
-  'Dating Coach',
   'Your Confidence Builder',
   'https://placeholder.com/coach-alex.jpg',
   'elevenlabs', 'pMsXgVXv3BLzUgSXRplE', 1.0, 1.0, 0.7,
@@ -51,7 +50,6 @@ COACHING APPROACH:
 ),
 (
   'Jordan Chen',
-  'Dating Strategist',
   'The Tough Love Coach',
   'https://placeholder.com/coach-jordan.jpg',
   'elevenlabs', 'TxGEqnHWrfWFTfGW9XjX', 1.0, 1.0, 0.6,
@@ -90,7 +88,6 @@ COACHING APPROACH:
 ),
 (
   'Sam Taylor',
-  'Connection Coach',
   'The Playful Mentor',
   'https://placeholder.com/coach-sam.jpg',
   'elevenlabs', 'N2lVS1w4EtoT3dr4eOWO', 1.0, 1.0, 0.65,
@@ -129,7 +126,6 @@ COACHING APPROACH:
 ),
 (
   'Dr. Maya Okonkwo',
-  'Relationship Psychologist',
   'The Empathy Expert',
   'https://placeholder.com/coach-maya-o.jpg',
   'elevenlabs', 'EXAVITQu4vr4xnSDxMaL', 1.0, 1.0, 0.75,
@@ -172,13 +168,12 @@ COACHING APPROACH:
 -- =============================================================================
 
 INSERT INTO personas (
-  name, title, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
+  name, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
   warmth, directness, patience, humor, formality, challenge_style, specialty_areas, cultural_background,
   system_prompt, is_active, sort_order, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style
 ) VALUES
 (
   'Michael Santos',
-  'Executive Recruiter',
   'The Corporate Navigator',
   'https://placeholder.com/coach-michael.jpg',
   'elevenlabs', 'VR6AewLTigWG4xSOukaG', 1.0, 1.0, 0.8,
@@ -217,7 +212,6 @@ COACHING APPROACH:
 ),
 (
   'Priya Sharma',
-  'Startup Coach',
   'The Culture Fit Expert',
   'https://placeholder.com/coach-priya.jpg',
   'elevenlabs', 'jsCqWAovK2LkecY7zXl4', 1.0, 1.0, 0.65,
@@ -256,7 +250,6 @@ COACHING APPROACH:
 ),
 (
   'David Park',
-  'Technical Interview Coach',
   'The Coding Mentor',
   'https://placeholder.com/coach-david.jpg',
   'elevenlabs', 'cjVigY5qzO86Huf0OWal', 1.0, 1.0, 0.75,
@@ -295,7 +288,6 @@ COACHING APPROACH:
 ),
 (
   'Grace Williams',
-  'Career Confidence Coach',
   'The Imposter Syndrome Slayer',
   'https://placeholder.com/coach-grace.jpg',
   'elevenlabs', 'pFZP5JQG7iQjIQuC4Bku', 1.0, 1.0, 0.7,
@@ -338,13 +330,12 @@ COACHING APPROACH:
 -- =============================================================================
 
 INSERT INTO personas (
-  name, title, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
+  name, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
   warmth, directness, patience, humor, formality, challenge_style, specialty_areas, cultural_background,
   system_prompt, is_active, sort_order, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style
 ) VALUES
 (
   'James Morrison',
-  'Executive Presence Coach',
   'The Boardroom Veteran',
   'https://placeholder.com/coach-james.jpg',
   'elevenlabs', 'onwK4e9ZLuTAKqWW03F9', 1.0, 1.0, 0.85,
@@ -383,7 +374,6 @@ COACHING APPROACH:
 ),
 (
   'Aisha Rahman',
-  'Story Architect',
   'The TED Talk Coach',
   'https://placeholder.com/coach-aisha.jpg',
   'elevenlabs', 'jsCqWAovK2LkecY7zXl4', 1.0, 1.0, 0.65,
@@ -422,7 +412,6 @@ COACHING APPROACH:
 ),
 (
   'Lisa Park',
-  'Stage Fright Specialist',
   'The Calm in the Storm',
   'https://placeholder.com/coach-lisa.jpg',
   'elevenlabs', 'EXAVITQu4vr4xnSDxMaL', 1.0, 1.0, 0.75,
@@ -465,13 +454,12 @@ COACHING APPROACH:
 -- =============================================================================
 
 INSERT INTO personas (
-  name, title, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
+  name, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
   warmth, directness, patience, humor, formality, challenge_style, specialty_areas, cultural_background,
   system_prompt, is_active, sort_order, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style
 ) VALUES
 (
   'Victor Reyes',
-  'Negotiation Strategist',
   'The Tactical Empath',
   'https://placeholder.com/coach-victor.jpg',
   'elevenlabs', 'VR6AewLTigWG4xSOukaG', 1.0, 1.0, 0.75,
@@ -510,7 +498,6 @@ COACHING APPROACH:
 ),
 (
   'Catherine Walsh',
-  'Deal Architect',
   'The Hardball Specialist',
   'https://placeholder.com/coach-catherine.jpg',
   'elevenlabs', 'pFZP5JQG7iQjIQuC4Bku', 1.0, 1.0, 0.8,
@@ -549,7 +536,6 @@ COACHING APPROACH:
 ),
 (
   'Omar Hassan',
-  'Mediation Specialist',
   'The Bridge Builder',
   'https://placeholder.com/coach-omar.jpg',
   'elevenlabs', 'TX3LPaxmHKxFdv7VOQHJ', 1.0, 1.0, 0.7,
@@ -592,13 +578,12 @@ COACHING APPROACH:
 -- =============================================================================
 
 INSERT INTO personas (
-  name, title, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
+  name, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
   warmth, directness, patience, humor, formality, challenge_style, specialty_areas, cultural_background,
   system_prompt, is_active, sort_order, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style
 ) VALUES
 (
   'Dr. Nina Patel',
-  'Communication Therapist',
   'The Safe Space Creator',
   'https://placeholder.com/coach-nina.jpg',
   'elevenlabs', 'jsCqWAovK2LkecY7zXl4', 1.0, 1.0, 0.75,
@@ -637,7 +622,6 @@ COACHING APPROACH:
 ),
 (
   'Marcus Johnson',
-  'Workplace Communication Expert',
   'The Straight Shooter',
   'https://placeholder.com/coach-marcus-j.jpg',
   'elevenlabs', 'pNInz6obpgDQGcFmaJgB', 1.0, 1.0, 0.7,
@@ -676,7 +660,6 @@ COACHING APPROACH:
 ),
 (
   'Emma Larsson',
-  'Conflict Resolution Coach',
   'The Pattern Breaker',
   'https://placeholder.com/coach-emma.jpg',
   'elevenlabs', 'EXAVITQu4vr4xnSDxMaL', 1.0, 1.0, 0.7,
@@ -719,13 +702,12 @@ COACHING APPROACH:
 -- =============================================================================
 
 INSERT INTO personas (
-  name, title, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
+  name, tagline, avatar_url, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability,
   warmth, directness, patience, humor, formality, challenge_style, specialty_areas, cultural_background,
   system_prompt, is_active, sort_order, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style
 ) VALUES
 (
   'Derek Thompson',
-  'Networking Strategist',
   'The Super Connector',
   'https://placeholder.com/coach-derek.jpg',
   'elevenlabs', 'pMsXgVXv3BLzUgSXRplE', 1.0, 1.0, 0.65,
@@ -764,7 +746,6 @@ COACHING APPROACH:
 ),
 (
   'Yuki Yamamoto',
-  'Introvert Networking Coach',
   'The Quiet Connector',
   'https://placeholder.com/coach-yuki.jpg',
   'elevenlabs', 'jsCqWAovK2LkecY7zXl4', 1.0, 1.0, 0.75,
@@ -803,7 +784,6 @@ COACHING APPROACH:
 ),
 (
   'Sophia Martinez',
-  'Digital Networking Expert',
   'The LinkedIn Strategist',
   'https://placeholder.com/coach-sophia.jpg',
   'elevenlabs', 'pFZP5JQG7iQjIQuC4Bku', 1.0, 1.0, 0.7,
