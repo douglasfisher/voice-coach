@@ -251,6 +251,12 @@ export default function AdminPersonaEditScreen() {
       temperature: 0.7,
       max_completion_tokens: 1024,
     },
+    // Coaching fields
+    persona_type: 'challenger',
+    domain_id: null,
+    coaching_style: null,
+    default_interaction_mode: 'coach_leads',
+    feedback_style: 'sandwich',
   });
 
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
@@ -306,6 +312,12 @@ export default function AdminPersonaEditScreen() {
           temperature: 0.7,
           max_completion_tokens: 1024,
         },
+        // Coaching fields
+        persona_type: selectedPersona.persona_type || 'challenger',
+        domain_id: selectedPersona.domain_id,
+        coaching_style: selectedPersona.coaching_style,
+        default_interaction_mode: selectedPersona.default_interaction_mode || 'coach_leads',
+        feedback_style: selectedPersona.feedback_style || 'sandwich',
       });
     }
   }, [selectedPersona, isNew]);

@@ -9,6 +9,97 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      coaching_domains: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          icon: string;
+          color: string;
+          tagline: string | null;
+          is_active: boolean;
+          is_premium: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          description?: string | null;
+          icon: string;
+          color?: string;
+          tagline?: string | null;
+          is_active?: boolean;
+          is_premium?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          description?: string | null;
+          icon?: string;
+          color?: string;
+          tagline?: string | null;
+          is_active?: boolean;
+          is_premium?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
+      scenarios: {
+        Row: {
+          id: string;
+          domain_id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          interaction_mode: string;
+          difficulty_level: number;
+          scenario_context: string;
+          user_goal: string | null;
+          situation_variants: { name: string; context: string }[];
+          recommended_coaches: string[] | null;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          domain_id: string;
+          slug: string;
+          name: string;
+          description?: string | null;
+          interaction_mode?: string;
+          difficulty_level?: number;
+          scenario_context: string;
+          user_goal?: string | null;
+          situation_variants?: { name: string; context: string }[];
+          recommended_coaches?: string[] | null;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          domain_id?: string;
+          slug?: string;
+          name?: string;
+          description?: string | null;
+          interaction_mode?: string;
+          difficulty_level?: number;
+          scenario_context?: string;
+          user_goal?: string | null;
+          situation_variants?: { name: string; context: string }[];
+          recommended_coaches?: string[] | null;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
       user_profiles: {
         Row: {
           id: string;
@@ -127,6 +218,12 @@ export interface Database {
             cost_per_million_output?: number;
           } | null;
           created_at: string;
+          // Coaching fields
+          persona_type: 'challenger' | 'coach';
+          domain_id: string | null;
+          coaching_style: string | null;
+          default_interaction_mode: string;
+          feedback_style: string;
         };
         Insert: {
           id?: string;
@@ -163,6 +260,12 @@ export interface Database {
             cost_per_million_output?: number;
           } | null;
           created_at?: string;
+          // Coaching fields
+          persona_type?: 'challenger' | 'coach';
+          domain_id?: string | null;
+          coaching_style?: string | null;
+          default_interaction_mode?: string;
+          feedback_style?: string;
         };
         Update: {
           id?: string;
@@ -199,6 +302,12 @@ export interface Database {
             cost_per_million_output?: number;
           } | null;
           created_at?: string;
+          // Coaching fields
+          persona_type?: 'challenger' | 'coach';
+          domain_id?: string | null;
+          coaching_style?: string | null;
+          default_interaction_mode?: string;
+          feedback_style?: string;
         };
       };
       conversations: {
@@ -222,6 +331,12 @@ export interface Database {
             word_count_total: number;
           } | null;
           created_at: string;
+          // Coaching fields
+          domain_id: string | null;
+          scenario_id: string | null;
+          interaction_mode: string;
+          current_phase: string;
+          scenario_variant: Json | null;
         };
         Insert: {
           id?: string;
@@ -243,6 +358,12 @@ export interface Database {
             word_count_total: number;
           } | null;
           created_at?: string;
+          // Coaching fields
+          domain_id?: string | null;
+          scenario_id?: string | null;
+          interaction_mode?: string;
+          current_phase?: string;
+          scenario_variant?: Json | null;
         };
         Update: {
           id?: string;
@@ -264,6 +385,12 @@ export interface Database {
             word_count_total: number;
           } | null;
           created_at?: string;
+          // Coaching fields
+          domain_id?: string | null;
+          scenario_id?: string | null;
+          interaction_mode?: string;
+          current_phase?: string;
+          scenario_variant?: Json | null;
         };
       };
       messages: {
@@ -860,3 +987,7 @@ export type UserAchievementDB = Tables<'user_achievements'>;
 export type XPTransactionDB = Tables<'xp_transactions'>;
 export type GrowthProjectionDB = Tables<'growth_projections'>;
 export type UserInsightDB = Tables<'user_insights'>;
+
+// Coaching tables
+export type CoachingDomainDB = Tables<'coaching_domains'>;
+export type ScenarioDB = Tables<'scenarios'>;

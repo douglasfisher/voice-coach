@@ -8,12 +8,19 @@
  */
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  buildCoachingPrompt,
+  CoachingStyle,
+  InteractionMode,
+  FeedbackStyle,
+  SessionPhase,
+} from './coaching-prompts.ts';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-export type AITaskType = 'chat' | 'analysis' | 'report' | 'challenge';
+export type AITaskType = 'chat' | 'analysis' | 'report' | 'challenge' | 'coaching' | 'coaching_feedback';
 
 export interface AIResponseStyle {
   brevity: 'terse' | 'conversational' | 'detailed';
@@ -63,6 +70,16 @@ export interface ResolvedAIConfig {
   cost_per_million_output: number;
 }
 
+export interface CoachingContext {
+  scenarioContext?: string;
+  scenarioVariant?: { name: string; context: string };
+  userGoal?: string;
+  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking';
+  currentPhase?: 'roleplay' | 'feedback';
+  coachingStyle?: string;
+  feedbackStyle?: string;
+}
+
 export interface ConfigResolverOptions {
   task: AITaskType;
   personaId?: string;
@@ -71,6 +88,7 @@ export interface ConfigResolverOptions {
     temperature: number;
     max_completion_tokens: number;
   }>;
+  coaching?: CoachingContext;
 }
 
 // =============================================================================
@@ -145,11 +163,14 @@ export async function resolveAIConfig(
   let personaConfig: Record<string, unknown> = {};
   let personaPrompt = '';
   let costConfig = { input: 5, output: 15 }; // Default cost per million tokens (cents)
+  let personaCoachingStyle: CoachingStyle | null = null;
+  let personaFeedbackStyle: FeedbackStyle = 'sandwich';
+  let personaInteractionMode: InteractionMode = 'coach_leads';
 
   if (personaId) {
     const { data: persona, error: personaError } = await supabase
       .from('personas')
-      .select('ai_config, system_prompt')
+      .select('ai_config, system_prompt, persona_type, coaching_style, feedback_style, default_interaction_mode')
       .eq('id', personaId)
       .single();
 
@@ -158,6 +179,13 @@ export async function resolveAIConfig(
     } else if (persona) {
       personaConfig = (persona.ai_config as Record<string, unknown>) || {};
       personaPrompt = persona.system_prompt || '';
+
+      // Extract coaching-specific persona fields
+      if (persona.persona_type === 'coach') {
+        personaCoachingStyle = persona.coaching_style as CoachingStyle || 'supportive_guide';
+        personaFeedbackStyle = (persona.feedback_style as FeedbackStyle) || 'sandwich';
+        personaInteractionMode = (persona.default_interaction_mode as InteractionMode) || 'coach_leads';
+      }
 
       // Get cost from ai_models table if persona has a specific model
       const personaModel = personaConfig.model as string;
@@ -205,10 +233,30 @@ export async function resolveAIConfig(
   ], FALLBACK_DEFAULTS.max_completion_tokens);
 
   // 5. Build the full system prompt with modifiers
-  const modifierText = buildSystemModifiers(systemModifiers, responseStyle);
-  const fullSystemPrompt = modifierText
-    ? `${modifierText}\n\n---\n\n${personaPrompt}`
-    : personaPrompt;
+  let fullSystemPrompt: string;
+
+  // Check if this is a coaching task and we have coaching context
+  const isCoachingTask = task === 'coaching' || task === 'coaching_feedback';
+  const { coaching } = options;
+
+  if (isCoachingTask && coaching && personaCoachingStyle) {
+    // Build coaching-specific prompt
+    fullSystemPrompt = buildCoachingPrompt(personaPrompt, {
+      coachingStyle: (coaching.coachingStyle as CoachingStyle) || personaCoachingStyle,
+      interactionMode: (coaching.interactionMode as InteractionMode) || personaInteractionMode,
+      feedbackStyle: (coaching.feedbackStyle as FeedbackStyle) || personaFeedbackStyle,
+      currentPhase: (coaching.currentPhase as SessionPhase) || 'roleplay',
+      scenarioContext: coaching.scenarioContext || '',
+      scenarioVariant: coaching.scenarioVariant,
+      userGoal: coaching.userGoal,
+    });
+  } else {
+    // Standard prompt building for challengers
+    const modifierText = buildSystemModifiers(systemModifiers, responseStyle);
+    fullSystemPrompt = modifierText
+      ? `${modifierText}\n\n---\n\n${personaPrompt}`
+      : personaPrompt;
+  }
 
   return {
     model,

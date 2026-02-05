@@ -7,7 +7,8 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { resolveAIConfig } from '../_shared/config/ai-config-resolver.ts';
+import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-resolver.ts';
+import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -24,6 +25,13 @@ interface ChatRequest {
   previewGreeting?: boolean;
   regenerateQuestion?: boolean;
   generateChallenge?: boolean;
+  // Coaching-specific fields
+  scenarioId?: string;
+  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking';
+  currentPhase?: 'roleplay' | 'feedback';
+  scenarioVariant?: { name: string; context: string };
+  requestQuickFeedback?: boolean;
+  switchPhase?: 'roleplay' | 'feedback';
 }
 
 interface GroqMessage {
@@ -55,6 +63,13 @@ serve(async (req) => {
       previewGreeting,
       regenerateQuestion,
       generateChallenge,
+      // Coaching fields
+      scenarioId,
+      interactionMode,
+      currentPhase,
+      scenarioVariant,
+      requestQuickFeedback,
+      switchPhase,
     } = await req.json() as ChatRequest;
 
     // Handle challenge generation (doesn't require conversationId)
@@ -133,17 +148,47 @@ Guidelines:
       );
     }
 
-    if (!generateGreeting && !previewGreeting && !regenerateQuestion && !userMessage) {
+    if (!generateGreeting && !previewGreeting && !regenerateQuestion && !switchPhase && !requestQuickFeedback && !userMessage) {
       return new Response(
         JSON.stringify({ error: 'Missing userMessage' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Fetch scenario context if this is a coaching session
+    let coachingContext: CoachingContext | undefined;
+    let scenarioData: { scenario_context: string; user_goal: string | null } | null = null;
+
+    if (scenarioId) {
+      const { data: scenario } = await supabase
+        .from('scenarios')
+        .select('scenario_context, user_goal, interaction_mode')
+        .eq('id', scenarioId)
+        .single();
+
+      if (scenario) {
+        scenarioData = scenario;
+        coachingContext = {
+          scenarioContext: scenario.scenario_context,
+          userGoal: scenario.user_goal || undefined,
+          interactionMode: interactionMode || scenario.interaction_mode,
+          currentPhase: currentPhase || 'roleplay',
+          scenarioVariant,
+        };
+      }
+    }
+
+    // Determine if this is a coaching task
+    const isCoachingTask = !!scenarioId || !!coachingContext;
+    const taskType = isCoachingTask
+      ? (currentPhase === 'feedback' ? 'coaching_feedback' : 'coaching')
+      : 'chat';
+
     // Resolve AI config from database (global + persona settings)
     const config = await resolveAIConfig(supabase, {
-      task: 'chat',
+      task: taskType,
       personaId,
+      coaching: coachingContext,
     });
 
     console.log('Chat config resolved:', {
@@ -220,6 +265,32 @@ Guidelines:
         .eq('id', conversationId)
         .single();
 
+      // For user_leads coaching mode, return scene context instead of AI greeting
+      if (interactionMode === 'user_leads' && scenarioData) {
+        const sceneContext = generateSceneContext(
+          scenarioData.scenario_context,
+          scenarioVariant
+        );
+
+        // Save the scene context as a system message (not assistant)
+        await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          role: 'system',
+          content: sceneContext,
+          sequence: 1,
+        });
+
+        return new Response(
+          JSON.stringify({
+            response: sceneContext,
+            sceneContext: true,
+            interactionMode: 'user_leads',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Standard greeting generation for coach_leads or challengers
       const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
@@ -244,6 +315,108 @@ Guidelines:
 
       return new Response(
         JSON.stringify({ response: questionContent, question: questionContent }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle phase switching (roleplay <-> feedback)
+    if (switchPhase) {
+      // Update conversation phase in database
+      await supabase
+        .from('conversations')
+        .update({ current_phase: switchPhase })
+        .eq('id', conversationId);
+
+      // If switching to feedback, generate coaching feedback message
+      if (switchPhase === 'feedback') {
+        const { data: messages } = await supabase
+          .from('messages')
+          .select('role, content')
+          .eq('conversation_id', conversationId)
+          .order('sequence', { ascending: true });
+
+        const history: GroqMessage[] = (messages || []).map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        }));
+
+        // Resolve config for feedback phase
+        const feedbackConfig = await resolveAIConfig(supabase, {
+          task: 'coaching_feedback',
+          personaId,
+          coaching: { ...coachingContext, currentPhase: 'feedback' },
+        });
+
+        const feedbackResponse = await callGroq([
+          { role: 'system', content: feedbackConfig.full_system_prompt },
+          ...history,
+          { role: 'user', content: 'Please give me feedback on how I did in that practice session.' },
+        ]);
+
+        const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
+        const nextSequence = (messages?.length || 0) + 1;
+
+        await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: feedbackMessage,
+          sequence: nextSequence,
+        });
+
+        return new Response(
+          JSON.stringify({ response: feedbackMessage, phase: 'feedback' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Switching back to roleplay - just acknowledge
+      return new Response(
+        JSON.stringify({ phase: 'roleplay', message: 'Switched back to practice mode.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle quick feedback request (mid-session feedback without ending roleplay)
+    if (requestQuickFeedback) {
+      const { data: persona } = await supabase
+        .from('personas')
+        .select('feedback_style')
+        .eq('id', personaId)
+        .single();
+
+      const feedbackStyle = (persona?.feedback_style || 'sandwich') as 'sandwich' | 'direct' | 'question_based' | 'observational';
+
+      const { data: messages } = await supabase
+        .from('messages')
+        .select('role, content')
+        .eq('conversation_id', conversationId)
+        .order('sequence', { ascending: true });
+
+      const history: GroqMessage[] = (messages || []).map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+      const quickFeedbackPrompt = getQuickFeedbackPrompt(feedbackStyle);
+      const nextSequence = (messages?.length || 0) + 1;
+
+      const feedbackResponse = await callGroq([
+        { role: 'system', content: config.full_system_prompt + '\n\n' + quickFeedbackPrompt },
+        ...history,
+        { role: 'user', content: 'Quick check - how am I doing?' },
+      ]);
+
+      const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
+
+      await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        role: 'assistant',
+        content: feedbackMessage,
+        sequence: nextSequence,
+      });
+
+      return new Response(
+        JSON.stringify({ response: feedbackMessage, quickFeedback: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

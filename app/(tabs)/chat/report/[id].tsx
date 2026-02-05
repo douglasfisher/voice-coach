@@ -70,6 +70,10 @@ interface TimingMetrics {
   assistant_avg_response_ms: number;
   exchange_count: number;
   word_count_total: number;
+  // Additional fields for SessionStats compatibility (optional for backward compat)
+  user_word_count?: number;
+  ai_word_count?: number;
+  ai_avg_response_ms?: number;
 }
 
 export default function ReportScreen() {

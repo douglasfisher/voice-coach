@@ -6,6 +6,8 @@ export type ChallengeStyle =
   | 'logical_surgeon'
   | 'perspective_shifter';
 
+export type PersonaType = 'challenger' | 'coach';
+
 export interface VoiceConfig {
   provider: 'elevenlabs' | 'playht' | 'azure';
   voiceId: string;
@@ -25,6 +27,7 @@ export interface PersonalityTraits {
 }
 
 import { ImageSourcePropType } from 'react-native';
+import { CoachingStyle, InteractionMode, FeedbackStyle } from './coaching';
 
 export type AvatarSource = string | ImageSourcePropType;
 
@@ -39,6 +42,12 @@ export interface PersonaDisplay {
   culturalBackground: string | null;
   personality: PersonalityTraits;
   voiceConfig: VoiceConfig;
+  // Coaching fields
+  personaType: PersonaType;
+  domainId: string | null;
+  coachingStyle: CoachingStyle | null;
+  defaultInteractionMode: InteractionMode;
+  feedbackStyle: FeedbackStyle;
 }
 
 export const CHALLENGE_STYLE_LABELS: Record<ChallengeStyle, string> = {

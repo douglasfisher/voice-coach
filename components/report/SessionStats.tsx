@@ -4,13 +4,15 @@ import { Clock, MessageCircle, FileText, Zap, TrendingUp, Timer } from 'lucide-r
 interface TimingMetrics {
   total_duration_ms: number;
   exchange_count: number;
+  word_count_total?: number;
   // User metrics
-  user_word_count: number;
+  user_word_count?: number;
   user_avg_response_ms: number;
   user_avg_words_per_response?: number;
-  // AI metrics (not displayed, just for completeness)
-  ai_word_count: number;
-  ai_avg_response_ms: number;
+  // AI metrics
+  ai_word_count?: number;
+  ai_avg_response_ms?: number;
+  assistant_avg_response_ms?: number;
 }
 
 interface SessionStatsProps {

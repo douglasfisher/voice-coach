@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
+import { InteractionMode, SessionPhase, SituationVariant } from '../types/coaching';
 
 interface SessionReport {
   tldr: string;
@@ -28,6 +29,13 @@ interface DailyChallenge {
   generatedAt: string;
 }
 
+interface CoachingSessionOptions {
+  domainId?: string;
+  scenarioId?: string;
+  interactionMode?: InteractionMode;
+  scenarioVariant?: SituationVariant;
+}
+
 interface ChatState {
   conversations: Conversation[];
   activeConversation: Conversation | null;
@@ -47,6 +55,10 @@ interface ChatState {
   dailyChallenge: DailyChallenge | null;
   isLoadingChallenge: boolean;
 
+  // Coaching state
+  currentPhase: SessionPhase;
+  coachingOptions: CoachingSessionOptions | null;
+
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
@@ -54,7 +66,8 @@ interface ChatState {
   createConversation: (
     userId: string,
     personaId: string,
-    topic?: string
+    topic?: string,
+    coachingOptions?: CoachingSessionOptions
   ) => Promise<string | null>;
   startChallengeChat: (
     userId: string,
@@ -73,6 +86,10 @@ interface ChatState {
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
   fetchDailyChallenge: (personas: { id: string }[]) => Promise<void>;
+  // Coaching-specific actions
+  switchPhase: (phase: SessionPhase) => Promise<{ response: string } | null>;
+  requestQuickFeedback: () => Promise<{ response: string } | null>;
+  setCoachingOptions: (options: CoachingSessionOptions | null) => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
@@ -95,6 +112,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Daily challenge
   dailyChallenge: null,
   isLoadingChallenge: false,
+
+  // Coaching state
+  currentPhase: 'roleplay',
+  coachingOptions: null,
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
@@ -178,23 +199,47 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  createConversation: async (userId, personaId, topic) => {
+  createConversation: async (userId, personaId, topic, coachingOptions) => {
     set({ isLoading: true, error: null });
     try {
+      const insertData: Record<string, unknown> = {
+        user_id: userId,
+        persona_id: personaId,
+        topic,
+        status: 'active',
+      };
+
+      // Add coaching fields if provided
+      if (coachingOptions) {
+        if (coachingOptions.domainId) {
+          insertData.domain_id = coachingOptions.domainId;
+        }
+        if (coachingOptions.scenarioId) {
+          insertData.scenario_id = coachingOptions.scenarioId;
+        }
+        if (coachingOptions.interactionMode) {
+          insertData.interaction_mode = coachingOptions.interactionMode;
+        }
+        if (coachingOptions.scenarioVariant) {
+          insertData.scenario_variant = coachingOptions.scenarioVariant;
+        }
+        insertData.current_phase = 'roleplay';
+      }
+
       const { data, error } = await supabase
         .from('conversations')
-        .insert({
-          user_id: userId,
-          persona_id: personaId,
-          topic,
-          status: 'active',
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (error) throw error;
 
-      set({ activeConversation: data, messages: [] });
+      set({
+        activeConversation: data,
+        messages: [],
+        coachingOptions: coachingOptions || null,
+        currentPhase: 'roleplay',
+      });
       return data.id;
     } catch (error) {
       console.error('createConversation error:', error);
@@ -247,7 +292,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: async (content) => {
-    const { activeConversation, messages } = get();
+    const { activeConversation, messages, coachingOptions, currentPhase } = get();
     if (!activeConversation) return null;
 
     set({ isSending: true, error: null });
@@ -269,13 +314,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       set({ messages: [...messages, userMessage] });
 
+      // Build request body with coaching context
+      const requestBody: Record<string, unknown> = {
+        conversationId: activeConversation.id,
+        userMessage: content,
+        personaId: activeConversation.persona_id,
+      };
+
+      // Add coaching context if this is a coaching session
+      if (coachingOptions) {
+        if (coachingOptions.scenarioId) {
+          requestBody.scenarioId = coachingOptions.scenarioId;
+        }
+        if (coachingOptions.interactionMode) {
+          requestBody.interactionMode = coachingOptions.interactionMode;
+        }
+        requestBody.currentPhase = currentPhase;
+        if (coachingOptions.scenarioVariant) {
+          requestBody.scenarioVariant = coachingOptions.scenarioVariant;
+        }
+      }
+
       // Call Edge Function for AI response
       const { data, error } = await supabase.functions.invoke('chat', {
-        body: {
-          conversationId: activeConversation.id,
-          userMessage: content,
-          personaId: activeConversation.persona_id,
-        },
+        body: requestBody,
       });
 
       if (error) throw error;
@@ -295,12 +357,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   startChat: async () => {
-    const { activeConversation } = get();
+    const { activeConversation, coachingOptions } = get();
     if (!activeConversation) return false;
 
     console.log('Starting chat with:', {
       conversationId: activeConversation.id,
       personaId: activeConversation.persona_id,
+      coachingOptions,
     });
 
     set({ isSending: true, error: null });
@@ -309,6 +372,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+      // Build request body with coaching options
+      const requestBody: Record<string, unknown> = {
+        conversationId: activeConversation.id,
+        personaId: activeConversation.persona_id,
+        generateGreeting: true,
+      };
+
+      // Add coaching fields if this is a coaching session
+      if (coachingOptions) {
+        if (coachingOptions.scenarioId) {
+          requestBody.scenarioId = coachingOptions.scenarioId;
+        }
+        if (coachingOptions.interactionMode) {
+          requestBody.interactionMode = coachingOptions.interactionMode;
+        }
+        if (coachingOptions.scenarioVariant) {
+          requestBody.scenarioVariant = coachingOptions.scenarioVariant;
+        }
+      }
+
       const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
         method: 'POST',
         headers: {
@@ -316,11 +399,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           'apikey': supabaseAnonKey || '',
           'Authorization': `Bearer ${supabaseAnonKey}`,
         },
-        body: JSON.stringify({
-          conversationId: activeConversation.id,
-          personaId: activeConversation.persona_id,
-          generateGreeting: true,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -331,7 +410,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       const data = await response.json();
 
-      // Refresh messages to show greeting
+      // Refresh messages to show greeting/scene context
       await get().fetchMessages(activeConversation.id);
       return true;
     } catch (error) {
@@ -563,7 +642,122 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   clearActiveConversation: () => {
-    set({ activeConversation: null, messages: [] });
+    set({
+      activeConversation: null,
+      messages: [],
+      coachingOptions: null,
+      currentPhase: 'roleplay',
+    });
+  },
+
+  // Coaching-specific actions
+  switchPhase: async (phase) => {
+    const { activeConversation, coachingOptions } = get();
+    if (!activeConversation) return null;
+
+    set({ isSending: true, error: null, currentPhase: phase });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const requestBody: Record<string, unknown> = {
+        conversationId: activeConversation.id,
+        personaId: activeConversation.persona_id,
+        switchPhase: phase,
+      };
+
+      if (coachingOptions) {
+        if (coachingOptions.scenarioId) {
+          requestBody.scenarioId = coachingOptions.scenarioId;
+        }
+        if (coachingOptions.scenarioVariant) {
+          requestBody.scenarioVariant = coachingOptions.scenarioVariant;
+        }
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Refresh messages if we got a feedback response
+      if (data.response) {
+        await get().fetchMessages(activeConversation.id);
+      }
+
+      return { response: data.response || data.message };
+    } catch (error) {
+      console.error('Switch phase failed:', error);
+      set({ error: (error as Error).message });
+      return null;
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  requestQuickFeedback: async () => {
+    const { activeConversation, coachingOptions } = get();
+    if (!activeConversation) return null;
+
+    set({ isSending: true, error: null });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const requestBody: Record<string, unknown> = {
+        conversationId: activeConversation.id,
+        personaId: activeConversation.persona_id,
+        requestQuickFeedback: true,
+      };
+
+      if (coachingOptions?.scenarioId) {
+        requestBody.scenarioId = coachingOptions.scenarioId;
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Refresh messages to show feedback
+      await get().fetchMessages(activeConversation.id);
+
+      return { response: data.response };
+    } catch (error) {
+      console.error('Quick feedback failed:', error);
+      set({ error: (error as Error).message });
+      return null;
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  setCoachingOptions: (options) => {
+    set({ coachingOptions: options });
   },
 
   fetchDailyChallenge: async (personas) => {
