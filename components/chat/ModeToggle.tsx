@@ -23,11 +23,10 @@ export function ModeToggle({
   const slideAnim = useRef(new Animated.Value(mode === 'practice' ? 0 : 1)).current;
 
   useEffect(() => {
-    Animated.spring(slideAnim, {
+    Animated.timing(slideAnim, {
       toValue: mode === 'practice' ? 0 : 1,
       useNativeDriver: true,
-      tension: 300,
-      friction: 20,
+      duration: 200,
     }).start();
   }, [mode]);
 
