@@ -31,7 +31,7 @@ export function ModeToggle({
     }).start();
   }, [mode]);
 
-  const toggleWidth = 140;
+  const toggleWidth = 160;
   const halfWidth = toggleWidth / 2;
 
   const translateX = slideAnim.interpolate({
