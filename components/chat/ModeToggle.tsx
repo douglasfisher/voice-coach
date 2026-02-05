@@ -35,18 +35,12 @@ export function ModeToggle({
   const practiceWidth = 92; // Wider for "Practice"
   const qaWidth = 66;       // Narrower for "Q&A" but with right padding
 
-  const practiceHighlight = practiceWidth - 4;
-  const qaHighlight = qaWidth - 4;
+  // Use the smaller width for highlight so it never overflows during animation
+  const highlightWidth = qaWidth - 4;
 
   const translateX = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, practiceWidth],
-  });
-
-  // Animate width too so it doesn't overflow during transition
-  const animatedWidth = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [practiceHighlight, qaHighlight],
   });
 
   return (
@@ -67,7 +61,7 @@ export function ModeToggle({
       <Animated.View
         style={{
           position: 'absolute',
-          width: animatedWidth,
+          width: highlightWidth,
           height: 32,
           top: 1,
           left: 2,
