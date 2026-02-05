@@ -21,7 +21,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSSpeechRecognitionUsageDescription": "Allow Dialectica to use speech recognition.",
-        "NSMicrophoneUsageDescription": "Allow Dialectica to use your microphone for voice input."
+        "NSMicrophoneUsageDescription": "Allow Dialectica to use your microphone for voice input.",
+        "NSPhotoLibraryUsageDescription": "Dialectica may access your photo library to save or select images."
       }
     },
     "android": {
