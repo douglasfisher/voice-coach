@@ -29,6 +29,11 @@ const LOCAL_AVATARS: Record<string, any> = {
   'sam taylor': require('../assets/coach-sam-taylor.jpg'),
   'dr. maya okonkwo': require('../assets/coach-maya-okonkwo.jpg'),
   'maya okonkwo': require('../assets/coach-maya-okonkwo.jpg'),
+  'marcus webb': require('../assets/coach-marcus-webb.jpg'),
+  'mia chang': require('../assets/coach-mia-chang.jpg'),
+  'chris martinez': require('../assets/coach-chris-martinez.jpg'),
+  'dr. sarah kim': require('../assets/coach-sarah-kim.jpg'),
+  'sarah kim': require('../assets/coach-sarah-kim.jpg'),
 
   // Interview Coaches
   'michael santos': require('../assets/coach-michael-santos.jpg'),
