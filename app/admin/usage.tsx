@@ -297,7 +297,7 @@ export default function AdminUsageScreen() {
                     {summary.byModel.map((model, index) => (
                       <StatRow
                         key={model.model}
-                        label={model.model.split('-').slice(0, 2).join('-')}
+                        label={model.model}
                         value={formatCost(model.costCents)}
                         subValue={`${formatNumber(model.tokens)} tokens`}
                         icon={<TrendingUp size={16} color="#60a5fa" />}
