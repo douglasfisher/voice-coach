@@ -1,11 +1,13 @@
 #!/bin/zsh
 # db.sh - Dialectica Database Tool
 #
-# Query the Dialectica (voice-coach) Supabase database via REST & Management APIs.
-# No psql or Docker needed.
+# Query the Dialectica (voice-coach) Supabase database.
+# Uses Management API (primary) with psql fallback for SQL commands.
+# Uses REST API (service_role key) for table CRUD.
 #
 # Project Name: voice-coach
 # Project Ref:  enatcutnrtuauykqyajc
+# Region:       eu-west-2
 #
 # Usage:
 #   ./scripts/db.sh query "SELECT * FROM personas LIMIT 5"
@@ -17,9 +19,10 @@
 #   ./scripts/db.sh tables
 #   ./scripts/db.sh describe personas
 #
-# Security:
-#   Service role key: macOS Keychain "dialectica_service_role" or env DIALECTICA_SERVICE_ROLE
-#   CLI access token: macOS Keychain "Supabase CLI" (via supabase login) or env SUPABASE_ACCESS_TOKEN
+# Security (macOS Keychain or env vars):
+#   DB password:     Keychain "dialectica_db" or env DIALECTICA_DB_PASSWORD
+#   Service role:    Keychain "dialectica_service_role" or env DIALECTICA_SERVICE_ROLE
+#   CLI token:       Keychain "Supabase CLI" (supabase login) or env SUPABASE_ACCESS_TOKEN
 
 set -euo pipefail
 
@@ -35,6 +38,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MIGRATIONS_DIR="${SCRIPT_DIR}/../supabase/migrations"
 CURRENT_USER="${USER:-$(whoami)}"
 AUTO_CONFIRM=false
+
+# Postgres connection (pooler)
+DB_HOST="aws-0-eu-west-2.pooler.supabase.com"
+DB_PORT="5432"
+DB_NAME="postgres"
+DB_USER="postgres.${PROJECT_REF}"
+# Keychain entries to try for DB password (in order)
+DB_KEYCHAIN_NAMES=("dialectica_db" "supabase_db")
 
 # Colors
 GREEN='\033[0;32m'
@@ -72,22 +83,37 @@ get_access_token() {
   fi
   local token
   token=$(security find-generic-password -a "supabase" -s "Supabase CLI" -w 2>/dev/null) || {
-    echo -e "${RED}Error: No Supabase CLI access token found${NC}" >&2
-    echo -e "Set via env:  ${CYAN}export SUPABASE_ACCESS_TOKEN=\"your-token\"${NC}" >&2
-    echo -e "Or login:     ${CYAN}supabase login${NC}" >&2
-    exit 1
+    return 1
   }
   echo "$token"
 }
 
+get_db_password() {
+  if [[ -n "${DIALECTICA_DB_PASSWORD:-}" ]]; then
+    echo "$DIALECTICA_DB_PASSWORD"
+    return
+  fi
+  local pw
+  for name in "${DB_KEYCHAIN_NAMES[@]}"; do
+    pw=$(security find-generic-password -a "${CURRENT_USER}" -s "$name" -w 2>/dev/null) && {
+      echo "$pw"
+      return
+    }
+  done
+  echo -e "${RED}Error: No DB password found${NC}" >&2
+  echo -e "Set via env:      ${CYAN}export DIALECTICA_DB_PASSWORD=\"your-password\"${NC}" >&2
+  echo -e "Or via Keychain:  ${CYAN}security add-generic-password -U -a \"\$USER\" -s \"dialectica_db\" -w \"your-password\"${NC}" >&2
+  exit 1
+}
+
 # =============================================================================
-# SQL execution via Management API (DDL + DML)
+# SQL execution - Management API (primary) with psql fallback
 # =============================================================================
 
-run_sql() {
+run_sql_api() {
   local sql="$1"
   local token
-  token=$(get_access_token)
+  token=$(get_access_token) || return 1
 
   local response
   response=$(curl -sS -w "\n%{http_code}" \
@@ -102,11 +128,45 @@ run_sql() {
 
   if [[ "$http_code" -ge 200 && "$http_code" -lt 300 ]]; then
     echo "$body" | python3 -m json.tool 2>/dev/null || echo "$body"
+    return 0
   else
-    echo -e "${RED}Query failed (HTTP ${http_code}):${NC}" >&2
-    echo "$body" | python3 -m json.tool 2>/dev/null || echo "$body" >&2
     return 1
   fi
+}
+
+run_sql_psql() {
+  local sql="$1"
+  local pw
+  pw=$(get_db_password)
+
+  local conn="host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER connect_timeout=10"
+  PGPASSWORD="$pw" psql "$conn" -c "$sql" 2>&1
+  local rc=$?
+  return $rc
+}
+
+run_sql_psql_file() {
+  local file="$1"
+  local pw
+  pw=$(get_db_password)
+
+  local conn="host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER connect_timeout=10"
+  PGPASSWORD="$pw" psql "$conn" -f "$file" 2>&1
+  local rc=$?
+  return $rc
+}
+
+run_sql() {
+  local sql="$1"
+
+  # Try Management API first
+  if run_sql_api "$sql" 2>/dev/null; then
+    return 0
+  fi
+
+  # Fallback to psql
+  echo -e "${DIM}(Management API unavailable, using psql)${NC}" >&2
+  run_sql_psql "$sql"
 }
 
 # =============================================================================
@@ -196,16 +256,16 @@ ensure_tracking_table() {
       filename TEXT UNIQUE NOT NULL,
       applied_at TIMESTAMPTZ DEFAULT now()
     );
-  " > /dev/null
+  " > /dev/null 2>&1 || true
 }
 
 get_applied_migrations() {
-  run_sql "SELECT filename FROM _migration_history ORDER BY filename;" 2>/dev/null
+  run_sql "SELECT filename FROM _migration_history ORDER BY filename;" 2>/dev/null || echo "[]"
 }
 
 record_migration() {
   local filename="$1"
-  run_sql "INSERT INTO _migration_history (filename) VALUES ('${filename}') ON CONFLICT (filename) DO NOTHING;" > /dev/null
+  run_sql "INSERT INTO _migration_history (filename) VALUES ('${filename}') ON CONFLICT (filename) DO NOTHING;" > /dev/null 2>&1
 }
 
 run_migration() {
@@ -215,15 +275,21 @@ run_migration() {
 
   echo -e "  ${BLUE}Running:${NC} ${filename}"
 
-  local sql
-  sql=$(cat "$file")
-
-  if run_sql "$sql" > /dev/null; then
-    echo -e "    ${GREEN}-> applied${NC}"
-  else
-    echo -e "    ${RED}-> FAILED${NC}" >&2
-    return 1
+  # Try Management API first, then psql -f
+  if run_sql_api "$(cat "$file")" > /dev/null 2>&1; then
+    echo -e "    ${GREEN}-> applied (api)${NC}"
+    return 0
   fi
+
+  # Fallback to psql -f
+  echo -e "    ${DIM}(using psql fallback)${NC}"
+  if run_sql_psql_file "$file" > /dev/null 2>&1; then
+    echo -e "    ${GREEN}-> applied (psql)${NC}"
+    return 0
+  fi
+
+  echo -e "    ${RED}-> FAILED${NC}" >&2
+  return 1
 }
 
 # =============================================================================
@@ -246,8 +312,14 @@ cmd_file() {
   confirm "Run $(basename "$1") against ${PROJECT_REF}?" || { echo -e "${YELLOW}Aborted.${NC}"; exit 0; }
 
   echo ""
-  run_sql "$(cat "$1")"
-  echo -e "${GREEN}Done.${NC}"
+  # Try API first, fall back to psql -f
+  if run_sql_api "$(cat "$1")" 2>/dev/null; then
+    echo -e "${GREEN}Done.${NC}"
+  else
+    echo -e "${DIM}(Management API unavailable, using psql)${NC}"
+    run_sql_psql_file "$1"
+    echo -e "${GREEN}Done.${NC}"
+  fi
 }
 
 cmd_migrate() {
@@ -264,7 +336,7 @@ cmd_migrate() {
     [[ -f "$file" ]] || continue
     local filename
     filename=$(basename "$file")
-    if echo "$applied" | grep -q "\"${filename}\""; then
+    if echo "$applied" | grep -q "${filename}"; then
       continue
     fi
     if [[ "$target" != "all" && "$filename" != *"$target"* ]]; then
@@ -293,7 +365,7 @@ cmd_migrate() {
     local filename
     filename=$(basename "$file")
 
-    if echo "$applied" | grep -q "\"${filename}\""; then
+    if echo "$applied" | grep -q "${filename}"; then
       echo -e "  ${DIM}skip: ${filename} (already applied)${NC}"
       continue
     fi
@@ -329,7 +401,7 @@ cmd_migrate_status() {
     local filename
     filename=$(basename "$file")
 
-    if echo "$applied" | grep -q "\"${filename}\""; then
+    if echo "$applied" | grep -q "${filename}"; then
       echo -e "  ${GREEN}[x]${NC} ${filename}"
     else
       echo -e "  ${DIM}[ ]${NC} ${filename}"
@@ -421,8 +493,8 @@ show_help() {
   echo -e "${YELLOW}Flags:${NC}"
   echo "  --yes, -y              Skip confirmation prompts"
   echo ""
-  echo -e "${YELLOW}SQL Commands${NC} ${DIM}(via Management API - supports DDL):${NC}"
-  echo "  query \"SQL\"            Run raw SQL"
+  echo -e "${YELLOW}SQL Commands${NC} ${DIM}(Management API -> psql fallback):${NC}"
+  echo "  query \"SQL\"            Run raw SQL (DDL + DML)"
   echo "  file <path.sql>        Execute a SQL file"
   echo "  migrate [pattern]      Run pending migrations (or matching pattern)"
   echo "  migrate-status         Show which migrations have been applied"
@@ -442,11 +514,13 @@ show_help() {
   echo "  ./scripts/db.sh migrate 029"
   echo "  ./scripts/db.sh migrate-status"
   echo "  ./scripts/db.sh describe personas"
+  echo "  ./scripts/db.sh dump personas 10"
   echo "  ./scripts/db.sh select \"personas?persona_type=eq.coach&select=name,domain_id\""
   echo "  ./scripts/db.sh insert personas '{\"name\":\"Test\",\"persona_type\":\"coach\"}'"
   echo "  ./scripts/db.sh file supabase/migrations/029_qa_scenario_prompts.sql"
   echo ""
   echo -e "${YELLOW}Auth (env vars or macOS Keychain):${NC}"
+  echo "  DIALECTICA_DB_PASSWORD    or  Keychain: dialectica_db / supabase_db"
   echo "  DIALECTICA_SERVICE_ROLE   or  Keychain: dialectica_service_role"
   echo "  SUPABASE_ACCESS_TOKEN     or  Keychain: Supabase CLI (supabase login)"
 }
