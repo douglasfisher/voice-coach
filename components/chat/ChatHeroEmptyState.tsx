@@ -101,7 +101,7 @@ export function ChatHeroEmptyState({
       />
 
       {/* Content overlay */}
-      <View style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 24 }}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 100 }}>
         {/* Persona name */}
         <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 8 }}>
           {persona.name}
@@ -199,15 +199,14 @@ export function ChatHeroEmptyState({
         <Pressable
           onPress={onStartChat}
           disabled={isStarting || isLoading || !hasPreview}
-          style={({ pressed }) => ({
+          style={{
             paddingVertical: 16,
             borderRadius: 16,
             backgroundColor: theme.accent,
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: (isStarting || isLoading || !hasPreview) ? 0.7 : pressed ? 0.8 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}
+            opacity: (isStarting || isLoading || !hasPreview) ? 0.5 : 1,
+          }}
         >
           {isStarting ? (
             <ActivityIndicator color="#0f0f12" />

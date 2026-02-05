@@ -285,30 +285,26 @@ export function PersonaModal({
             bottom: 0,
             left: 0,
             right: 0,
+            zIndex: 999,
+            elevation: 999,
             backgroundColor: '#0a0a0f',
             paddingHorizontal: 24,
             paddingTop: 16,
-            paddingBottom: 40,
+            paddingBottom: 50,
             borderTopWidth: 1,
-            borderTopColor: 'rgba(255,255,255,0.1)',
+            borderTopColor: 'rgba(255,255,255,0.15)',
           }}
         >
           <Pressable
             onPress={() => onChallenge(persona)}
-            style={({ pressed }) => ({
+            style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
               paddingVertical: 18,
               borderRadius: 16,
               backgroundColor: theme.accent,
-              shadowColor: theme.accent,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.4,
-              shadowRadius: 12,
-              opacity: pressed ? 0.8 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            })}
+            }}
           >
             <StyleIcon size={22} color="#0f0f12" />
             <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18, marginLeft: 10 }}>
