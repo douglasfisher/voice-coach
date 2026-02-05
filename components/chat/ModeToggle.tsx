@@ -54,6 +54,7 @@ export function ModeToggle({
         flexDirection: 'row',
         position: 'relative',
         opacity: disabled ? 0.5 : 1,
+        overflow: 'hidden',
       }}
     >
       {/* Animated highlight */}
