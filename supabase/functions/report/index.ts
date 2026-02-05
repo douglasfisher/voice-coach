@@ -8,6 +8,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig } from '../_shared/config/ai-config-resolver.ts';
+import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -79,12 +80,20 @@ function calculateTimingMetrics(
   };
 }
 
+interface DimensionScores {
+  logical_reasoning: number;
+  bias_awareness: number;
+  perspective_taking: number;
+  emotional_regulation: number;
+}
+
 interface SessionReport {
   tldr: string;
   strengths: string[];
   weaknesses: string[];
   detailed_analysis: string;
   overall_score: number;
+  dimension_scores: DimensionScores;
   generated_at: string;
 }
 
@@ -98,8 +107,22 @@ Output format:
   "strengths": ["strength 1", "strength 2", "strength 3"],
   "weaknesses": ["area for improvement 1", "area for improvement 2", "area for improvement 3"],
   "detailed_analysis": "2-3 paragraphs analyzing the user's reasoning, engagement, and growth opportunities",
-  "overall_score": 75
+  "overall_score": 75,
+  "dimension_scores": {
+    "logical_reasoning": 80,
+    "bias_awareness": 70,
+    "perspective_taking": 75,
+    "emotional_regulation": 72
+  }
 }
+
+Dimension scoring (0-100 each):
+- logical_reasoning: Argument structure, valid inferences, evidence use, logical consistency
+- bias_awareness: Recognition of cognitive biases, fair consideration of evidence, avoiding fallacies
+- perspective_taking: Willingness to consider alternatives, intellectual humility, openness to challenge
+- emotional_regulation: Composure, non-defensive responses, constructive engagement under pressure
+
+Overall score = weighted average of dimension scores.
 
 Scoring guide (0-100):
 - 90-100: Exceptional critical thinking, nuanced arguments, intellectual humility
@@ -240,8 +263,29 @@ Generate a comprehensive session report.`;
         weaknesses: ['Analysis unavailable'],
         detailed_analysis: 'The session was completed but detailed analysis could not be generated at this time.',
         overall_score: 50,
+        dimension_scores: {
+          logical_reasoning: 50,
+          bias_awareness: 50,
+          perspective_taking: 50,
+          emotional_regulation: 50,
+        },
         generated_at: new Date().toISOString(),
       };
+    }
+
+    // Ensure dimension_scores exist with defaults
+    if (!report.dimension_scores) {
+      report.dimension_scores = {
+        logical_reasoning: report.overall_score,
+        bias_awareness: report.overall_score,
+        perspective_taking: report.overall_score,
+        emotional_regulation: report.overall_score,
+      };
+    }
+
+    // Clamp dimension scores to valid range
+    for (const key of Object.keys(report.dimension_scores) as (keyof DimensionScores)[]) {
+      report.dimension_scores[key] = Math.max(0, Math.min(100, report.dimension_scores[key] || 50));
     }
 
     // Ensure score is within bounds
@@ -275,8 +319,30 @@ Generate a comprehensive session report.`;
       });
     }
 
+    // Process gamification (XP, streaks, achievements, insights)
+    let gamificationResult = null;
+    try {
+      gamificationResult = await processSessionGamification(
+        supabase,
+        conversation.user_id,
+        conversationId,
+        {
+          overall_score: report.overall_score,
+          dimension_scores: report.dimension_scores,
+        }
+      );
+      console.log('Gamification processed:', {
+        xpAwarded: gamificationResult.xp.awarded,
+        streak: gamificationResult.streak.current,
+        achievements: gamificationResult.achievements.length,
+      });
+    } catch (gamificationError) {
+      // Log but don't fail the request - gamification is non-critical
+      console.error('Gamification processing error:', gamificationError);
+    }
+
     return new Response(
-      JSON.stringify({ report, conversationId }),
+      JSON.stringify({ report, conversationId, gamification: gamificationResult }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
