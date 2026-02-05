@@ -32,7 +32,6 @@ import { useAdminStatsStore } from '../../stores/adminStatsStore';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { AppSettingsMap } from '../../types/admin';
 import { supabase } from '../../lib/supabase';
-import { ModelPricingManager, AIModelPricing } from '../../components/admin/ModelPricingManager';
 
 // Simplified AI model for the dropdown
 interface AIModelOption {
@@ -137,7 +136,6 @@ export default function AdminSettingsScreen() {
     isSavingSettings,
     fetchSettings,
     updateSetting,
-    updateModelPricing,
   } = useAdminStatsStore();
 
   const { personas, fetchPersonas } = useAdminPersonaStore();
@@ -148,7 +146,6 @@ export default function AdminSettingsScreen() {
   const [showCustomModelInput, setShowCustomModelInput] = useState(false);
   const [customModelValue, setCustomModelValue] = useState('');
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
-  const [aiModelsWithPricing, setAiModelsWithPricing] = useState<AIModelPricing[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
 
@@ -158,32 +155,17 @@ export default function AdminSettingsScreen() {
     try {
       const { data, error } = await supabase
         .from('ai_models')
-        .select('id, name, context_window, active, cost_per_million_input, cost_per_million_output')
+        .select('id, name, context_window, active')
         .eq('active', true)
         .order('name');
 
       if (error) throw error;
       setAiModels(data || []);
-      setAiModelsWithPricing(data || []);
     } catch (error) {
       console.error('Failed to fetch models:', error);
     } finally {
       setIsLoadingModels(false);
     }
-  };
-
-  // Handle model pricing update
-  const handleModelPricingUpdate = async (
-    modelId: string,
-    inputCost: number,
-    outputCost: number
-  ) => {
-    const result = await updateModelPricing(modelId, inputCost, outputCost);
-    if (!result.error) {
-      // Refresh models to get updated pricing
-      await fetchModels();
-    }
-    return result;
   };
 
   // Refresh models from Groq API
@@ -486,15 +468,6 @@ export default function AdminSettingsScreen() {
                 </View>
               </LinearGradient>
             </View>
-
-            {/* Model Pricing */}
-            <ModelPricingManager
-              models={aiModelsWithPricing}
-              markupPercent={localSettings.cost_markup_percent || 0}
-              onMarkupChange={(value) => updateLocal('cost_markup_percent', value)}
-              onModelUpdate={handleModelPricingUpdate}
-              isLoading={isLoadingModels}
-            />
 
             {/* App Features */}
             <Text
