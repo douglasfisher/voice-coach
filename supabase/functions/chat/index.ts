@@ -9,6 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-resolver.ts';
 import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
+import { recordAIUsage } from '../_shared/cost-calculator.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -302,14 +303,14 @@ Guidelines:
       });
 
       if (questionResponse.usage) {
-        await supabase.from('ai_usage').insert({
-          user_id: conv?.user_id || null,
-          conversation_id: conversationId,
-          persona_id: personaId,
+        await recordAIUsage(supabase, {
+          userId: conv?.user_id || null,
+          conversationId: conversationId,
+          personaId: personaId,
           model: config.model,
-          prompt_tokens: questionResponse.usage.prompt_tokens,
-          completion_tokens: questionResponse.usage.completion_tokens,
-          total_tokens: questionResponse.usage.total_tokens,
+          promptTokens: questionResponse.usage.prompt_tokens,
+          completionTokens: questionResponse.usage.completion_tokens,
+          totalTokens: questionResponse.usage.total_tokens,
         });
       }
 
@@ -481,14 +482,14 @@ Guidelines:
       .single();
 
     if (groqResponse.usage) {
-      await supabase.from('ai_usage').insert({
-        user_id: conversation?.user_id || null,
-        conversation_id: conversationId,
-        persona_id: personaId,
+      await recordAIUsage(supabase, {
+        userId: conversation?.user_id || null,
+        conversationId: conversationId,
+        personaId: personaId,
         model: config.model,
-        prompt_tokens: groqResponse.usage.prompt_tokens,
-        completion_tokens: groqResponse.usage.completion_tokens,
-        total_tokens: groqResponse.usage.total_tokens,
+        promptTokens: groqResponse.usage.prompt_tokens,
+        completionTokens: groqResponse.usage.completion_tokens,
+        totalTokens: groqResponse.usage.total_tokens,
       });
     }
 
