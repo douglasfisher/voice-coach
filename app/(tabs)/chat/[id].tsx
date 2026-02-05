@@ -24,6 +24,7 @@ import {
   Scale,
   Eye,
   RotateCcw,
+  LogOut,
 } from 'lucide-react-native';
 import { useConversation } from '../../../hooks/useConversation';
 import { useTTS } from '../../../hooks/useTTS';
@@ -38,6 +39,7 @@ import {
   ChatHeroEmptyState,
   EndChatModal,
   SessionTimer,
+  ResetConfirmationModal,
 } from '../../../components/chat';
 import { ChallengeStyle } from '../../../types/persona';
 
@@ -114,6 +116,7 @@ export default function ChatScreen() {
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const {
     fetchMessages,
@@ -170,7 +173,7 @@ export default function ChatScreen() {
     setShowEndModal(true);
   };
 
-  const handleConfirmEnd = async () => {
+  const handleViewReport = async () => {
     if (!conversation) return;
 
     const report = await generateReport(conversation.id);
@@ -181,6 +184,12 @@ export default function ChatScreen() {
       await end();
       router.back();
     }
+  };
+
+  const handleChooseNewChallenger = async () => {
+    await end();
+    setShowEndModal(false);
+    router.push('/(tabs)/personas');
   };
 
   const handleStartChat = async () => {
@@ -209,11 +218,18 @@ export default function ChatScreen() {
     await regenerateQuestion();
   };
 
-  const handleClearChat = async () => {
+  const handleResetPress = () => {
+    setShowResetModal(true);
+  };
+
+  const handleConfirmReset = async () => {
     if (!conversation) return;
     setIsClearing(true);
     try {
       await clearMessages(conversation.id);
+      setShowResetModal(false);
+      // Reset session start time so it restarts when new messages come
+      setSessionStartTime(null);
     } catch (error) {
       console.error('Failed to clear chat:', error);
     } finally {
@@ -342,7 +358,7 @@ export default function ChatScreen() {
           </>
         )}
 
-        {/* Header - overlays hero when pre-chat or immersive, fixed when standard active */}
+        {/* Simplified Header - just back button and persona name */}
         <View
           style={{
             flexDirection: 'row',
@@ -371,70 +387,18 @@ export default function ChatScreen() {
             <ChevronLeft size={24} color={theme?.accent || '#F59E0B'} />
           </Pressable>
           {chatStarted && !showImmersiveLayout && (
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ flex: 1 }}>
-                <PersonaHeader persona={persona} compact />
-              </View>
-              {sessionStartTime && (
-                <SessionTimer
-                  startTime={sessionStartTime}
-                  accentColor={theme?.accent}
-                  isImmersive={false}
-                />
-              )}
+            <View style={{ flex: 1 }}>
+              <PersonaHeader persona={persona} compact />
             </View>
           )}
           {chatStarted && showImmersiveLayout && (
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600', flex: 1 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
                 {persona.name}
               </Text>
-              {sessionStartTime && (
-                <SessionTimer
-                  startTime={sessionStartTime}
-                  accentColor={theme?.accent}
-                  isImmersive={true}
-                />
-              )}
             </View>
           )}
           {!chatStarted && <View style={{ flex: 1 }} />}
-          {conversation.status === 'active' && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {/* Clear Chat Button - only show when there are messages */}
-              {chatStarted && (
-                <Pressable
-                  onPress={handleClearChat}
-                  disabled={isClearing}
-                  style={{
-                    padding: 8,
-                    borderRadius: 10,
-                    backgroundColor: showImmersiveLayout ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.08)',
-                    borderWidth: 1,
-                    borderColor: showImmersiveLayout ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
-                    opacity: isClearing ? 0.5 : 1,
-                  }}
-                >
-                  <RotateCcw size={18} color="rgba(255,255,255,0.6)" />
-                </Pressable>
-              )}
-              <Pressable
-                onPress={handleEndConversation}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  borderRadius: 12,
-                  backgroundColor: showImmersiveLayout ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.08)',
-                  borderWidth: 1,
-                  borderColor: showImmersiveLayout ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
-                }}
-              >
-                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
-                  End
-                </Text>
-              </Pressable>
-            </View>
-          )}
         </View>
 
         {/* Messages or Full-screen Hero */}
@@ -502,9 +466,78 @@ export default function ChatScreen() {
           </View>
         )}
 
-        {/* Input - only show after chat has started */}
+        {/* Input and Bottom Controls - only show after chat has started */}
         {conversation.status === 'active' && chatStarted ? (
           <View style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}>
+            {/* Floating Bottom Controls for Text Mode */}
+            {!voiceInputEnabled && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: 16,
+                  paddingTop: 12,
+                  paddingBottom: 8,
+                  backgroundColor: showImmersiveLayout ? 'rgba(0, 0, 0, 0.6)' : 'rgba(10, 10, 15, 0.95)',
+                  borderTopWidth: 1,
+                  borderTopColor: 'rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                {/* Left: Reset & End buttons */}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable
+                    onPress={handleResetPress}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.15)',
+                      gap: 6,
+                    }}
+                  >
+                    <RotateCcw size={16} color="rgba(255,255,255,0.7)" />
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '500' }}>
+                      Reset
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleEndConversation}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.2)',
+                      gap: 6,
+                    }}
+                  >
+                    <LogOut size={16} color="rgba(255,255,255,0.8)" />
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '500' }}>
+                      End
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {/* Right: Timer */}
+                {sessionStartTime && (
+                  <SessionTimer
+                    startTime={sessionStartTime}
+                    accentColor={theme?.accent}
+                    isImmersive={showImmersiveLayout}
+                  />
+                )}
+              </View>
+            )}
+
+            {/* Chat Input */}
             <ChatInput
               onSend={handleSend}
               disabled={isSending}
@@ -519,6 +552,12 @@ export default function ChatScreen() {
               onVoicePressOut={voiceHandlers.onPressOut}
               onVoiceCancel={voiceHandlers.onCancel}
               immersiveMode={showImmersiveLayout}
+              // Pass control props for voice mode
+              showControls={voiceInputEnabled}
+              onResetPress={handleResetPress}
+              onEndPress={handleEndConversation}
+              sessionStartTime={sessionStartTime}
+              themeAccent={theme?.accent}
             />
           </View>
         ) : conversation.status !== 'active' ? (
@@ -554,11 +593,20 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
+        {/* Reset Confirmation Modal */}
+        <ResetConfirmationModal
+          visible={showResetModal}
+          onCancel={() => setShowResetModal(false)}
+          onReset={handleConfirmReset}
+          isResetting={isClearing}
+        />
+
         {/* End Chat Modal */}
         <EndChatModal
           visible={showEndModal}
           onContinue={() => setShowEndModal(false)}
-          onEnd={handleConfirmEnd}
+          onViewReport={handleViewReport}
+          onChooseNewChallenger={handleChooseNewChallenger}
           isGenerating={isGeneratingReport}
         />
       </KeyboardAvoidingView>

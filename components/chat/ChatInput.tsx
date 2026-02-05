@@ -1,6 +1,6 @@
 import { View, Text, Pressable, GestureResponderEvent, TextInput } from 'react-native';
 import { useRef, useCallback, useState } from 'react';
-import { Send } from 'lucide-react-native';
+import { Send, RotateCcw, LogOut } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -12,6 +12,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mic } from 'lucide-react-native';
 import { AudioWaveform } from './AudioWaveform';
+import { SessionTimer } from './SessionTimer';
 import { VoiceInputState } from '../../hooks/useVoiceInput';
 
 interface ChatInputProps {
@@ -29,6 +30,12 @@ interface ChatInputProps {
   onVoicePressOut?: () => Promise<string>;
   onVoiceCancel?: () => void;
   immersiveMode?: boolean;
+  // Control props for voice mode
+  showControls?: boolean;
+  onResetPress?: () => void;
+  onEndPress?: () => void;
+  sessionStartTime?: Date | null;
+  themeAccent?: string;
 }
 
 const CANCEL_THRESHOLD = 100;
@@ -47,6 +54,11 @@ export function ChatInput({
   onVoicePressOut,
   onVoiceCancel,
   immersiveMode = false,
+  showControls = false,
+  onResetPress,
+  onEndPress,
+  sessionStartTime,
+  themeAccent,
 }: ChatInputProps) {
   const isRecording = voiceState === 'recording';
   const isProcessing = voiceState === 'processing';
@@ -192,7 +204,7 @@ export function ChatInput({
           paddingTop: 12,
           paddingBottom: 28,
           backgroundColor: immersiveMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(10, 10, 15, 0.95)',
-          borderTopWidth: 1,
+          borderTopWidth: 0, // Remove border since we have the control bar above
           borderTopColor: 'rgba(255, 255, 255, 0.08)',
         }}
       >
@@ -250,7 +262,6 @@ export function ChatInput({
         backgroundColor: immersiveMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(10, 10, 15, 0.95)',
         borderTopWidth: 1,
         borderTopColor: showRecordingUI ? `${accentColor}40` : 'rgba(255, 255, 255, 0.08)',
-        alignItems: 'center',
       }}
     >
       {/* Top area - either hint text OR transcription+waveform */}
@@ -283,7 +294,7 @@ export function ChatInput({
           </View>
 
           {/* Waveform */}
-          <View style={{ marginBottom: 16 }}>
+          <View style={{ marginBottom: 16, alignItems: 'center' }}>
             <AudioWaveform
               audioLevel={audioLevel}
               color={accentColor}
@@ -300,79 +311,156 @@ export function ChatInput({
             color: 'rgba(255, 255, 255, 0.35)',
             fontSize: 13,
             marginBottom: 16,
+            textAlign: 'center',
           }}
         >
           Hold to speak
         </Text>
       )}
 
-      {/* Big Central Mic Button */}
-      <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-        {/* Glow ring */}
-        <Animated.View
-          style={[
-            {
+      {/* Bottom area with controls nestled around mic button */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Left side: Reset & End buttons */}
+        {showControls && (
+          <View
+            style={{
               position: 'absolute',
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              borderWidth: 2,
-              borderColor: accentColor,
-            },
-            glowStyle,
-          ]}
-        />
+              left: 0,
+              flexDirection: 'row',
+              gap: 8,
+            }}
+          >
+            <Pressable
+              onPress={onResetPress}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.15)',
+                gap: 6,
+              }}
+            >
+              <RotateCcw size={16} color="rgba(255,255,255,0.7)" />
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '500' }}>
+                Reset
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onEndPress}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.2)',
+                gap: 6,
+              }}
+            >
+              <LogOut size={16} color="rgba(255,255,255,0.8)" />
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '500' }}>
+                End
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
-        <Pressable
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onTouchMove={handleMove}
-          disabled={buttonDisabled}
-        >
+        {/* Center: Big Mic Button */}
+        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+          {/* Glow ring */}
           <Animated.View
             style={[
               {
+                position: 'absolute',
                 width: 80,
                 height: 80,
                 borderRadius: 40,
-                shadowColor: accentColor,
-                shadowOffset: { width: 0, height: 6 },
-                shadowRadius: 16,
-                elevation: 10,
+                borderWidth: 2,
+                borderColor: accentColor,
               },
-              pulseStyle,
+              glowStyle,
             ]}
+          />
+
+          <Pressable
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            onTouchMove={handleMove}
+            disabled={buttonDisabled}
           >
-            <LinearGradient
-              colors={
-                buttonDisabled
-                  ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
-                  : [accentColor, darkenColor(accentColor)]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                width: '100%',
-                height: '100%',
-                borderRadius: 40,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+            <Animated.View
+              style={[
+                {
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  shadowColor: accentColor,
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowRadius: 16,
+                  elevation: 10,
+                },
+                pulseStyle,
+              ]}
             >
-              {showRecordingUI ? (
-                <AudioWaveform
-                  audioLevel={audioLevel}
-                  color="#0f0f12"
-                  barCount={5}
-                  width={36}
-                  height={28}
-                />
-              ) : (
-                <Mic size={32} color={buttonDisabled ? 'rgba(255,255,255,0.3)' : '#0f0f12'} />
-              )}
-            </LinearGradient>
-          </Animated.View>
-        </Pressable>
+              <LinearGradient
+                colors={
+                  buttonDisabled
+                    ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
+                    : [accentColor, darkenColor(accentColor)]
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  borderRadius: 40,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {showRecordingUI ? (
+                  <AudioWaveform
+                    audioLevel={audioLevel}
+                    color="#0f0f12"
+                    barCount={5}
+                    width={36}
+                    height={28}
+                  />
+                ) : (
+                  <Mic size={32} color={buttonDisabled ? 'rgba(255,255,255,0.3)' : '#0f0f12'} />
+                )}
+              </LinearGradient>
+            </Animated.View>
+          </Pressable>
+        </View>
+
+        {/* Right side: Timer */}
+        {showControls && sessionStartTime && (
+          <View
+            style={{
+              position: 'absolute',
+              right: 0,
+            }}
+          >
+            <SessionTimer
+              startTime={sessionStartTime}
+              accentColor={themeAccent || accentColor}
+              isImmersive={immersiveMode}
+            />
+          </View>
+        )}
       </View>
     </View>
   );

@@ -1,18 +1,26 @@
 import { View, Text, Pressable, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MessageSquareOff, ArrowRight, X } from 'lucide-react-native';
+import { MessageSquareOff, ArrowRight, Users, MessageCircle } from 'lucide-react-native';
 
 interface EndChatModalProps {
   visible: boolean;
   onContinue: () => void;
-  onEnd: () => void;
+  onViewReport: () => void;
+  onChooseNewChallenger: () => void;
   isGenerating?: boolean;
 }
 
+/**
+ * Modal for ending a chat session with 3 options:
+ * 1. View Report (primary) - generates report and navigates to report screen
+ * 2. End & Choose New Challenger (secondary) - ends and goes to personas
+ * 3. Continue Chatting (tertiary) - dismisses modal
+ */
 export function EndChatModal({
   visible,
   onContinue,
-  onEnd,
+  onViewReport,
+  onChooseNewChallenger,
   isGenerating = false,
 }: EndChatModalProps) {
   return (
@@ -73,7 +81,7 @@ export function EndChatModal({
                 marginBottom: 12,
               }}
             >
-              End this conversation?
+              End Session
             </Text>
 
             <Text
@@ -84,15 +92,15 @@ export function EndChatModal({
                 lineHeight: 22,
               }}
             >
-              Your session will be analyzed and a report will be generated.
+              What would you like to do?
             </Text>
           </View>
 
-          {/* Buttons */}
+          {/* Buttons - Vertical Stack */}
           <View style={{ padding: 24, gap: 12 }}>
-            {/* End & View Report Button */}
+            {/* Option 1: View Report (Primary) */}
             <Pressable
-              onPress={onEnd}
+              onPress={onViewReport}
               disabled={isGenerating}
               style={{ opacity: isGenerating ? 0.7 : 1 }}
             >
@@ -116,13 +124,42 @@ export function EndChatModal({
                     fontWeight: '600',
                   }}
                 >
-                  {isGenerating ? 'Generating Report...' : 'End & View Report'}
+                  {isGenerating ? 'Generating Report...' : 'View Report'}
                 </Text>
                 {!isGenerating && <ArrowRight size={18} color="#0f0f12" />}
               </LinearGradient>
             </Pressable>
 
-            {/* Continue Chat Button */}
+            {/* Option 2: End & Choose New Challenger (Secondary) */}
+            <Pressable
+              onPress={onChooseNewChallenger}
+              disabled={isGenerating}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 16,
+                borderRadius: 14,
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.15)',
+                gap: 8,
+                opacity: isGenerating ? 0.5 : 1,
+              }}
+            >
+              <Users size={18} color="#fff" />
+              <Text
+                style={{
+                  color: '#fff',
+                  fontSize: 16,
+                  fontWeight: '500',
+                }}
+              >
+                End & Choose New Challenger
+              </Text>
+            </Pressable>
+
+            {/* Option 3: Continue Chatting (Tertiary) */}
             <Pressable
               onPress={onContinue}
               disabled={isGenerating}
@@ -132,22 +169,20 @@ export function EndChatModal({
                 justifyContent: 'center',
                 paddingVertical: 16,
                 borderRadius: 14,
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.1)',
+                backgroundColor: 'transparent',
                 gap: 8,
                 opacity: isGenerating ? 0.5 : 1,
               }}
             >
-              <X size={18} color="rgba(255, 255, 255, 0.7)" />
+              <MessageCircle size={18} color="rgba(255, 255, 255, 0.6)" />
               <Text
                 style={{
-                  color: 'rgba(255, 255, 255, 0.7)',
+                  color: 'rgba(255, 255, 255, 0.6)',
                   fontSize: 16,
                   fontWeight: '500',
                 }}
               >
-                Continue Chat
+                Continue Chatting
               </Text>
             </Pressable>
           </View>
