@@ -31,9 +31,9 @@ export function ModeToggle({
     }).start();
   }, [mode]);
 
-  const toggleWidth = 150;
+  const toggleWidth = 158;
   const practiceWidth = 92; // Wider for "Practice"
-  const qaWidth = 58;       // Narrower for "Q&A"
+  const qaWidth = 66;       // Narrower for "Q&A" but with right padding
 
   // Highlight width changes based on which is active
   const highlightWidth = mode === 'practice' ? practiceWidth - 4 : qaWidth - 4;
