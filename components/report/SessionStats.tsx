@@ -189,6 +189,7 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
   const wordCountTotal = timingMetrics?.word_count_total ?? 0;
 
   // Calculate derived metrics
+  const durationMinutes = totalDuration / 60000;
   const wordsPerMinute = durationMinutes > 0
     ? Math.round(wordCountTotal / durationMinutes)
     : 0;
