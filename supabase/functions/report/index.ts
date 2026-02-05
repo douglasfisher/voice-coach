@@ -22,11 +22,18 @@ interface ReportRequest {
 }
 
 interface TimingMetrics {
+  // Session-level metrics
   total_duration_ms: number;
-  user_avg_response_ms: number;
-  assistant_avg_response_ms: number;
   exchange_count: number;
-  word_count_total: number;
+
+  // User metrics (primary - reflects actual engagement)
+  user_word_count: number;
+  user_avg_response_ms: number;
+  user_avg_words_per_response: number;
+
+  // AI metrics (diagnostic - for API performance monitoring)
+  ai_word_count: number;
+  ai_avg_response_ms: number;
 }
 
 interface MessageWithTiming {
@@ -45,15 +52,11 @@ function calculateTimingMetrics(
   const startTime = new Date(startedAt).getTime();
   const totalDurationMs = endTime - startTime;
 
-  // Calculate average response times by role
   const userMessages = messages.filter(m => m.role === 'user');
   const assistantMessages = messages.filter(m => m.role === 'assistant');
 
+  // User response times (how long user takes to think/respond)
   const userResponseTimes = userMessages
-    .map(m => m.response_time_ms)
-    .filter((t): t is number => t !== null && t > 0);
-
-  const assistantResponseTimes = assistantMessages
     .map(m => m.response_time_ms)
     .filter((t): t is number => t !== null && t > 0);
 
@@ -61,22 +64,44 @@ function calculateTimingMetrics(
     ? Math.round(userResponseTimes.reduce((a, b) => a + b, 0) / userResponseTimes.length)
     : 0;
 
-  const avgAssistantResponse = assistantResponseTimes.length > 0
-    ? Math.round(assistantResponseTimes.reduce((a, b) => a + b, 0) / assistantResponseTimes.length)
+  // AI response times (diagnostic only - just API latency)
+  const aiResponseTimes = assistantMessages
+    .map(m => m.response_time_ms)
+    .filter((t): t is number => t !== null && t > 0);
+
+  const avgAiResponse = aiResponseTimes.length > 0
+    ? Math.round(aiResponseTimes.reduce((a, b) => a + b, 0) / aiResponseTimes.length)
     : 0;
 
-  // Count words across all messages
-  const wordCountTotal = messages.reduce((total, m) => {
+  // User word count (primary metric - reflects actual user engagement)
+  const userWordCount = userMessages.reduce((total, m) => {
     const words = m.content.trim().split(/\s+/).filter(w => w.length > 0);
     return total + words.length;
   }, 0);
 
+  // AI word count (diagnostic - kept separate from user metrics)
+  const aiWordCount = assistantMessages.reduce((total, m) => {
+    const words = m.content.trim().split(/\s+/).filter(w => w.length > 0);
+    return total + words.length;
+  }, 0);
+
+  const exchangeCount = userMessages.length;
+
   return {
+    // Session-level
     total_duration_ms: totalDurationMs,
+    exchange_count: exchangeCount,
+
+    // User metrics (primary)
+    user_word_count: userWordCount,
     user_avg_response_ms: avgUserResponse,
-    assistant_avg_response_ms: avgAssistantResponse,
-    exchange_count: userMessages.length,
-    word_count_total: wordCountTotal,
+    user_avg_words_per_response: exchangeCount > 0
+      ? Math.round(userWordCount / exchangeCount)
+      : 0,
+
+    // AI metrics (diagnostic)
+    ai_word_count: aiWordCount,
+    ai_avg_response_ms: avgAiResponse,
   };
 }
 
