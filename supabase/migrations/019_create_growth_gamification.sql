@@ -50,7 +50,7 @@ CREATE POLICY "Users can insert their own progress"
 CREATE TRIGGER update_user_progress_updated_at
     BEFORE UPDATE ON user_progress
     FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION public.update_updated_at();
 
 -- =============================================================================
 -- ACHIEVEMENTS: Achievement definitions (reference table)
