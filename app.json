@@ -17,9 +17,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dialectica.app",
       "usesAppleSignIn": true,
+      "buildNumber": "1",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Dialectica uses speech recognition for voice input.",
-        "NSMicrophoneUsageDescription": "Dialectica needs microphone access for voice input."
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSpeechRecognitionUsageDescription": "Allow Dialectica to use speech recognition.",
+        "NSMicrophoneUsageDescription": "Allow Dialectica to use your microphone for voice input."
       }
     },
     "android": {
@@ -30,7 +32,9 @@
       "package": "com.dialectica.app",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -53,8 +57,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "your-eas-project-id"
+        "projectId": "eb118027-487b-434e-a947-7de1c44e9b57"
       }
-    }
+    },
+    "owner": "douglas-fisher"
   }
 }
