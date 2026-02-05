@@ -43,24 +43,47 @@ import { useAdminStatsStore } from '../../stores/adminStatsStore';
 // Known Groq pricing (cents per 1M tokens) - updated Feb 2025
 // Source: https://groq.com/pricing/
 const KNOWN_GROQ_PRICING: Record<string, { input: number; output: number }> = {
+  // Llama 3.3
   'llama-3.3-70b-versatile': { input: 59, output: 79 },
   'llama-3.3-70b-specdec': { input: 59, output: 99 },
-  'llama-3.1-70b-versatile': { input: 59, output: 79 },
-  'llama-3.1-8b-instant': { input: 5, output: 8 },
+
+  // Llama 3.2
   'llama-3.2-1b-preview': { input: 4, output: 4 },
   'llama-3.2-3b-preview': { input: 6, output: 6 },
   'llama-3.2-11b-vision-preview': { input: 18, output: 18 },
   'llama-3.2-90b-vision-preview': { input: 90, output: 90 },
+
+  // Llama 3.1
+  'llama-3.1-70b-versatile': { input: 59, output: 79 },
+  'llama-3.1-8b-instant': { input: 5, output: 8 },
+
+  // Llama 3 (legacy)
   'llama3-70b-8192': { input: 59, output: 79 },
   'llama3-8b-8192': { input: 5, output: 8 },
+
+  // Mixtral
   'mixtral-8x7b-32768': { input: 24, output: 24 },
+
+  // Gemma
   'gemma-7b-it': { input: 7, output: 7 },
   'gemma2-9b-it': { input: 20, output: 20 },
+
+  // Qwen
   'qwen-2.5-72b': { input: 59, output: 79 },
   'qwen-2.5-32b': { input: 29, output: 39 },
   'qwen-2.5-coder-32b': { input: 29, output: 39 },
+  'qwen-qwq-32b': { input: 29, output: 39 },
+
+  // DeepSeek
   'deepseek-r1-distill-llama-70b': { input: 59, output: 79 },
   'deepseek-r1-distill-qwen-32b': { input: 29, output: 39 },
+
+  // Llama Guard
+  'llama-guard-3-8b': { input: 20, output: 20 },
+
+  // Compound (free tier)
+  'compound-beta': { input: 0, output: 0 },
+  'compound-beta-mini': { input: 0, output: 0 },
 };
 
 interface AIModel {
