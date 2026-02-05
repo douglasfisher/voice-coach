@@ -237,6 +237,7 @@ export default function ReportScreen() {
               borderRadius: 20,
               overflow: 'hidden',
               marginBottom: 20,
+              marginHorizontal: -20,
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.1)',
               aspectRatio: 1 / 1.3,
