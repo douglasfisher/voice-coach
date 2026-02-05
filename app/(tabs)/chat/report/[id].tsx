@@ -664,11 +664,26 @@ export default function ReportScreen() {
           )}
         </Pressable>
 
-        {/* Start New Challenge Button */}
-        <Pressable
-          onPress={() => router.push('/(tabs)/personas')}
-          style={{ marginBottom: 20 }}
-        >
+        {/* Bottom spacer for fixed button */}
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* Fixed Bottom Button */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingHorizontal: 20,
+          paddingBottom: 20,
+          paddingTop: 12,
+          backgroundColor: '#0a0a0f',
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255,255,255,0.08)',
+        }}
+      >
+        <Pressable onPress={() => router.push('/(tabs)/personas')}>
           <LinearGradient
             colors={['#F59E0B', '#D97706']}
             start={{ x: 0, y: 0 }}
@@ -694,7 +709,7 @@ export default function ReportScreen() {
             </Text>
           </LinearGradient>
         </Pressable>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
