@@ -16,7 +16,8 @@ interface SessionStatsProps {
 /**
  * Formats milliseconds into a human-readable duration string.
  */
-function formatDuration(ms: number): string {
+function formatDuration(ms: number | undefined | null): string {
+  if (ms === undefined || ms === null) return '0:00';
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
@@ -35,8 +36,8 @@ function formatDuration(ms: number): string {
 /**
  * Formats response time in milliseconds to a readable format.
  */
-function formatResponseTime(ms: number): string {
-  if (ms === 0) return '-';
+function formatResponseTime(ms: number | undefined | null): string {
+  if (ms === undefined || ms === null || ms === 0) return '-';
   if (ms < 1000) return `${ms}ms`;
   const seconds = ms / 1000;
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
@@ -48,7 +49,8 @@ function formatResponseTime(ms: number): string {
 /**
  * Formats a large number with commas for readability.
  */
-function formatNumber(num: number): string {
+function formatNumber(num: number | undefined | null): string {
+  if (num === undefined || num === null) return '0';
   return num.toLocaleString();
 }
 
@@ -179,20 +181,26 @@ function ComparisonBar({ userValue, coachValue, userColor, coachColor }: Compari
  * Displays comprehensive session timing statistics.
  */
 export function SessionStats({ timingMetrics }: SessionStatsProps) {
+  // Safely extract metrics with defaults
+  const totalDuration = timingMetrics?.total_duration_ms ?? 0;
+  const userAvgResponse = timingMetrics?.user_avg_response_ms ?? 0;
+  const assistantAvgResponse = timingMetrics?.assistant_avg_response_ms ?? 0;
+  const exchangeCount = timingMetrics?.exchange_count ?? 0;
+  const wordCountTotal = timingMetrics?.word_count_total ?? 0;
+
   // Calculate derived metrics
-  const durationMinutes = timingMetrics.total_duration_ms / 60000;
   const wordsPerMinute = durationMinutes > 0
-    ? Math.round(timingMetrics.word_count_total / durationMinutes)
+    ? Math.round(wordCountTotal / durationMinutes)
     : 0;
 
-  const avgWordsPerExchange = timingMetrics.exchange_count > 0
-    ? Math.round(timingMetrics.word_count_total / (timingMetrics.exchange_count * 2))
+  const avgWordsPerExchange = exchangeCount > 0
+    ? Math.round(wordCountTotal / (exchangeCount * 2))
     : 0;
 
   // Engagement score (based on response time and word count)
   const engagementScore = Math.min(100, Math.round(
     (avgWordsPerExchange / 50) * 50 + // Up to 50 points for word depth
-    (Math.min(timingMetrics.user_avg_response_ms, 60000) / 60000) * 50 // Up to 50 points for thoughtful responses
+    (Math.min(userAvgResponse, 60000) / 60000) * 50 // Up to 50 points for thoughtful responses
   ));
 
   return (
@@ -214,10 +222,10 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
           SESSION DURATION
         </Text>
         <Text style={{ color: '#fff', fontSize: 36, fontWeight: '800', fontFamily: 'monospace' }}>
-          {formatDuration(timingMetrics.total_duration_ms)}
+          {formatDuration(totalDuration)}
         </Text>
         <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 4 }}>
-          {timingMetrics.exchange_count} exchanges • {formatNumber(timingMetrics.word_count_total)} words
+          {exchangeCount} exchanges • {formatNumber(wordCountTotal)} words
         </Text>
       </View>
 
@@ -236,8 +244,8 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
           AVERAGE RESPONSE TIME
         </Text>
         <ComparisonBar
-          userValue={timingMetrics.user_avg_response_ms}
-          coachValue={timingMetrics.assistant_avg_response_ms}
+          userValue={userAvgResponse}
+          coachValue={assistantAvgResponse}
           userColor="#F59E0B"
           coachColor="#4ade80"
         />
@@ -260,7 +268,7 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
         <StatRow
           icon={MessageCircle}
           label="Exchanges"
-          value={formatNumber(timingMetrics.exchange_count)}
+          value={formatNumber(exchangeCount)}
           subValue="back-and-forth"
           color="#c084fc"
         />
@@ -268,7 +276,7 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
         <StatRow
           icon={FileText}
           label="Total Words"
-          value={formatNumber(timingMetrics.word_count_total)}
+          value={formatNumber(wordCountTotal)}
           subValue={`~${avgWordsPerExchange} per message`}
           color="#f472b6"
         />
