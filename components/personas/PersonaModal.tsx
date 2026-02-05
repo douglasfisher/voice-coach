@@ -1,12 +1,29 @@
 import { View, Text, ScrollView, Modal, Pressable, Image, ImageSourcePropType, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X, Sparkles, Zap, Brain, Heart, Scale, Eye, Play, Volume2, ChevronRight } from 'lucide-react-native';
+import { X, Sparkles, Zap, Brain, Heart, Scale, Eye, Play, Volume2, ChevronRight, GraduationCap } from 'lucide-react-native';
 import {
   PersonaDisplay,
   ChallengeStyle,
   CHALLENGE_STYLE_LABELS,
   CHALLENGE_STYLE_DESCRIPTIONS,
 } from '../../types/persona';
+
+// Coaching style labels for coaches
+const COACHING_STYLE_LABELS: Record<string, string> = {
+  'confidence_builder': 'Confidence Builder',
+  'tough_love': 'Tough Love',
+  'playful_mentor': 'Playful Mentor',
+  'expert_advisor': 'Expert Advisor',
+  'supportive_guide': 'Supportive Guide',
+};
+
+const COACHING_STYLE_DESCRIPTIONS: Record<string, string> = {
+  'confidence_builder': 'Builds you up with encouragement',
+  'tough_love': 'Direct feedback that pushes you',
+  'playful_mentor': 'Uses humor to make learning fun',
+  'expert_advisor': 'Strategic expertise and insights',
+  'supportive_guide': 'Gentle guidance and support',
+};
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HERO_HEIGHT = SCREEN_HEIGHT * 0.45;
@@ -68,11 +85,21 @@ export function PersonaModal({
 }: PersonaModalProps) {
   if (!persona) return null;
 
+  const isCoach = persona.personaType === 'coach';
   const theme = STYLE_THEMES[persona.challengeStyle];
-  const StyleIcon = theme.Icon;
+  const StyleIcon = isCoach ? GraduationCap : theme.Icon;
   const imageSource = typeof persona.avatarUrl === 'string'
     ? { uri: persona.avatarUrl }
     : persona.avatarUrl;
+
+  // Get style label and description based on persona type
+  const styleLabel = isCoach && persona.coachingStyle
+    ? COACHING_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
+    : CHALLENGE_STYLE_LABELS[persona.challengeStyle];
+
+  const styleDescription = isCoach && persona.coachingStyle
+    ? COACHING_STYLE_DESCRIPTIONS[persona.coachingStyle] || 'Practice coach'
+    : CHALLENGE_STYLE_DESCRIPTIONS[persona.challengeStyle];
 
   return (
     <Modal
@@ -162,18 +189,18 @@ export function PersonaModal({
 
             {/* Hero text content */}
             <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }}>
-              {/* Challenge style badge */}
+              {/* Style badge */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                 <View
                   style={{
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: theme.accent,
+                    backgroundColor: isCoach ? '#10b981' : theme.accent,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: 12,
-                    shadowColor: theme.accent,
+                    shadowColor: isCoach ? '#10b981' : theme.accent,
                     shadowOffset: { width: 0, height: 0 },
                     shadowOpacity: 0.6,
                     shadowRadius: 12,
@@ -182,11 +209,11 @@ export function PersonaModal({
                   <StyleIcon size={20} color="#0f0f12" />
                 </View>
                 <View>
-                  <Text style={{ color: theme.accent, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 }}>
-                    {CHALLENGE_STYLE_LABELS[persona.challengeStyle].toUpperCase()}
+                  <Text style={{ color: isCoach ? '#10b981' : theme.accent, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 }}>
+                    {styleLabel.toUpperCase()}
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 }}>
-                    {CHALLENGE_STYLE_DESCRIPTIONS[persona.challengeStyle]}
+                    {styleDescription}
                   </Text>
                 </View>
               </View>
@@ -303,12 +330,12 @@ export function PersonaModal({
               justifyContent: 'center',
               paddingVertical: 18,
               borderRadius: 16,
-              backgroundColor: theme.accent,
+              backgroundColor: isCoach ? '#10b981' : theme.accent,
             }}
           >
             <StyleIcon size={22} color="#0f0f12" />
             <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18, marginLeft: 10 }}>
-              Start Challenge
+              {isCoach ? 'Start Practice' : 'Start Challenge'}
             </Text>
             <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
           </Pressable>

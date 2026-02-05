@@ -9,6 +9,7 @@ const DEV_MODE = false;
 
 // Local avatar images - mapped by persona name (case-insensitive partial match)
 const LOCAL_AVATARS: Record<string, any> = {
+  // Original Challengers
   'sarah mitchell': require('../assets/images-1.jpg'),
   'marcus webb': require('../assets/images-2.jpg'),
   "father thomas o'brien": require('../assets/images-3.jpg'),
@@ -20,7 +21,41 @@ const LOCAL_AVATARS: Record<string, any> = {
   'elena volkov': require('../assets/images-7.jpg'),
   'dr. maya chen': require('../assets/images-8.jpg'),
   'maya chen': require('../assets/images-8.jpg'),
-  'yuki tanaka': require('../assets/images-8.jpg'), // fallback to same as Maya for now
+  'yuki tanaka': require('../assets/images-8.jpg'),
+
+  // Dating Coaches
+  'alex rivera': require('../assets/coach-alex-rivera.jpg'),
+  'jordan chen': require('../assets/coach-jordan-chen.jpg'),
+  'sam taylor': require('../assets/coach-sam-taylor.jpg'),
+  'dr. maya okonkwo': require('../assets/coach-maya-okonkwo.jpg'),
+  'maya okonkwo': require('../assets/coach-maya-okonkwo.jpg'),
+
+  // Interview Coaches
+  'michael santos': require('../assets/coach-michael-santos.jpg'),
+  'priya sharma': require('../assets/coach-priya-sharma.jpg'),
+  'david park': require('../assets/coach-david-park.jpg'),
+  'grace williams': require('../assets/coach-grace-williams.jpg'),
+
+  // Presentation Coaches
+  'james morrison': require('../assets/coach-james-morrison.jpg'),
+  'aisha rahman': require('../assets/coach-aisha-rahman.jpg'),
+  'lisa park': require('../assets/coach-lisa-park.jpg'),
+
+  // Negotiation Coaches
+  'victor reyes': require('../assets/coach-victor-reyes.jpg'),
+  'catherine walsh': require('../assets/coach-catherine-walsh.jpg'),
+  'omar hassan': require('../assets/coach-omar-hassan.jpg'),
+
+  // Difficult Conversations Coaches
+  'dr. nina patel': require('../assets/coach-nina-patel.jpg'),
+  'nina patel': require('../assets/coach-nina-patel.jpg'),
+  'marcus johnson': require('../assets/coach-marcus-johnson.jpg'),
+  'emma larsson': require('../assets/coach-emma-larsson.jpg'),
+
+  // Networking Coaches
+  'derek thompson': require('../assets/coach-derek-thompson.jpg'),
+  'yuki yamamoto': require('../assets/coach-yuki-yamamoto.jpg'),
+  'sophia martinez': require('../assets/coach-sophia-martinez.jpg'),
 };
 
 // Get local avatar by persona name
