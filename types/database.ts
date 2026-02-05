@@ -954,6 +954,88 @@ export interface Database {
           expires_at?: string | null;
         };
       };
+      ai_budgets: {
+        Row: {
+          id: string;
+          name: string;
+          budget_type: 'daily' | 'weekly' | 'monthly' | 'total';
+          limit_cents: number;
+          alert_threshold_percent: number;
+          current_spend_cents: number;
+          period_start: string | null;
+          period_end: string | null;
+          is_active: boolean;
+          notify_on_threshold: boolean;
+          notify_on_exceeded: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          budget_type: 'daily' | 'weekly' | 'monthly' | 'total';
+          limit_cents: number;
+          alert_threshold_percent?: number;
+          current_spend_cents?: number;
+          period_start?: string | null;
+          period_end?: string | null;
+          is_active?: boolean;
+          notify_on_threshold?: boolean;
+          notify_on_exceeded?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          budget_type?: 'daily' | 'weekly' | 'monthly' | 'total';
+          limit_cents?: number;
+          alert_threshold_percent?: number;
+          current_spend_cents?: number;
+          period_start?: string | null;
+          period_end?: string | null;
+          is_active?: boolean;
+          notify_on_threshold?: boolean;
+          notify_on_exceeded?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      ai_cost_snapshots: {
+        Row: {
+          id: string;
+          snapshot_date: string;
+          total_cost_cents: number;
+          total_tokens: number;
+          total_requests: number;
+          cost_by_model: Json;
+          cost_by_persona: Json;
+          cost_by_user: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          snapshot_date: string;
+          total_cost_cents?: number;
+          total_tokens?: number;
+          total_requests?: number;
+          cost_by_model?: Json;
+          cost_by_persona?: Json;
+          cost_by_user?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          snapshot_date?: string;
+          total_cost_cents?: number;
+          total_tokens?: number;
+          total_requests?: number;
+          cost_by_model?: Json;
+          cost_by_persona?: Json;
+          cost_by_user?: Json;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -991,3 +1073,7 @@ export type UserInsightDB = Tables<'user_insights'>;
 // Coaching tables
 export type CoachingDomainDB = Tables<'coaching_domains'>;
 export type ScenarioDB = Tables<'scenarios'>;
+
+// Cost center tables
+export type AIBudgetDB = Tables<'ai_budgets'>;
+export type AICostSnapshotDB = Tables<'ai_cost_snapshots'>;

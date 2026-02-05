@@ -9,6 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig } from '../_shared/config/ai-config-resolver.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
+import { recordAIUsage } from '../_shared/cost-calculator.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -332,15 +333,16 @@ Generate a comprehensive session report.`;
       console.error('Failed to save report:', updateError);
     }
 
-    // Log usage
+    // Log usage with cost calculation
     if (groqData.usage) {
-      await supabase.from('ai_usage').insert({
-        user_id: conversation.user_id,
-        conversation_id: conversationId,
+      await recordAIUsage(supabase, {
+        userId: conversation.user_id,
+        conversationId: conversationId,
+        personaId: conversation.persona_id,
         model: config.model,
-        prompt_tokens: groqData.usage.prompt_tokens,
-        completion_tokens: groqData.usage.completion_tokens,
-        total_tokens: groqData.usage.total_tokens,
+        promptTokens: groqData.usage.prompt_tokens,
+        completionTokens: groqData.usage.completion_tokens,
+        totalTokens: groqData.usage.total_tokens,
       });
     }
 

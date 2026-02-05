@@ -14,6 +14,7 @@ import {
   BarChart3,
   Settings,
   ArrowLeft,
+  DollarSign,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -44,6 +45,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     personas: <Users size={size} color={color} />,
     users: <UserCog size={size} color={color} />,
     usage: <BarChart3 size={size} color={color} />,
+    costs: <DollarSign size={size} color={color} />,
     settings: <Settings size={size} color={color} />,
   };
 
@@ -131,6 +133,14 @@ export default function AdminLayout() {
           title: 'Usage',
           headerTitle: 'AI Usage & Costs',
           tabBarIcon: ({ focused }) => <TabIcon name="usage" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="costs"
+        options={{
+          title: 'Costs',
+          headerTitle: 'AI Cost Center',
+          tabBarIcon: ({ focused }) => <TabIcon name="costs" focused={focused} />,
         }}
       />
       <Tabs.Screen
