@@ -101,7 +101,7 @@ export function ChatHeroEmptyState({
       />
 
       {/* Content overlay */}
-      <View style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 100 }}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 20, paddingBottom: 24 }}>
         {/* Persona name */}
         <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginBottom: 8 }}>
           {persona.name}
