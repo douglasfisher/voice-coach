@@ -11,7 +11,7 @@ const DEV_MODE = false;
 const LOCAL_AVATARS: Record<string, any> = {
   // Original Challengers
   'sarah mitchell': require('../assets/images-1.jpg'),
-  'marcus webb': require('../assets/images-2.jpg'),
+  'marcus webb challenger': require('../assets/images-2.jpg'),  // Original challenger (different from coach)
   "father thomas o'brien": require('../assets/images-3.jpg'),
   'thomas o\'brien': require('../assets/images-3.jpg'),
   'dr. raj patel': require('../assets/images-4.jpg'),

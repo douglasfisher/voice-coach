@@ -94,11 +94,14 @@ const STYLE_THEMES: Record<ChallengeStyle, {
 interface ChatHeroEmptyStateProps {
   persona: PersonaDisplay;
   questionMessage: string | null;
+  scenarioMessage: string | null;  // For Q&A mode AI-generated scenarios
   refreshCount: number;
+  scenarioRefreshCount: number;  // For Q&A mode
   maxRefreshes: number;
   isLoading: boolean;
   isRefreshing: boolean;
   onRefreshQuestion: () => void;
+  onRefreshScenario: () => void;  // For Q&A mode
   onStartChat: () => void;
   isStarting?: boolean;
 }
@@ -106,11 +109,14 @@ interface ChatHeroEmptyStateProps {
 export function ChatHeroEmptyState({
   persona,
   questionMessage,
+  scenarioMessage,
   refreshCount,
+  scenarioRefreshCount,
   maxRefreshes,
   isLoading,
   isRefreshing,
   onRefreshQuestion,
+  onRefreshScenario,
   onStartChat,
   isStarting = false,
 }: ChatHeroEmptyStateProps) {
@@ -129,9 +135,13 @@ export function ChatHeroEmptyState({
     ? COACHING_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
     : CHALLENGE_STYLE_LABELS[persona.challengeStyle];
 
-  const refreshesRemaining = maxRefreshes - refreshCount;
-  const canRefresh = refreshesRemaining > 0 && !isRefreshing && !isLoading && questionMessage;
-  const hasPreview = !!questionMessage;
+  // For Q&A mode, use scenario refresh count; otherwise use question refresh count
+  const currentRefreshCount = isQAMode && isCoach ? scenarioRefreshCount : refreshCount;
+  const refreshesRemaining = maxRefreshes - currentRefreshCount;
+
+  // For Q&A mode, check scenario; otherwise check question
+  const hasPreview = isQAMode && isCoach ? !!scenarioMessage : !!questionMessage;
+  const canRefresh = refreshesRemaining > 0 && !isRefreshing && !isLoading && hasPreview;
 
   return (
     <View style={{ flex: 1 }}>
@@ -206,34 +216,79 @@ export function ChatHeroEmptyState({
           )}
         </View>
 
-        {/* Q&A Mode: Show scene-setting intro based on domain */}
+        {/* Q&A Mode: Show AI-generated or fallback scene */}
         {isQAMode && isCoach ? (
-          <View style={{ marginBottom: 20 }}>
-            <Text
-              style={{
-                color: 'rgba(255,255,255,0.6)',
-                fontSize: 12,
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                letterSpacing: 1,
-                marginBottom: 8,
-              }}
-            >
-              The Scene
-            </Text>
-            <Text
-              style={{
-                color: '#fff',
-                fontSize: 16,
-                lineHeight: 24,
-                fontStyle: 'italic',
-              }}
-            >
-              {getQAModeScene(persona.specialtyAreas)}
-            </Text>
-          </View>
+          isLoading && !scenarioMessage ? (
+            /* Loading skeleton for scenario */
+            <View style={{ marginBottom: 20 }}>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.6)',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  marginBottom: 8,
+                }}
+              >
+                The Scene
+              </Text>
+              <View
+                style={{
+                  height: 18,
+                  width: '95%',
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  borderRadius: 8,
+                  marginBottom: 8,
+                }}
+              />
+              <View
+                style={{
+                  height: 18,
+                  width: '85%',
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  borderRadius: 8,
+                  marginBottom: 8,
+                }}
+              />
+              <View
+                style={{
+                  height: 18,
+                  width: '70%',
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  borderRadius: 8,
+                }}
+              />
+            </View>
+          ) : (
+            <View style={{ marginBottom: 20 }}>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.6)',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                  marginBottom: 8,
+                }}
+              >
+                The Scene
+              </Text>
+              <Text
+                style={{
+                  color: '#fff',
+                  fontSize: 16,
+                  lineHeight: 24,
+                  fontStyle: 'italic',
+                }}
+              >
+                {/* Use AI-generated scenario or fallback to hardcoded */}
+                {scenarioMessage || getQAModeScene(persona.specialtyAreas)}
+              </Text>
+            </View>
+          )
         ) : isLoading && !hasPreview ? (
-          /* Loading skeleton */
+          /* Loading skeleton for practice mode */
           <View style={{ marginBottom: 20 }}>
             <View
               style={{
@@ -268,53 +323,51 @@ export function ChatHeroEmptyState({
           </Text>
         ) : null}
 
-        {/* New Question/Prompt button - hide in Q&A mode */}
-        {!(isQAMode && isCoach) && (
-          <Pressable
-            onPress={onRefreshQuestion}
-            disabled={!canRefresh}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingVertical: 14,
-              borderRadius: 14,
-              backgroundColor: 'rgba(255,255,255,0.12)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.2)',
-              marginBottom: 12,
-              opacity: canRefresh ? 1 : 0.4,
-            }}
-          >
-            {isRefreshing ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <RefreshCw size={18} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>
-                  {isCoach ? 'New Scenario' : 'New Question'}
+        {/* New Question/Scenario button */}
+        <Pressable
+          onPress={isQAMode && isCoach ? onRefreshScenario : onRefreshQuestion}
+          disabled={!canRefresh}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 14,
+            borderRadius: 14,
+            backgroundColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.2)',
+            marginBottom: 12,
+            opacity: canRefresh ? 1 : 0.4,
+          }}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <RefreshCw size={18} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>
+                {isCoach ? 'New Scenario' : 'New Question'}
+              </Text>
+              {refreshesRemaining > 0 && (
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginLeft: 8 }}>
+                  ({refreshesRemaining} left)
                 </Text>
-                {refreshesRemaining > 0 && (
-                  <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginLeft: 8 }}>
-                    ({refreshesRemaining} left)
-                  </Text>
-                )}
-              </>
-            )}
-          </Pressable>
-        )}
+              )}
+            </>
+          )}
+        </Pressable>
 
         {/* Start CTA button */}
         <Pressable
           onPress={onStartChat}
-          disabled={isStarting || (isLoading && !isQAMode) || (!hasPreview && !isQAMode)}
+          disabled={isStarting || (isLoading && !hasPreview)}
           style={{
             paddingVertical: 16,
             borderRadius: 16,
             backgroundColor: accentColor,
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: (isStarting || (isLoading && !isQAMode) || (!hasPreview && !isQAMode)) ? 0.5 : 1,
+            opacity: (isStarting || (isLoading && !hasPreview)) ? 0.5 : 1,
           }}
         >
           {isStarting ? (

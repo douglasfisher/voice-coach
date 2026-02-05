@@ -124,13 +124,17 @@ export default function ChatScreen() {
     startChat,
     generatePreview,
     regenerateQuestion,
+    regenerateScenario,
     startChatWithPreview,
     clearPreview,
     generateReport,
     previewQuestion,
+    previewScenario,
     questionRefreshCount,
+    scenarioRefreshCount,
     isGeneratingPreview,
     isGeneratingReport,
+    globalInteractionMode,
   } = useChatStore();
   const chatStarted = messages.length > 0;
 
@@ -218,6 +222,10 @@ export default function ChatScreen() {
     await regenerateQuestion();
   };
 
+  const handleRefreshScenario = async () => {
+    await regenerateScenario();
+  };
+
   const handleResetPress = () => {
     setShowResetModal(true);
   };
@@ -238,11 +246,16 @@ export default function ChatScreen() {
   };
 
   // Generate preview when conversation loads and chat hasn't started
+  // For Q&A mode, generate scenario; for Practice mode, generate question
+  const isQAMode = globalInteractionMode === 'question';
+  const isCoach = persona?.personaType === 'coach';
+  const hasPreview = isQAMode && isCoach ? !!previewScenario : !!previewQuestion;
+
   useEffect(() => {
-    if (conversation && !chatStarted && !previewQuestion && !isGeneratingPreview) {
+    if (conversation && !chatStarted && !hasPreview && !isGeneratingPreview) {
       generatePreview();
     }
-  }, [conversation?.id, chatStarted]);
+  }, [conversation?.id, chatStarted, hasPreview]);
 
   // Clear preview when leaving the screen
   useEffect(() => {
@@ -439,11 +452,14 @@ export default function ChatScreen() {
           <ChatHeroEmptyState
             persona={persona}
             questionMessage={previewQuestion}
+            scenarioMessage={previewScenario}
             refreshCount={questionRefreshCount}
+            scenarioRefreshCount={scenarioRefreshCount}
             maxRefreshes={3}
             isLoading={isGeneratingPreview}
-            isRefreshing={isGeneratingPreview && previewQuestion !== null}
+            isRefreshing={isGeneratingPreview && hasPreview}
             onRefreshQuestion={handleRefreshQuestion}
+            onRefreshScenario={handleRefreshScenario}
             onStartChat={handleStartChat}
             isStarting={isStartingChat}
           />
