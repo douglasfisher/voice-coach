@@ -3,10 +3,14 @@ import { Clock, MessageCircle, FileText, Zap, User, Bot, TrendingUp } from 'luci
 
 interface TimingMetrics {
   total_duration_ms: number;
-  user_avg_response_ms: number;
-  assistant_avg_response_ms: number;
   exchange_count: number;
-  word_count_total: number;
+  // User metrics
+  user_word_count: number;
+  user_avg_response_ms: number;
+  user_avg_words_per_response?: number;
+  // AI metrics
+  ai_word_count: number;
+  ai_avg_response_ms: number;
 }
 
 interface SessionStatsProps {
@@ -184,9 +188,11 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
   // Safely extract metrics with defaults
   const totalDuration = timingMetrics?.total_duration_ms ?? 0;
   const userAvgResponse = timingMetrics?.user_avg_response_ms ?? 0;
-  const assistantAvgResponse = timingMetrics?.assistant_avg_response_ms ?? 0;
+  const aiAvgResponse = timingMetrics?.ai_avg_response_ms ?? 0;
   const exchangeCount = timingMetrics?.exchange_count ?? 0;
-  const wordCountTotal = timingMetrics?.word_count_total ?? 0;
+  const userWordCount = timingMetrics?.user_word_count ?? 0;
+  const aiWordCount = timingMetrics?.ai_word_count ?? 0;
+  const wordCountTotal = userWordCount + aiWordCount;
 
   // Calculate derived metrics
   const durationMinutes = totalDuration / 60000;
@@ -246,7 +252,7 @@ export function SessionStats({ timingMetrics }: SessionStatsProps) {
         </Text>
         <ComparisonBar
           userValue={userAvgResponse}
-          coachValue={assistantAvgResponse}
+          coachValue={aiAvgResponse}
           userColor="#F59E0B"
           coachColor="#4ade80"
         />
