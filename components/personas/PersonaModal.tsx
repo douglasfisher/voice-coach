@@ -279,16 +279,18 @@ export function PersonaModal({
         </ScrollView>
 
         {/* Fixed CTA Button */}
-        <LinearGradient
-          colors={['transparent', 'rgba(10,10,15,0.95)', '#0a0a0f']}
+        <View
           style={{
             position: 'absolute',
             bottom: 0,
             left: 0,
             right: 0,
+            backgroundColor: '#0a0a0f',
             paddingHorizontal: 24,
-            paddingTop: 40,
+            paddingTop: 16,
             paddingBottom: 40,
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255,255,255,0.1)',
           }}
         >
           <Pressable
@@ -314,7 +316,7 @@ export function PersonaModal({
             </Text>
             <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
           </Pressable>
-        </LinearGradient>
+        </View>
       </View>
     </Modal>
   );
