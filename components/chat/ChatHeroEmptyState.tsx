@@ -1,7 +1,16 @@
 import { View, Text, Pressable, Image, ImageSourcePropType, ActivityIndicator, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw } from 'lucide-react-native';
+import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+
+// Coaching style labels for coaches
+const COACHING_STYLE_LABELS: Record<string, string> = {
+  'confidence_builder': 'Confidence Builder',
+  'tough_love': 'Tough Love',
+  'playful_mentor': 'Playful Mentor',
+  'expert_advisor': 'Expert Advisor',
+  'supportive_guide': 'Supportive Guide',
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -66,11 +75,18 @@ export function ChatHeroEmptyState({
   onStartChat,
   isStarting = false,
 }: ChatHeroEmptyStateProps) {
+  const isCoach = persona.personaType === 'coach';
   const theme = STYLE_THEMES[persona.challengeStyle];
-  const StyleIcon = theme.Icon;
+  const StyleIcon = isCoach ? GraduationCap : theme.Icon;
+  const accentColor = isCoach ? '#10b981' : theme.accent;
   const imageSource = typeof persona.avatarUrl === 'string'
     ? { uri: persona.avatarUrl }
     : persona.avatarUrl;
+
+  // Get style label based on persona type
+  const styleLabel = isCoach && persona.coachingStyle
+    ? COACHING_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
+    : CHALLENGE_STYLE_LABELS[persona.challengeStyle];
 
   const refreshesRemaining = maxRefreshes - refreshCount;
   const canRefresh = refreshesRemaining > 0 && !isRefreshing && !isLoading && questionMessage;
@@ -107,22 +123,22 @@ export function ChatHeroEmptyState({
           {persona.name}
         </Text>
 
-        {/* Challenge style badge inline */}
+        {/* Style badge inline */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
           <View
             style={{
               width: 28,
               height: 28,
               borderRadius: 14,
-              backgroundColor: theme.accent,
+              backgroundColor: accentColor,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             <StyleIcon size={14} color="#0f0f12" />
           </View>
-          <Text style={{ color: theme.accent, fontSize: 13, fontWeight: '600', marginLeft: 8 }}>
-            {CHALLENGE_STYLE_LABELS[persona.challengeStyle]}
+          <Text style={{ color: accentColor, fontSize: 13, fontWeight: '600', marginLeft: 8 }}>
+            {styleLabel}
           </Text>
         </View>
 
@@ -161,7 +177,7 @@ export function ChatHeroEmptyState({
           </Text>
         ) : null}
 
-        {/* New Question button */}
+        {/* New Question/Prompt button */}
         <Pressable
           onPress={onRefreshQuestion}
           disabled={!canRefresh}
@@ -184,7 +200,7 @@ export function ChatHeroEmptyState({
             <>
               <RefreshCw size={18} color="#fff" style={{ marginRight: 8 }} />
               <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>
-                New Question
+                {isCoach ? 'New Scenario' : 'New Question'}
               </Text>
               {refreshesRemaining > 0 && (
                 <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, marginLeft: 8 }}>
@@ -195,14 +211,14 @@ export function ChatHeroEmptyState({
           )}
         </Pressable>
 
-        {/* Start Challenge CTA button */}
+        {/* Start CTA button */}
         <Pressable
           onPress={onStartChat}
           disabled={isStarting || isLoading || !hasPreview}
           style={{
             paddingVertical: 16,
             borderRadius: 16,
-            backgroundColor: theme.accent,
+            backgroundColor: accentColor,
             alignItems: 'center',
             justifyContent: 'center',
             opacity: (isStarting || isLoading || !hasPreview) ? 0.5 : 1,
@@ -212,7 +228,7 @@ export function ChatHeroEmptyState({
             <ActivityIndicator color="#0f0f12" />
           ) : (
             <Text style={{ color: '#0f0f12', fontWeight: '700', fontSize: 18 }}>
-              Start Challenge
+              {isCoach ? 'Start Practice' : 'Start Challenge'}
             </Text>
           )}
         </Pressable>
