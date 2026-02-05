@@ -371,7 +371,7 @@ export default function HomeScreen() {
                     {imageSource && (
                       <Image
                         source={imageSource as ImageSourcePropType}
-                        style={{ width: 56, height: 56, borderRadius: 16 }}
+                        style={{ width: 56, height: 56, borderRadius: 8 }}
                         resizeMode="cover"
                       />
                     )}
@@ -436,7 +436,7 @@ export default function HomeScreen() {
                     {imageSource && (
                       <Image
                         source={imageSource as ImageSourcePropType}
-                        style={{ width: 56, height: 56, borderRadius: 16 }}
+                        style={{ width: 56, height: 56, borderRadius: 8 }}
                         resizeMode="cover"
                       />
                     )}
