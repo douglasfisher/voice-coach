@@ -31,12 +31,16 @@ export function ModeToggle({
     }).start();
   }, [mode]);
 
-  const toggleWidth = 160;
-  const halfWidth = toggleWidth / 2;
+  const toggleWidth = 150;
+  const practiceWidth = 92; // Wider for "Practice"
+  const qaWidth = 58;       // Narrower for "Q&A"
+
+  // Highlight width changes based on which is active
+  const highlightWidth = mode === 'practice' ? practiceWidth - 4 : qaWidth - 4;
 
   const translateX = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, halfWidth],
+    outputRange: [0, practiceWidth],
   });
 
   return (
@@ -57,7 +61,7 @@ export function ModeToggle({
       <Animated.View
         style={{
           position: 'absolute',
-          width: halfWidth - 2,
+          width: highlightWidth,
           height: 32,
           top: 1,
           left: 2,
@@ -73,7 +77,7 @@ export function ModeToggle({
       <Pressable
         onPress={() => !disabled && onModeChange('practice')}
         style={{
-          flex: 1,
+          width: practiceWidth,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
@@ -100,7 +104,7 @@ export function ModeToggle({
       <Pressable
         onPress={() => !disabled && onModeChange('question')}
         style={{
-          flex: 1,
+          width: qaWidth,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
