@@ -458,9 +458,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-      // Q&A mode: generate scenario instead of question
+      // Q&A mode: generate scenario using ai endpoint with persona's qa_scenario_prompt
       if (isQAMode) {
-        const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        // First fetch the persona's qa_scenario_prompt from database
+        const { data: persona, error: personaError } = await supabase
+          .from('personas')
+          .select('qa_scenario_prompt')
+          .eq('id', activeConversation.persona_id)
+          .single();
+
+        if (personaError) {
+          console.error('Failed to fetch persona:', personaError);
+          throw new Error('Failed to fetch persona');
+        }
+
+        const scenarioPrompt = persona?.qa_scenario_prompt ||
+          'Generate a brief practice scenario (2-3 sentences). Set a realistic scene. Second person, present tense.';
+
+        // Call the ai endpoint to generate scenario
+        const response = await fetch(`${supabaseUrl}/functions/v1/ai`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -468,8 +484,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
             'Authorization': `Bearer ${supabaseAnonKey}`,
           },
           body: JSON.stringify({
-            personaId: activeConversation.persona_id,
-            generateScenario: true,
+            task: 'complete',
+            systemPrompt: `You are a creative scenario writer. Your job is to create immersive, realistic practice scenarios.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Keep it to 2-3 sentences maximum\n- Make it vivid and specific\n- Use second person present tense ("You...")\n- End on the moment of action\n- Vary locations, people, and details each time`,
+            userPrompt: 'Generate a new scenario.',
+            settings: { temperature: 0.95, max_completion_tokens: 150 },
           }),
         });
 
@@ -481,7 +499,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         const data = await response.json();
         set({
-          previewScenario: data.scenario,
+          previewScenario: data.content,
           scenarioRefreshCount: 0,
         });
       } else {
@@ -585,7 +603,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+      // Fetch the persona's qa_scenario_prompt from database
+      const { data: persona, error: personaError } = await supabase
+        .from('personas')
+        .select('qa_scenario_prompt')
+        .eq('id', activeConversation.persona_id)
+        .single();
+
+      if (personaError) {
+        throw new Error('Failed to fetch persona');
+      }
+
+      const scenarioPrompt = persona?.qa_scenario_prompt ||
+        'Generate a brief practice scenario (2-3 sentences). Set a realistic scene. Second person, present tense.';
+
+      // Call the ai endpoint to generate scenario
+      const response = await fetch(`${supabaseUrl}/functions/v1/ai`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -593,8 +626,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           'Authorization': `Bearer ${supabaseAnonKey}`,
         },
         body: JSON.stringify({
-          personaId: activeConversation.persona_id,
-          regenerateScenario: true,
+          task: 'complete',
+          systemPrompt: `You are a creative scenario writer. Your job is to create immersive, realistic practice scenarios.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Keep it to 2-3 sentences maximum\n- Make it vivid and specific\n- Use second person present tense ("You...")\n- End on the moment of action\n- Vary locations, people, and details each time`,
+          userPrompt: 'Generate a new scenario.',
+          settings: { temperature: 0.95, max_completion_tokens: 150 },
         }),
       });
 
@@ -606,7 +641,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       const data = await response.json();
       set({
-        previewScenario: data.scenario,
+        previewScenario: data.content,
         scenarioRefreshCount: scenarioRefreshCount + 1,
       });
       return true;
