@@ -436,15 +436,15 @@ export default function HomeScreen() {
                     {imageSource && (
                       <Image
                         source={imageSource as ImageSourcePropType}
-                        style={{ width: 44, height: 44, borderRadius: 12 }}
+                        style={{ width: 56, height: 56, borderRadius: 16 }}
                         resizeMode="cover"
                       />
                     )}
-                    <View style={{ marginLeft: 12, flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                    <View style={{ marginLeft: 14, flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
                         {persona?.name}
                       </Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 3 }}>
                         {formatDate(conv.created_at)}
                       </Text>
                     </View>
