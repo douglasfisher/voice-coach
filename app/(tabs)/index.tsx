@@ -406,58 +406,68 @@ export default function HomeScreen() {
             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
               RECENT SESSIONS
             </Text>
-            {recentConversations.map((conv, index) => {
-              const persona = getPersonaById(conv.persona_id);
-              const imageSource = persona?.avatarUrl
-                ? (typeof persona.avatarUrl === 'string' ? { uri: persona.avatarUrl } : persona.avatarUrl)
-                : null;
+            <View
+              style={{
+                borderRadius: 20,
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.1)',
+                overflow: 'hidden',
+              }}
+            >
+              {recentConversations.map((conv, index) => {
+                const persona = getPersonaById(conv.persona_id);
+                const imageSource = persona?.avatarUrl
+                  ? (typeof persona.avatarUrl === 'string' ? { uri: persona.avatarUrl } : persona.avatarUrl)
+                  : null;
 
-              return (
-                <Pressable
-                  key={conv.id}
-                  onPress={() => router.push(`/(tabs)/chat/${conv.id}`)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingVertical: 12,
-                    borderBottomWidth: index < recentConversations.length - 1 ? 1 : 0,
-                    borderBottomColor: 'rgba(255,255,255,0.06)',
-                  }}
-                >
-                  {imageSource && (
-                    <Image
-                      source={imageSource as ImageSourcePropType}
-                      style={{ width: 44, height: 44, borderRadius: 12 }}
-                      resizeMode="cover"
-                    />
-                  )}
-                  <View style={{ marginLeft: 12, flex: 1 }}>
-                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
-                      {persona?.name}
-                    </Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>
-                      {formatDate(conv.created_at)}
-                    </Text>
-                  </View>
-                  <View style={{
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 10,
-                    backgroundColor: conv.status === 'active'
-                      ? 'rgba(74, 222, 128, 0.15)'
-                      : 'rgba(255,255,255,0.06)',
-                  }}>
-                    <Text style={{
-                      fontSize: 11,
-                      fontWeight: '500',
-                      color: conv.status === 'active' ? '#4ade80' : 'rgba(255,255,255,0.4)',
+                return (
+                  <Pressable
+                    key={conv.id}
+                    onPress={() => router.push(`/(tabs)/chat/${conv.id}`)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      padding: 14,
+                      borderBottomWidth: index < recentConversations.length - 1 ? 1 : 0,
+                      borderBottomColor: 'rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    {imageSource && (
+                      <Image
+                        source={imageSource as ImageSourcePropType}
+                        style={{ width: 44, height: 44, borderRadius: 12 }}
+                        resizeMode="cover"
+                      />
+                    )}
+                    <View style={{ marginLeft: 12, flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                        {persona?.name}
+                      </Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>
+                        {formatDate(conv.created_at)}
+                      </Text>
+                    </View>
+                    <View style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 10,
+                      backgroundColor: conv.status === 'active'
+                        ? 'rgba(74, 222, 128, 0.15)'
+                        : 'rgba(255,255,255,0.06)',
                     }}>
-                      {conv.status === 'active' ? 'Active' : 'Completed'}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
+                      <Text style={{
+                        fontSize: 11,
+                        fontWeight: '500',
+                        color: conv.status === 'active' ? '#4ade80' : 'rgba(255,255,255,0.4)',
+                      }}>
+                        {conv.status === 'active' ? 'Active' : 'Completed'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         )}
 
