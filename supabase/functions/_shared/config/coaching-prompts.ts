@@ -19,7 +19,7 @@ export type CoachingStyle =
   | 'expert_advisor'
   | 'confidence_builder';
 
-export type InteractionMode = 'coach_leads' | 'user_leads' | 'turn_taking';
+export type InteractionMode = 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
 
 export type FeedbackStyle = 'sandwich' | 'direct' | 'question_based' | 'observational';
 
@@ -109,6 +109,16 @@ const INTERACTION_MODE_PROMPTS: Record<InteractionMode, string> = {
 - Respond to their points, then make your own
 - Allow negotiation, compromise, and pushback
 - Keep it realistic - don't be a pushover`,
+
+  question_mode: `INTERACTION MODE: Q&A Expert Mode
+- The user is asking YOU questions - you are the expert
+- Provide clear, actionable, expert-level answers
+- Share domain knowledge, strategies, and insights
+- DO NOT turn questions back on them or use Socratic method
+- Be direct and informative, giving practical advice
+- Structure longer answers with bullet points when helpful
+- Give concrete examples to clarify concepts
+- Draw on your coaching expertise to give authoritative answers`,
 };
 
 // =============================================================================

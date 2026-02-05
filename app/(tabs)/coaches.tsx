@@ -9,6 +9,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
+import { ModeToggle } from '../../components/chat/ModeToggle';
 import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
 
@@ -25,7 +26,7 @@ interface CoachingDomain {
 export default function CoachesScreen() {
   const { personas, isLoading: personasLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
-  const { createConversation } = useChatStore();
+  const { createConversation, globalInteractionMode, setGlobalInteractionMode } = useChatStore();
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -115,9 +116,16 @@ export default function CoachesScreen() {
               </Text>
             </View>
             <Text className="text-text-secondary mt-1">
-              Practice real-world conversations
+              {globalInteractionMode === 'question'
+                ? 'Ask questions, get expert answers'
+                : 'Practice real-world conversations'}
             </Text>
           </View>
+          <ModeToggle
+            mode={globalInteractionMode}
+            onModeChange={setGlobalInteractionMode}
+            accentColor="#10b981"
+          />
         </View>
       </View>
 

@@ -28,7 +28,7 @@ interface ChatRequest {
   generateChallenge?: boolean;
   // Coaching-specific fields
   scenarioId?: string;
-  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking';
+  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
   currentPhase?: 'roleplay' | 'feedback';
   scenarioVariant?: { name: string; context: string };
   requestQuickFeedback?: boolean;
@@ -156,6 +156,20 @@ Guidelines:
       );
     }
 
+    // Fetch conversation to get stored interaction_mode
+    let conversationInteractionMode: string | null = null;
+    if (conversationId) {
+      const { data: convData } = await supabase
+        .from('conversations')
+        .select('interaction_mode')
+        .eq('id', conversationId)
+        .single();
+      conversationInteractionMode = convData?.interaction_mode || null;
+    }
+
+    // Resolve effective interaction mode (request > conversation > scenario > persona default)
+    const effectiveInteractionMode = interactionMode || conversationInteractionMode;
+
     // Fetch scenario context if this is a coaching session
     let coachingContext: CoachingContext | undefined;
     let scenarioData: { scenario_context: string; user_goal: string | null } | null = null;
@@ -172,11 +186,19 @@ Guidelines:
         coachingContext = {
           scenarioContext: scenario.scenario_context,
           userGoal: scenario.user_goal || undefined,
-          interactionMode: interactionMode || scenario.interaction_mode,
+          interactionMode: effectiveInteractionMode || scenario.interaction_mode,
           currentPhase: currentPhase || 'roleplay',
           scenarioVariant,
         };
       }
+    }
+
+    // If we have question_mode set on conversation but no scenario, create a coaching context for it
+    if (!coachingContext && effectiveInteractionMode === 'question_mode') {
+      coachingContext = {
+        interactionMode: 'question_mode',
+        currentPhase: 'roleplay', // Q&A mode doesn't use phases but we need a value
+      };
     }
 
     // Determine if this is a coaching task

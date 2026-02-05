@@ -59,6 +59,9 @@ interface ChatState {
   currentPhase: SessionPhase;
   coachingOptions: CoachingSessionOptions | null;
 
+  // Global interaction mode preference (Practice vs Q&A)
+  globalInteractionMode: 'practice' | 'question';
+
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
@@ -90,6 +93,8 @@ interface ChatState {
   switchPhase: (phase: SessionPhase) => Promise<{ response: string } | null>;
   requestQuickFeedback: () => Promise<{ response: string } | null>;
   setCoachingOptions: (options: CoachingSessionOptions | null) => void;
+  // Global interaction mode
+  setGlobalInteractionMode: (mode: 'practice' | 'question') => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
@@ -116,6 +121,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // Coaching state
   currentPhase: 'roleplay',
   coachingOptions: null,
+
+  // Global interaction mode
+  globalInteractionMode: 'practice',
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
@@ -200,6 +208,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   createConversation: async (userId, personaId, topic, coachingOptions) => {
+    const { globalInteractionMode } = get();
     set({ isLoading: true, error: null });
     try {
       const insertData: Record<string, unknown> = {
@@ -209,7 +218,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         status: 'active',
       };
 
-      // Add coaching fields if provided
+      // Apply global interaction mode if set to question mode
+      if (globalInteractionMode === 'question') {
+        insertData.interaction_mode = 'question_mode';
+      }
+
+      // Add coaching fields if provided (these can override global mode)
       if (coachingOptions) {
         if (coachingOptions.domainId) {
           insertData.domain_id = coachingOptions.domainId;
@@ -758,6 +772,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setCoachingOptions: (options) => {
     set({ coachingOptions: options });
+  },
+
+  setGlobalInteractionMode: (mode) => {
+    set({ globalInteractionMode: mode });
   },
 
   fetchDailyChallenge: async (personas) => {
