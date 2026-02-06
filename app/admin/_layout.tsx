@@ -42,6 +42,8 @@ function MenuButton({ onPress }: { onPress: () => void }) {
         paddingRight: 16,
         paddingLeft: 8,
         paddingVertical: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
       }}
     >
       <Menu size={22} color="#F59E0B" />
