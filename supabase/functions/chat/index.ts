@@ -10,6 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-resolver.ts';
 import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
 import { recordAIUsage } from '../_shared/cost-calculator.ts';
+import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -487,7 +488,6 @@ Generate a comprehensive session report.`;
 
       let gamificationResult = null;
       try {
-        const { processSessionGamification } = await import('../_shared/gamification/index.ts');
         gamificationResult = await processSessionGamification(
           supabase,
           conversation.user_id,
