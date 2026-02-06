@@ -85,18 +85,13 @@ export const useAdminTraitStore = create<AdminTraitState>((set, get) => ({
     });
 
     try {
-      const { data, error } = await supabase
-        .from('trait_categories')
-        .update({ user_visible: visible })
-        .eq('id', categoryId)
-        .select();
+      // Use RPC to bypass PostgREST schema cache issues with new columns
+      const { error } = await supabase.rpc('toggle_trait_user_visible', {
+        p_category_id: categoryId,
+        p_visible: visible,
+      });
 
       if (error) throw error;
-
-      // If RLS silently blocked the update (0 rows returned), treat as error
-      if (!data || data.length === 0) {
-        throw new Error('Update failed — check admin permissions or RLS policies');
-      }
     } catch (error) {
       console.error('Failed to toggle trait visibility:', error);
       // Revert optimistic update
