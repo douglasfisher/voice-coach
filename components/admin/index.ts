@@ -7,3 +7,4 @@
 export { CostHeroCards } from './CostHeroCards';
 export { CostTrendChart } from './CostTrendChart';
 export { BudgetManager } from './BudgetManager';
+export { AdminSidePanel } from './AdminSidePanel';
