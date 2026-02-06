@@ -4,12 +4,16 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
+import Animated from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
+import { useScrollHideAnimation } from '../../hooks/useScrollHideAnimation';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+
+const HEADER_HEIGHT = 120;
 
 const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: '#F59E0B' },
@@ -25,6 +29,7 @@ export default function PersonasScreen() {
   const { personas, isLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation } = useChatStore();
+  const { scrollHandler, headerAnimatedStyle, contentAnimatedStyle } = useScrollHideAnimation(HEADER_HEIGHT);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -65,69 +70,75 @@ export default function PersonasScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-primary">
-      {/* Header */}
-      <View className="px-4 pt-4 pb-2">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <View className="flex-row items-center">
-              <Sparkles size={24} color="#F59E0B" />
-              <Text className="text-text-primary text-2xl font-bold ml-2">
-                Challengers
+      {/* Animated Header + Filter Pills */}
+      <Animated.View style={headerAnimatedStyle}>
+        {/* Header */}
+        <View className="px-4 pt-4 pb-2">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <View className="flex-row items-center">
+                <Sparkles size={24} color="#F59E0B" />
+                <Text className="text-text-primary text-2xl font-bold ml-2">
+                  Challengers
+                </Text>
+              </View>
+              <Text className="text-text-secondary mt-1">
+                Choose your intellectual sparring partner
               </Text>
             </View>
-            <Text className="text-text-secondary mt-1">
-              Choose your intellectual sparring partner
-            </Text>
           </View>
         </View>
-      </View>
 
-      {/* Filter Pills */}
-      <View className="py-3">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-        >
-          {STYLE_FILTERS.map((filter) => {
-            const isActive = activeFilter === filter.key;
-            return (
-              <Pressable
-                key={filter.key}
-                onPress={() => setActiveFilter(filter.key)}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
-                  borderWidth: 1,
-                  borderColor: isActive ? filter.color : 'rgba(255,255,255,0.1)',
-                }}
-              >
-                <Text
+        {/* Filter Pills */}
+        <View className="py-3">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+          >
+            {STYLE_FILTERS.map((filter) => {
+              const isActive = activeFilter === filter.key;
+              return (
+                <Pressable
+                  key={filter.key}
+                  onPress={() => setActiveFilter(filter.key)}
                   style={{
-                    fontSize: 14,
-                    fontWeight: '500',
-                    color: isActive ? filter.color : '#9A9A9E'
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
+                    borderWidth: 1,
+                    borderColor: isActive ? filter.color : 'rgba(255,255,255,0.1)',
                   }}
                 >
-                  {filter.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '500',
+                      color: isActive ? filter.color : '#9A9A9E'
+                    }}
+                  >
+                    {filter.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Animated.View>
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#F59E0B" />
         </View>
       ) : (
-        <ScrollView
+        <Animated.ScrollView
           className="flex-1"
-          contentContainerClassName="px-4 pb-6"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          style={contentAnimatedStyle}
         >
           {/* Featured Persona */}
           {featuredPersona && (
@@ -170,7 +181,7 @@ export default function PersonasScreen() {
               <Text className="text-text-muted">No challengers match this filter</Text>
             </View>
           )}
-        </ScrollView>
+        </Animated.ScrollView>
       )}
 
       <PersonaModal

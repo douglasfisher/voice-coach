@@ -4,14 +4,18 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GraduationCap } from 'lucide-react-native';
+import Animated from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
+import { useScrollHideAnimation } from '../../hooks/useScrollHideAnimation';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { ModeToggle } from '../../components/chat/ModeToggle';
 import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
+
+const HEADER_HEIGHT = 120;
 
 interface CoachingDomain {
   id: string;
@@ -27,6 +31,7 @@ export default function CoachesScreen() {
   const { personas, isLoading: personasLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation, globalInteractionMode, setGlobalInteractionMode } = useChatStore();
+  const { scrollHandler, headerAnimatedStyle, contentAnimatedStyle } = useScrollHideAnimation(HEADER_HEIGHT);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -105,100 +110,106 @@ export default function CoachesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-primary">
-      {/* Header */}
-      <View className="px-4 pt-4 pb-2">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <View className="flex-row items-center">
-              <GraduationCap size={24} color="#10b981" />
-              <Text className="text-text-primary text-2xl font-bold ml-2">
-                Coaches
+      {/* Animated Header + Filter Pills */}
+      <Animated.View style={headerAnimatedStyle}>
+        {/* Header */}
+        <View className="px-4 pt-4 pb-2">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <View className="flex-row items-center">
+                <GraduationCap size={24} color="#10b981" />
+                <Text className="text-text-primary text-2xl font-bold ml-2">
+                  Coaches
+                </Text>
+              </View>
+              <Text className="text-text-secondary mt-1">
+                {globalInteractionMode === 'question'
+                  ? 'You ask the questions!'
+                  : 'Practice real-world conversations'}
               </Text>
             </View>
-            <Text className="text-text-secondary mt-1">
-              {globalInteractionMode === 'question'
-                ? 'You ask the questions!'
-                : 'Practice real-world conversations'}
-            </Text>
+            <ModeToggle
+              mode={globalInteractionMode}
+              onModeChange={setGlobalInteractionMode}
+              accentColor="#10b981"
+            />
           </View>
-          <ModeToggle
-            mode={globalInteractionMode}
-            onModeChange={setGlobalInteractionMode}
-            accentColor="#10b981"
-          />
         </View>
-      </View>
 
-      {/* Domain Filter Pills */}
-      <View className="py-3">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-        >
-          {/* All filter */}
-          <Pressable
-            onPress={() => setActiveDomain('all')}
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 20,
-              backgroundColor: activeDomain === 'all' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
-              borderWidth: 1,
-              borderColor: activeDomain === 'all' ? '#10b981' : 'rgba(255,255,255,0.1)',
-            }}
+        {/* Domain Filter Pills */}
+        <View className="py-3">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
           >
-            <Text
+            {/* All filter */}
+            <Pressable
+              onPress={() => setActiveDomain('all')}
               style={{
-                fontSize: 14,
-                fontWeight: '500',
-                color: activeDomain === 'all' ? '#10b981' : '#9A9A9E'
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: activeDomain === 'all' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
+                borderWidth: 1,
+                borderColor: activeDomain === 'all' ? '#10b981' : 'rgba(255,255,255,0.1)',
               }}
             >
-              All
-            </Text>
-          </Pressable>
-
-          {/* Domain filters */}
-          {domains.map((domain) => {
-            const isActive = activeDomain === domain.id;
-            return (
-              <Pressable
-                key={domain.id}
-                onPress={() => setActiveDomain(domain.id)}
+              <Text
                 style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: isActive ? `${domain.color}20` : 'rgba(255,255,255,0.05)',
-                  borderWidth: 1,
-                  borderColor: isActive ? domain.color : 'rgba(255,255,255,0.1)',
+                  fontSize: 14,
+                  fontWeight: '500',
+                  color: activeDomain === 'all' ? '#10b981' : '#9A9A9E'
                 }}
               >
-                <Text
+                All
+              </Text>
+            </Pressable>
+
+            {/* Domain filters */}
+            {domains.map((domain) => {
+              const isActive = activeDomain === domain.id;
+              return (
+                <Pressable
+                  key={domain.id}
+                  onPress={() => setActiveDomain(domain.id)}
                   style={{
-                    fontSize: 14,
-                    fontWeight: '500',
-                    color: isActive ? domain.color : '#9A9A9E'
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    backgroundColor: isActive ? `${domain.color}20` : 'rgba(255,255,255,0.05)',
+                    borderWidth: 1,
+                    borderColor: isActive ? domain.color : 'rgba(255,255,255,0.1)',
                   }}
                 >
-                  {domain.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '500',
+                      color: isActive ? domain.color : '#9A9A9E'
+                    }}
+                  >
+                    {domain.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Animated.View>
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#10b981" />
         </View>
       ) : (
-        <ScrollView
+        <Animated.ScrollView
           className="flex-1"
-          contentContainerClassName="px-4 pb-6"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          style={contentAnimatedStyle}
         >
           {/* Featured Coach */}
           {featuredCoach && (
@@ -241,7 +252,7 @@ export default function CoachesScreen() {
               <Text className="text-text-muted">No coaches available in this category</Text>
             </View>
           )}
-        </ScrollView>
+        </Animated.ScrollView>
       )}
 
       <PersonaModal
