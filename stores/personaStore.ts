@@ -3,78 +3,17 @@ import { supabase } from '../lib/supabase';
 import { Persona } from '../types/database';
 import { PersonaDisplay, ChallengeStyle, VoiceConfig, PersonaType } from '../types/persona';
 import { CoachingStyle, InteractionMode, FeedbackStyle } from '../types/coaching';
+import { resolvePersonaAvatar } from '../lib/personaImages';
 
 // Dev mode: set to true to use mock data without Supabase
 const DEV_MODE = false;
-
-// Local avatar images - mapped by persona name (case-insensitive partial match)
-const LOCAL_AVATARS: Record<string, any> = {
-  // Original Challengers
-  'sarah mitchell': require('../assets/images-1.jpg'),
-  'marcus webb challenger': require('../assets/images-2.jpg'),  // Original challenger (different from coach)
-  "father thomas o'brien": require('../assets/images-3.jpg'),
-  'thomas o\'brien': require('../assets/images-3.jpg'),
-  'dr. raj patel': require('../assets/images-4.jpg'),
-  'raj patel': require('../assets/images-4.jpg'),
-  'kofi asante': require('../assets/images-5.jpg'),
-  'professor elena volkov': require('../assets/images-7.jpg'),
-  'elena volkov': require('../assets/images-7.jpg'),
-  'dr. maya chen': require('../assets/images-8.jpg'),
-  'maya chen': require('../assets/images-8.jpg'),
-  'yuki tanaka': require('../assets/images-8.jpg'),
-
-  // Dating Coaches
-  'alex rivera': require('../assets/coach-alex-rivera.jpg'),
-  'jordan chen': require('../assets/coach-jordan-chen.jpg'),
-  'sam taylor': require('../assets/coach-sam-taylor.jpg'),
-  'dr. maya okonkwo': require('../assets/coach-maya-okonkwo.jpg'),
-  'maya okonkwo': require('../assets/coach-maya-okonkwo.jpg'),
-  'marcus webb': require('../assets/coach-marcus-webb.jpg'),
-  'mia chang': require('../assets/coach-mia-chang.jpg'),
-  'chris martinez': require('../assets/coach-chris-martinez.jpg'),
-  'dr. sarah kim': require('../assets/coach-sarah-kim.jpg'),
-  'sarah kim': require('../assets/coach-sarah-kim.jpg'),
-
-  // Interview Coaches
-  'michael santos': require('../assets/coach-michael-santos.jpg'),
-  'priya sharma': require('../assets/coach-priya-sharma.jpg'),
-  'david park': require('../assets/coach-david-park.jpg'),
-  'grace williams': require('../assets/coach-grace-williams.jpg'),
-
-  // Presentation Coaches
-  'james morrison': require('../assets/coach-james-morrison.jpg'),
-  'aisha rahman': require('../assets/coach-aisha-rahman.jpg'),
-  'lisa park': require('../assets/coach-lisa-park.jpg'),
-
-  // Negotiation Coaches
-  'victor reyes': require('../assets/coach-victor-reyes.jpg'),
-  'catherine walsh': require('../assets/coach-catherine-walsh.jpg'),
-  'omar hassan': require('../assets/coach-omar-hassan.jpg'),
-
-  // Difficult Conversations Coaches
-  'dr. nina patel': require('../assets/coach-nina-patel.jpg'),
-  'nina patel': require('../assets/coach-nina-patel.jpg'),
-  'marcus johnson': require('../assets/coach-marcus-johnson.jpg'),
-  'emma larsson': require('../assets/coach-emma-larsson.jpg'),
-
-  // Networking Coaches
-  'derek thompson': require('../assets/coach-derek-thompson.jpg'),
-  'yuki yamamoto': require('../assets/coach-yuki-yamamoto.jpg'),
-  'sophia martinez': require('../assets/coach-sophia-martinez.jpg'),
-};
-
-// Get local avatar by persona name
-function getLocalAvatar(name: string): any | null {
-  const normalizedName = name.toLowerCase().trim();
-  return LOCAL_AVATARS[normalizedName] ?? null;
-}
 
 const MOCK_PERSONAS: PersonaDisplay[] = [
   {
     id: '1',
     name: 'Sarah Mitchell',
     tagline: 'The Steelman Builder',
-    avatarUrl: LOCAL_AVATARS['sarah mitchell'],
+    avatarUrl: resolvePersonaAvatar('Sarah Mitchell'),
     avatarThumbnailUrl: null,
     challengeStyle: 'steelman',
     specialtyAreas: ['business decisions', 'practical ethics', 'strategy'],
@@ -91,7 +30,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '2',
     name: 'Marcus Webb',
     tagline: "The Devil's Advocate",
-    avatarUrl: LOCAL_AVATARS['marcus webb'],
+    avatarUrl: resolvePersonaAvatar('Marcus Webb'),
     avatarThumbnailUrl: null,
     challengeStyle: 'devils_advocate',
     specialtyAreas: ['politics', 'ethics', 'social issues'],
@@ -108,7 +47,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '3',
     name: "Father Thomas O'Brien",
     tagline: 'The Moral Excavator',
-    avatarUrl: LOCAL_AVATARS["father thomas o'brien"],
+    avatarUrl: resolvePersonaAvatar("Father Thomas O'Brien"),
     avatarThumbnailUrl: null,
     challengeStyle: 'socratic',
     specialtyAreas: ['ethics', 'meaning', 'moral foundations'],
@@ -125,7 +64,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '4',
     name: 'Dr. Raj Patel',
     tagline: 'The Assumption Hunter',
-    avatarUrl: LOCAL_AVATARS['dr. raj patel'],
+    avatarUrl: resolvePersonaAvatar('Dr. Raj Patel'),
     avatarThumbnailUrl: null,
     challengeStyle: 'socratic',
     specialtyAreas: ['science', 'medicine', 'epistemology'],
@@ -142,7 +81,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '5',
     name: 'Kofi Asante',
     tagline: 'The Perspective Shifter',
-    avatarUrl: LOCAL_AVATARS['kofi asante'],
+    avatarUrl: resolvePersonaAvatar('Kofi Asante'),
     avatarThumbnailUrl: null,
     challengeStyle: 'perspective_shifter',
     specialtyAreas: ['cultural assumptions', 'globalisation', 'identity'],
@@ -159,7 +98,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '6',
     name: 'Professor Elena Volkov',
     tagline: 'The Logical Surgeon',
-    avatarUrl: LOCAL_AVATARS['professor elena volkov'],
+    avatarUrl: resolvePersonaAvatar('Professor Elena Volkov'),
     avatarThumbnailUrl: null,
     challengeStyle: 'logical_surgeon',
     specialtyAreas: ['logic', 'fallacies', 'scientific reasoning'],
@@ -176,7 +115,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '7',
     name: 'Dr. Maya Chen',
     tagline: 'The Empathetic Challenger',
-    avatarUrl: LOCAL_AVATARS['dr. maya chen'],
+    avatarUrl: resolvePersonaAvatar('Dr. Maya Chen'),
     avatarThumbnailUrl: null,
     challengeStyle: 'empathetic_probe',
     specialtyAreas: ['personal beliefs', 'relationships', 'self-perception'],
@@ -193,7 +132,7 @@ const MOCK_PERSONAS: PersonaDisplay[] = [
     id: '8',
     name: 'Yuki Tanaka',
     tagline: 'The Uncomfortable Truth',
-    avatarUrl: LOCAL_AVATARS['yuki tanaka'],
+    avatarUrl: resolvePersonaAvatar('Yuki Tanaka'),
     avatarThumbnailUrl: null,
     challengeStyle: 'devils_advocate',
     specialtyAreas: ['gender dynamics', 'generational issues', 'tech ethics'],
@@ -223,15 +162,12 @@ interface PersonaState {
 }
 
 function transformPersona(persona: Persona): PersonaDisplay {
-  // Use local avatar if available, otherwise fall back to database URL
-  const localAvatar = getLocalAvatar(persona.name);
-
   return {
     id: persona.id,
     name: persona.name,
     tagline: persona.tagline,
-    avatarUrl: localAvatar ?? persona.avatar_url,
-    avatarThumbnailUrl: persona.avatar_thumbnail_url,
+    avatarUrl: resolvePersonaAvatar(persona.name),
+    avatarThumbnailUrl: null,
     challengeStyle: persona.challenge_style as ChallengeStyle,
     specialtyAreas: persona.specialty_areas ?? [],
     culturalBackground: persona.cultural_background,
