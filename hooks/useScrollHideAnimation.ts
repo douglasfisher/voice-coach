@@ -75,13 +75,8 @@ export function useScrollHideAnimation(headerHeight: number) {
     transform: [{ translateY: progress.value * -headerHeight }],
   }));
 
-  const contentAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: progress.value * -headerHeight }],
-  }));
-
   return {
     scrollHandler,
     headerAnimatedStyle,
-    contentAnimatedStyle,
   };
 }
