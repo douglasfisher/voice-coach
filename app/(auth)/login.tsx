@@ -17,8 +17,8 @@ import { Brain, Mail, Lock, AlertCircle, Sparkles } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(__DEV__ ? 'douglas.fisher@icloud.com' : '');
+  const [password, setPassword] = useState(__DEV__ ? 'ruweb9js-s$gfdjd128-qwwimvca9' : '');
   const [error, setError] = useState('');
 
   const { signInWithEmail, signInWithApple, isLoading } = useAuthStore();
