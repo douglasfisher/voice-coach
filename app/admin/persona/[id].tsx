@@ -28,6 +28,7 @@ import {
   Plus,
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
+import { useTraits } from '../../../hooks/useTraits';
 import { Persona } from '../../../types/database';
 import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
@@ -236,7 +237,14 @@ export default function AdminPersonaEditScreen() {
     updatePersona,
     deletePersona,
     clearSelectedPersona,
+    personaTraitDefaults,
+    fetchPersonaTraitDefaults,
+    updatePersonaTraitDefault,
   } = useAdminPersonaStore();
+
+  // All trait categories + options for the defaults selector
+  const personaType = !isNew && selectedPersona?.persona_type as 'coach' | 'challenger' | undefined;
+  const { categories: allTraitCategories, options: allTraitOptions } = useTraits(personaType || undefined);
 
   const [form, setForm] = useState<PersonaFormData>({
     name: '',
@@ -293,6 +301,7 @@ export default function AdminPersonaEditScreen() {
   useEffect(() => {
     if (!isNew && id) {
       fetchPersona(id);
+      fetchPersonaTraitDefaults(id);
     }
     return () => clearSelectedPersona();
   }, [id, isNew]);
@@ -701,6 +710,94 @@ export default function AdminPersonaEditScreen() {
                 Insert Missing Tokens ({missingTokens.length})
               </Text>
             </Pressable>
+          )}
+
+          {/* Trait Defaults Section */}
+          {!isNew && allTraitCategories.length > 0 && (
+            <>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.5)',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  letterSpacing: 1,
+                  marginTop: 8,
+                  marginBottom: 12,
+                }}
+              >
+                TRAIT DEFAULTS
+              </Text>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.35)',
+                  fontSize: 12,
+                  marginBottom: 14,
+                }}
+              >
+                Set the default trait for each category. User selections override these at chat time.
+              </Text>
+              {allTraitCategories.map((cat) => {
+                const currentDefault = personaTraitDefaults.find(
+                  (d) => d.categorySlug === cat.slug
+                );
+                const options = allTraitOptions[cat.slug] || [];
+                return (
+                  <View key={cat.id} style={{ marginBottom: 14 }}>
+                    <Text
+                      style={{
+                        color: 'rgba(255,255,255,0.6)',
+                        fontSize: 13,
+                        fontWeight: '500',
+                        marginBottom: 8,
+                      }}
+                    >
+                      {cat.name}
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 6 }}
+                    >
+                      {options.map((opt) => {
+                        const isSelected = currentDefault?.optionId === opt.id;
+                        return (
+                          <Pressable
+                            key={opt.id}
+                            onPress={() => {
+                              if (!isSelected && id) {
+                                updatePersonaTraitDefault(id, opt.id);
+                              }
+                            }}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 7,
+                              borderRadius: 8,
+                              backgroundColor: isSelected
+                                ? 'rgba(245, 158, 11, 0.15)'
+                                : 'rgba(255,255,255,0.05)',
+                              borderWidth: 1,
+                              borderColor: isSelected
+                                ? 'rgba(245, 158, 11, 0.4)'
+                                : 'rgba(255,255,255,0.08)',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: isSelected ? '#F59E0B' : 'rgba(255,255,255,0.6)',
+                                fontSize: 12,
+                                fontWeight: isSelected ? '600' : '400',
+                              }}
+                            >
+                              {opt.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                );
+              })}
+            </>
           )}
 
           <FormInput

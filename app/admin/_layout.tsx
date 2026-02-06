@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   DollarSign,
   Coins,
+  Sliders,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -48,6 +49,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     usage: <BarChart3 size={size} color={color} />,
     costs: <DollarSign size={size} color={color} />,
     pricing: <Coins size={size} color={color} />,
+    traits: <Sliders size={size} color={color} />,
     settings: <Settings size={size} color={color} />,
   };
 
@@ -151,6 +153,14 @@ export default function AdminLayout() {
           title: 'Pricing',
           headerTitle: 'Model Pricing',
           tabBarIcon: ({ focused }) => <TabIcon name="pricing" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="traits"
+        options={{
+          title: 'Traits',
+          headerTitle: 'Trait Manager',
+          tabBarIcon: ({ focused }) => <TabIcon name="traits" focused={focused} />,
         }}
       />
       <Tabs.Screen

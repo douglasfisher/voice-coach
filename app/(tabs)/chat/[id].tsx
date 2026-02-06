@@ -143,7 +143,7 @@ export default function ChatScreen() {
 
   // Trait system
   const personaType = persona?.personaType as 'coach' | 'challenger' | undefined;
-  const { categories: traitCategories, options: traitOptions } = useTraits(personaType);
+  const { categories: traitCategories, options: traitOptions } = useTraits(personaType, true);
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
 

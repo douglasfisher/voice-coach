@@ -210,6 +210,7 @@ export interface TraitCategory {
   description: string | null;
   appliesTo: string[];
   sortOrder: number;
+  userVisible: boolean;
 }
 
 export interface TraitOption {
