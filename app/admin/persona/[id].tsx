@@ -25,6 +25,7 @@ import {
   Save,
   Trash2,
   ChevronDown,
+  Plus,
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
 import { Persona } from '../../../types/database';
@@ -49,6 +50,17 @@ const VOICE_PROVIDERS = [
   { value: 'elevenlabs', label: 'ElevenLabs' },
   { value: 'playht', label: 'PlayHT' },
   { value: 'azure', label: 'Azure' },
+];
+
+const TRAIT_TOKENS = [
+  'character_demeanor',
+  'conversation_register',
+  'response_length',
+  'response_depth',
+  'humor_style',
+  'challenge_intensity',
+  'emotional_attunement',
+  'directness',
 ];
 
 interface FormInputProps {
@@ -322,16 +334,7 @@ export default function AdminPersonaEditScreen() {
     }
   }, [selectedPersona, isNew]);
 
-  const handleSave = async () => {
-    if (!form.name.trim()) {
-      Alert.alert('Error', 'Name is required');
-      return;
-    }
-    if (!form.system_prompt.trim()) {
-      Alert.alert('Error', 'System prompt is required');
-      return;
-    }
-
+  const doSave = async () => {
     if (isNew) {
       const { error } = await createPersona(form);
       if (!error) {
@@ -347,6 +350,35 @@ export default function AdminPersonaEditScreen() {
         Alert.alert('Error', error.message);
       }
     }
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      Alert.alert('Error', 'Name is required');
+      return;
+    }
+    if (!form.system_prompt.trim()) {
+      Alert.alert('Error', 'System prompt is required');
+      return;
+    }
+
+    const missing = TRAIT_TOKENS.filter(
+      (t) => !form.system_prompt.includes(`{{${t}}}`)
+    );
+
+    if (missing.length > 0) {
+      Alert.alert(
+        'Missing Trait Tokens',
+        `The system prompt is missing these tokens:\n\n${missing.map((t) => `{{${t}}}`).join('\n')}\n\nTraits using these tokens won't affect this persona.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Save Anyway', onPress: doSave },
+        ]
+      );
+      return;
+    }
+
+    await doSave();
   };
 
   const handleDelete = () => {
@@ -373,6 +405,16 @@ export default function AdminPersonaEditScreen() {
 
   const updateForm = <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const missingTokens = TRAIT_TOKENS.filter(
+    (t) => !form.system_prompt.includes(`{{${t}}}`)
+  );
+
+  const handleInsertMissingTokens = () => {
+    if (missingTokens.length === 0) return;
+    const tokensBlock = missingTokens.map((t) => `{{${t}}}`).join('\n');
+    updateForm('system_prompt', form.system_prompt.trimEnd() + '\n\n' + tokensBlock);
   };
 
   if (isLoading && !isNew) {
@@ -594,11 +636,68 @@ export default function AdminPersonaEditScreen() {
               fontWeight: '600',
               letterSpacing: 1,
               marginTop: 8,
-              marginBottom: 16,
+              marginBottom: 12,
             }}
           >
             SYSTEM PROMPT
           </Text>
+
+          {/* Trait Token Status Badges */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            {TRAIT_TOKENS.map((token) => {
+              const present = form.system_prompt.includes(`{{${token}}}`);
+              return (
+                <View
+                  key={token}
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 6,
+                    backgroundColor: present
+                      ? 'rgba(74, 222, 128, 0.12)'
+                      : 'rgba(239, 68, 68, 0.12)',
+                    borderWidth: 1,
+                    borderColor: present
+                      ? 'rgba(74, 222, 128, 0.3)'
+                      : 'rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '600',
+                      color: present ? '#4ade80' : '#ef4444',
+                    }}
+                  >
+                    {`{{${token}}}`}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {missingTokens.length > 0 && (
+            <Pressable
+              onPress={handleInsertMissingTokens}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                alignSelf: 'flex-start',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(245, 158, 11, 0.25)',
+                marginBottom: 12,
+              }}
+            >
+              <Plus size={14} color="#F59E0B" />
+              <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
+                Insert Missing Tokens ({missingTokens.length})
+              </Text>
+            </Pressable>
+          )}
 
           <FormInput
             label="System Prompt"
