@@ -13,7 +13,7 @@ import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 
-const HEADER_HEIGHT = 120;
+const HEADER_HEIGHT = 110;
 
 const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: '#F59E0B' },
@@ -29,7 +29,7 @@ export default function PersonasScreen() {
   const { personas, isLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation } = useChatStore();
-  const { scrollHandler, headerAnimatedStyle, contentAnimatedStyle } = useScrollHideAnimation(HEADER_HEIGHT);
+  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(HEADER_HEIGHT);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -70,13 +70,26 @@ export default function PersonasScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg-primary">
-      {/* Animated Header + Filter Pills */}
-      <Animated.View style={headerAnimatedStyle}>
+      {/* Floating header — absolute so ScrollView fills the whole screen */}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            backgroundColor: '#0F0F12',
+            paddingTop: 54,
+          },
+          headerAnimatedStyle,
+        ]}
+      >
         {/* Header */}
-        <View className="px-4 pt-4 pb-2">
-          <View className="flex-row items-center justify-between">
+        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
-              <View className="flex-row items-center">
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Sparkles size={24} color="#F59E0B" />
                 <Text className="text-text-primary text-2xl font-bold ml-2">
                   Challengers
@@ -90,7 +103,7 @@ export default function PersonasScreen() {
         </View>
 
         {/* Filter Pills */}
-        <View className="py-3">
+        <View style={{ paddingVertical: 12 }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -133,12 +146,11 @@ export default function PersonasScreen() {
         </View>
       ) : (
         <Animated.ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingTop: HEADER_HEIGHT, paddingHorizontal: 16, paddingBottom: 16 }}
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
-          style={contentAnimatedStyle}
         >
           {/* Featured Persona */}
           {featuredPersona && (

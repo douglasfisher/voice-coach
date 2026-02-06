@@ -48,7 +48,7 @@ export default function TabsLayout() {
             fontSize: 12,
             fontWeight: '500',
           },
-          sceneStyle: { paddingBottom: 85 },
+          sceneStyle: { paddingBottom: 85, backgroundColor: '#0F0F12' },
         }}
         tabBar={(props) => <AnimatedTabBar {...props} />}
       >
