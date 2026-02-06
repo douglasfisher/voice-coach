@@ -812,6 +812,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [],
       coachingOptions: null,
       currentPhase: 'roleplay',
+      selectedTraits: {},
     });
   },
 
