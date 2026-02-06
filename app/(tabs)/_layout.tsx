@@ -64,6 +64,7 @@ export default function TabsLayout() {
           options={{
             title: 'Challengers',
             tabBarIcon: ({ focused }) => <TabIcon name="personas" focused={focused} />,
+            sceneStyle: { paddingBottom: 0, backgroundColor: '#0F0F12' },
           }}
         />
         <Tabs.Screen
@@ -72,6 +73,7 @@ export default function TabsLayout() {
             title: 'Coaches',
             tabBarIcon: ({ focused }) => <TabIcon name="coaches" focused={focused} />,
             tabBarActiveTintColor: '#10b981',
+            sceneStyle: { paddingBottom: 0, backgroundColor: '#0F0F12' },
           }}
         />
         <Tabs.Screen

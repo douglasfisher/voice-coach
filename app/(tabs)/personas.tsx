@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
 import Animated from 'react-native-reanimated';
@@ -13,7 +13,8 @@ import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 
-const HEADER_HEIGHT = 110;
+// Height of header content (title + subtitle + filter pills) without safe area
+const HEADER_CONTENT_HEIGHT = 110;
 
 const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: '#F59E0B' },
@@ -26,10 +27,13 @@ const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string
 ];
 
 export default function PersonasScreen() {
+  const insets = useSafeAreaInsets();
+  const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
+
   const { personas, isLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation } = useChatStore();
-  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(HEADER_HEIGHT);
+  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -69,8 +73,8 @@ export default function PersonasScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-primary">
-      {/* Floating header — absolute so ScrollView fills the whole screen */}
+    <View style={{ flex: 1, backgroundColor: '#0F0F12' }}>
+      {/* Floating header — slides fully off screen including safe area */}
       <Animated.View
         style={[
           {
@@ -80,7 +84,7 @@ export default function PersonasScreen() {
             right: 0,
             zIndex: 10,
             backgroundColor: '#0F0F12',
-            paddingTop: 54,
+            paddingTop: insets.top,
           },
           headerAnimatedStyle,
         ]}
@@ -141,13 +145,17 @@ export default function PersonasScreen() {
       </Animated.View>
 
       {isLoading ? (
-        <View className="flex-1 items-center justify-center">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#F59E0B" />
         </View>
       ) : (
         <Animated.ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingTop: HEADER_HEIGHT, paddingHorizontal: 16, paddingBottom: 16 }}
+          contentContainerStyle={{
+            paddingTop: headerHeight,
+            paddingHorizontal: 16,
+            paddingBottom: 100,
+          }}
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
@@ -216,6 +224,6 @@ export default function PersonasScreen() {
           </LinearGradient>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

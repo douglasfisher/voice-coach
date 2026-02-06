@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GraduationCap } from 'lucide-react-native';
 import Animated from 'react-native-reanimated';
@@ -15,7 +15,8 @@ import { ModeToggle } from '../../components/chat/ModeToggle';
 import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
 
-const HEADER_HEIGHT = 120;
+// Height of header content (title + subtitle + filter pills) without safe area
+const HEADER_CONTENT_HEIGHT = 120;
 
 interface CoachingDomain {
   id: string;
@@ -28,10 +29,13 @@ interface CoachingDomain {
 }
 
 export default function CoachesScreen() {
+  const insets = useSafeAreaInsets();
+  const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
+
   const { personas, isLoading: personasLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation, globalInteractionMode, setGlobalInteractionMode } = useChatStore();
-  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(HEADER_HEIGHT);
+  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -109,8 +113,8 @@ export default function CoachesScreen() {
   const isLoading = personasLoading || domainsLoading;
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-primary">
-      {/* Floating header — absolute so ScrollView fills the whole screen */}
+    <View style={{ flex: 1, backgroundColor: '#0F0F12' }}>
+      {/* Floating header — slides fully off screen including safe area */}
       <Animated.View
         style={[
           {
@@ -120,7 +124,7 @@ export default function CoachesScreen() {
             right: 0,
             zIndex: 10,
             backgroundColor: '#0F0F12',
-            paddingTop: 54,
+            paddingTop: insets.top,
           },
           headerAnimatedStyle,
         ]}
@@ -212,13 +216,17 @@ export default function CoachesScreen() {
       </Animated.View>
 
       {isLoading ? (
-        <View className="flex-1 items-center justify-center">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#10b981" />
         </View>
       ) : (
         <Animated.ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingTop: HEADER_HEIGHT, paddingHorizontal: 16, paddingBottom: 16 }}
+          contentContainerStyle={{
+            paddingTop: headerHeight,
+            paddingHorizontal: 16,
+            paddingBottom: 100,
+          }}
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
@@ -287,6 +295,6 @@ export default function CoachesScreen() {
           </LinearGradient>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
