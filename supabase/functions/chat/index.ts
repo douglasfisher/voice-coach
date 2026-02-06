@@ -36,6 +36,7 @@ interface ChatRequest {
   scenarioVariant?: { name: string; context: string };
   requestQuickFeedback?: boolean;
   switchPhase?: 'roleplay' | 'feedback';
+  promptTokens?: Record<string, string>;
 }
 
 interface GroqMessage {
@@ -206,6 +207,7 @@ serve(async (req) => {
       scenarioVariant,
       requestQuickFeedback,
       switchPhase,
+      promptTokens,
     } = await req.json() as ChatRequest;
 
     // Handle challenge generation (doesn't require conversationId)
@@ -582,6 +584,7 @@ Generate a comprehensive session report.`;
       task: taskType,
       personaId,
       coaching: coachingContext,
+      promptTokens,
     });
 
     console.log('Chat config resolved:', {
@@ -739,6 +742,7 @@ Generate a comprehensive session report.`;
           task: 'coaching_feedback',
           personaId,
           coaching: { ...coachingContext, currentPhase: 'feedback' },
+          promptTokens,
         });
 
         const feedbackResponse = await callGroq([

@@ -89,6 +89,7 @@ export interface ConfigResolverOptions {
     max_completion_tokens: number;
   }>;
   coaching?: CoachingContext;
+  promptTokens?: Record<string, string>;
 }
 
 // =============================================================================
@@ -179,6 +180,15 @@ export async function resolveAIConfig(
     } else if (persona) {
       personaConfig = (persona.ai_config as Record<string, unknown>) || {};
       personaPrompt = persona.system_prompt || '';
+
+      // Replace prompt tokens (e.g., {{character_demeanor}} → trait text)
+      if (options.promptTokens) {
+        for (const [key, value] of Object.entries(options.promptTokens)) {
+          personaPrompt = personaPrompt.replaceAll(`{{${key}}}`, value || '');
+        }
+      }
+      // Clean up any unreplaced tokens (no trait selected = remove placeholder)
+      personaPrompt = personaPrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
       // Extract coaching-specific persona fields
       if (persona.persona_type === 'coach') {

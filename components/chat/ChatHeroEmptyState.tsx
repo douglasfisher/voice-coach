@@ -3,6 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap, HelpCircle } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 import { useChatStore } from '../../stores/chatStore';
+import { TraitCategory, TraitOption, TraitSelection } from '../../types/coaching';
+import { TraitPicker } from './TraitPicker';
 
 // Coaching style labels for coaches
 const COACHING_STYLE_LABELS: Record<string, string> = {
@@ -104,6 +106,11 @@ interface ChatHeroEmptyStateProps {
   onRefreshScenario: () => void;  // For Q&A mode
   onStartChat: () => void;
   isStarting?: boolean;
+  // Trait system
+  traitCategories?: TraitCategory[];
+  traitOptions?: Record<string, TraitOption[]>;
+  selectedTraits?: TraitSelection;
+  onTraitSelect?: (categorySlug: string, optionId: string, promptModifier: string) => void;
 }
 
 export function ChatHeroEmptyState({
@@ -119,6 +126,10 @@ export function ChatHeroEmptyState({
   onRefreshScenario,
   onStartChat,
   isStarting = false,
+  traitCategories,
+  traitOptions,
+  selectedTraits,
+  onTraitSelect,
 }: ChatHeroEmptyStateProps) {
   const { globalInteractionMode } = useChatStore();
   const isQAMode = globalInteractionMode === 'question';
@@ -215,6 +226,17 @@ export function ChatHeroEmptyState({
             </View>
           )}
         </View>
+
+        {/* Trait Picker */}
+        {traitCategories && traitCategories.length > 0 && traitOptions && selectedTraits && onTraitSelect && (
+          <TraitPicker
+            categories={traitCategories}
+            options={traitOptions}
+            selections={selectedTraits}
+            onSelect={onTraitSelect}
+            accentColor={accentColor}
+          />
+        )}
 
         {/* Q&A Mode: Show AI-generated or fallback scene */}
         {isQAMode && isCoach ? (

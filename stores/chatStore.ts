@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
-import { InteractionMode, SessionPhase, SituationVariant } from '../types/coaching';
+import { InteractionMode, SessionPhase, SituationVariant, TraitSelection } from '../types/coaching';
 
 interface SessionReport {
   tldr: string;
@@ -64,6 +64,9 @@ interface ChatState {
   // Global interaction mode preference (Practice vs Q&A)
   globalInteractionMode: 'practice' | 'question';
 
+  // Trait selections for prompt token system
+  selectedTraits: TraitSelection;
+
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
@@ -98,6 +101,9 @@ interface ChatState {
   setCoachingOptions: (options: CoachingSessionOptions | null) => void;
   // Global interaction mode
   setGlobalInteractionMode: (mode: 'practice' | 'question') => void;
+  // Trait actions
+  setTrait: (categorySlug: string, optionId: string, promptModifier: string) => void;
+  clearTraits: () => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
@@ -129,6 +135,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // Global interaction mode
   globalInteractionMode: 'practice',
+
+  // Trait selections
+  selectedTraits: {},
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
@@ -213,7 +222,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   createConversation: async (userId, personaId, topic, coachingOptions) => {
-    const { globalInteractionMode } = get();
+    const { globalInteractionMode, selectedTraits } = get();
     set({ isLoading: true, error: null });
     try {
       const insertData: Record<string, unknown> = {
@@ -252,6 +261,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         .single();
 
       if (error) throw error;
+
+      // Save trait selections to conversation_traits
+      const traitEntries = Object.values(selectedTraits);
+      if (traitEntries.length > 0) {
+        const traitRows = traitEntries.map(({ optionId }) => ({
+          conversation_id: data.id,
+          trait_option_id: optionId,
+        }));
+        await supabase.from('conversation_traits').insert(traitRows);
+      }
 
       set({
         activeConversation: data,
@@ -311,7 +330,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: async (content) => {
-    const { activeConversation, messages, coachingOptions, currentPhase } = get();
+    const { activeConversation, messages, coachingOptions, currentPhase, selectedTraits } = get();
     if (!activeConversation) return null;
 
     set({ isSending: true, error: null });
@@ -354,6 +373,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
 
+      // Add prompt tokens from trait selections
+      if (Object.keys(selectedTraits).length > 0) {
+        const promptTokens: Record<string, string> = {};
+        for (const [slug, selection] of Object.entries(selectedTraits)) {
+          promptTokens[slug] = selection.promptModifier;
+        }
+        requestBody.promptTokens = promptTokens;
+      }
+
       // Call Edge Function for AI response
       const { data, error } = await supabase.functions.invoke('chat', {
         body: requestBody,
@@ -376,7 +404,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   startChat: async () => {
-    const { activeConversation, coachingOptions } = get();
+    const { activeConversation, coachingOptions, selectedTraits } = get();
     if (!activeConversation) return false;
 
     console.log('Starting chat with:', {
@@ -409,6 +437,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (coachingOptions.scenarioVariant) {
           requestBody.scenarioVariant = coachingOptions.scenarioVariant;
         }
+      }
+
+      // Add prompt tokens from trait selections
+      if (Object.keys(selectedTraits).length > 0) {
+        const promptTokens: Record<string, string> = {};
+        for (const [slug, selection] of Object.entries(selectedTraits)) {
+          promptTokens[slug] = selection.promptModifier;
+        }
+        requestBody.promptTokens = promptTokens;
       }
 
       const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
@@ -780,7 +817,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // Coaching-specific actions
   switchPhase: async (phase) => {
-    const { activeConversation, coachingOptions } = get();
+    const { activeConversation, coachingOptions, selectedTraits } = get();
     if (!activeConversation) return null;
 
     set({ isSending: true, error: null, currentPhase: phase });
@@ -801,6 +838,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (coachingOptions.scenarioVariant) {
           requestBody.scenarioVariant = coachingOptions.scenarioVariant;
         }
+      }
+
+      // Add prompt tokens from trait selections
+      if (Object.keys(selectedTraits).length > 0) {
+        const promptTokens: Record<string, string> = {};
+        for (const [slug, selection] of Object.entries(selectedTraits)) {
+          promptTokens[slug] = selection.promptModifier;
+        }
+        requestBody.promptTokens = promptTokens;
       }
 
       const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
@@ -836,7 +882,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   requestQuickFeedback: async () => {
-    const { activeConversation, coachingOptions } = get();
+    const { activeConversation, coachingOptions, selectedTraits } = get();
     if (!activeConversation) return null;
 
     set({ isSending: true, error: null });
@@ -852,6 +898,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (coachingOptions?.scenarioId) {
         requestBody.scenarioId = coachingOptions.scenarioId;
+      }
+
+      // Add prompt tokens from trait selections
+      if (Object.keys(selectedTraits).length > 0) {
+        const promptTokens: Record<string, string> = {};
+        for (const [slug, selection] of Object.entries(selectedTraits)) {
+          promptTokens[slug] = selection.promptModifier;
+        }
+        requestBody.promptTokens = promptTokens;
       }
 
       const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
@@ -890,6 +945,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setGlobalInteractionMode: (mode) => {
     set({ globalInteractionMode: mode });
+  },
+
+  setTrait: (categorySlug, optionId, promptModifier) => {
+    const { selectedTraits } = get();
+    set({
+      selectedTraits: {
+        ...selectedTraits,
+        [categorySlug]: { optionId, promptModifier },
+      },
+    });
+  },
+
+  clearTraits: () => {
+    set({ selectedTraits: {} });
   },
 
   fetchDailyChallenge: async (personas) => {

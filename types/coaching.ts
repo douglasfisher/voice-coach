@@ -198,3 +198,34 @@ export const DOMAIN_ICONS: Record<CoachingDomainSlug, string> = {
   difficult_conversations: 'MessageSquare',
   networking: 'Users',
 };
+
+// =============================================================================
+// TRAIT SYSTEM
+// =============================================================================
+
+export interface TraitCategory {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  appliesTo: string[];
+  sortOrder: number;
+}
+
+export interface TraitOption {
+  id: string;
+  categoryId: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  promptModifier: string;
+  isDefault: boolean;
+  sortOrder: number;
+}
+
+export interface TraitSelection {
+  [categorySlug: string]: {
+    optionId: string;
+    promptModifier: string;
+  };
+}

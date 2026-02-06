@@ -29,6 +29,7 @@ import {
 import { useConversation } from '../../../hooks/useConversation';
 import { useTTS } from '../../../hooks/useTTS';
 import { useVoiceInput } from '../../../hooks/useVoiceInput';
+import { useTraits } from '../../../hooks/useTraits';
 import { useAuthStore } from '../../../stores/authStore';
 import { useChatStore } from '../../../stores/chatStore';
 import {
@@ -135,8 +136,14 @@ export default function ChatScreen() {
     isGeneratingPreview,
     isGeneratingReport,
     globalInteractionMode,
+    selectedTraits,
+    setTrait,
   } = useChatStore();
   const chatStarted = messages.length > 0;
+
+  // Trait system
+  const personaType = persona?.personaType as 'coach' | 'challenger' | undefined;
+  const { categories: traitCategories, options: traitOptions } = useTraits(personaType);
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
 
@@ -462,6 +469,10 @@ export default function ChatScreen() {
             onRefreshScenario={handleRefreshScenario}
             onStartChat={handleStartChat}
             isStarting={isStartingChat}
+            traitCategories={traitCategories}
+            traitOptions={traitOptions}
+            selectedTraits={selectedTraits}
+            onTraitSelect={setTrait}
           />
         )}
 
