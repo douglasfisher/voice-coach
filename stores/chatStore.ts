@@ -168,6 +168,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (error) throw error;
       set({ activeConversation: data });
+
+      // Load saved trait selections for this conversation
+      const { data: savedTraits } = await supabase
+        .from('conversation_traits')
+        .select('trait_option_id, trait_options(category_id, slug, prompt_modifier, trait_categories(slug))')
+        .eq('conversation_id', id);
+
+      if (savedTraits && savedTraits.length > 0) {
+        const restoredTraits: TraitSelection = {};
+        for (const row of savedTraits as any[]) {
+          const opt = row.trait_options;
+          const catSlug = opt.trait_categories.slug;
+          restoredTraits[catSlug] = {
+            optionId: row.trait_option_id,
+            promptModifier: opt.prompt_modifier,
+          };
+        }
+        set({ selectedTraits: restoredTraits });
+      } else {
+        set({ selectedTraits: {} });
+      }
+
       await get().fetchMessages(id);
     } catch (error) {
       set({ error: (error as Error).message });
