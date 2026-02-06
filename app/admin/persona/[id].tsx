@@ -61,6 +61,10 @@ const TRAIT_TOKENS = [
   'challenge_intensity',
   'emotional_attunement',
   'directness',
+  'topic_flexibility',
+  'question_frequency',
+  'energy_mirroring',
+  'coaching_method',
 ];
 
 interface FormInputProps {
