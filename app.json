@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dialectica.app",
       "usesAppleSignIn": true,
-      "buildNumber": "7",
+      "buildNumber": "8",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSSpeechRecognitionUsageDescription": "Allow Dialectica to use speech recognition.",
