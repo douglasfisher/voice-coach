@@ -75,23 +75,35 @@ export const useAdminTraitStore = create<AdminTraitState>((set, get) => ({
   },
 
   toggleUserVisible: async (categoryId: string, visible: boolean) => {
+    // Optimistic update so the switch toggles immediately
+    const prevCategories = get().categories;
+    set({
+      categories: prevCategories.map((c) =>
+        c.id === categoryId ? { ...c, userVisible: visible } : c
+      ),
+      error: null,
+    });
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('trait_categories')
         .update({ user_visible: visible })
-        .eq('id', categoryId);
+        .eq('id', categoryId)
+        .select();
 
       if (error) throw error;
 
-      // Update local state
-      const { categories } = get();
-      set({
-        categories: categories.map((c) =>
-          c.id === categoryId ? { ...c, userVisible: visible } : c
-        ),
-      });
+      // If RLS silently blocked the update (0 rows returned), treat as error
+      if (!data || data.length === 0) {
+        throw new Error('Update failed — check admin permissions or RLS policies');
+      }
     } catch (error) {
-      set({ error: (error as Error).message });
+      console.error('Failed to toggle trait visibility:', error);
+      // Revert optimistic update
+      set({
+        categories: prevCategories,
+        error: (error as Error).message,
+      });
     }
   },
 }));

@@ -12,7 +12,7 @@ import { ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react-native';
 import { useAdminTraitStore } from '../../stores/adminTraitStore';
 
 export default function AdminTraitsScreen() {
-  const { categories, isLoading, fetchCategories, toggleUserVisible } =
+  const { categories, isLoading, error, fetchCategories, toggleUserVisible } =
     useAdminTraitStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -58,6 +58,22 @@ export default function AdminTraitsScreen() {
             Hidden traits use persona defaults in prompt generation. Toggle visibility to control which traits users can customize before a chat.
           </Text>
         </View>
+
+        {/* Error display */}
+        {error && (
+          <View
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              borderWidth: 1,
+              borderColor: 'rgba(239, 68, 68, 0.3)',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ color: '#ef4444', fontSize: 13 }}>{error}</Text>
+          </View>
+        )}
 
         {/* Categories */}
         {categories.map((cat) => {
