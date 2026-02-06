@@ -181,11 +181,32 @@ export async function resolveAIConfig(
       personaConfig = (persona.ai_config as Record<string, unknown>) || {};
       personaPrompt = persona.system_prompt || '';
 
-      // Replace prompt tokens (e.g., {{character_demeanor}} → trait text)
+      // Load persona trait defaults for any categories not overridden by user
+      const mergedTokens: Record<string, string> = {};
+      const { data: personaDefaults } = await supabase
+        .from('persona_trait_defaults')
+        .select('trait_options(prompt_modifier, trait_categories(slug))')
+        .eq('persona_id', personaId);
+
+      if (personaDefaults) {
+        for (const row of personaDefaults as any[]) {
+          const catSlug = row.trait_options?.trait_categories?.slug;
+          if (catSlug) {
+            mergedTokens[catSlug] = row.trait_options.prompt_modifier || '';
+          }
+        }
+      }
+
+      // User selections override persona defaults
       if (options.promptTokens) {
         for (const [key, value] of Object.entries(options.promptTokens)) {
-          personaPrompt = personaPrompt.replaceAll(`{{${key}}}`, value || '');
+          mergedTokens[key] = value;
         }
+      }
+
+      // Replace prompt tokens (e.g., {{character_demeanor}} → trait text)
+      for (const [key, value] of Object.entries(mergedTokens)) {
+        personaPrompt = personaPrompt.replaceAll(`{{${key}}}`, value || '');
       }
       // Clean up any unreplaced tokens (no trait selected = remove placeholder)
       personaPrompt = personaPrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
