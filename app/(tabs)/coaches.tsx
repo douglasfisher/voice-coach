@@ -16,7 +16,7 @@ import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
 
 // Height of header content (title + subtitle + filter pills) without safe area
-const HEADER_CONTENT_HEIGHT = 120;
+const HEADER_CONTENT_HEIGHT = 135;
 
 interface CoachingDomain {
   id: string;
