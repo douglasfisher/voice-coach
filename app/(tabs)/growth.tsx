@@ -232,7 +232,7 @@ export default function GrowthScreen() {
         )}
 
         {/* Bottom padding for absolute tab bar */}
-        <View style={{ height: 100 }} />
+        <View style={{ height: 60 }} />
       </ScrollView>
     </SafeAreaView>
   );
