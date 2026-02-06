@@ -67,3 +67,24 @@ CREATE POLICY "persona_trait_defaults_admin_delete" ON persona_trait_defaults
   USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true)
   );
+
+-- 4. RPC FUNCTION (bypasses PostgREST schema cache for new columns)
+CREATE OR REPLACE FUNCTION toggle_trait_user_visible(
+  p_category_id UUID,
+  p_visible BOOLEAN
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Verify caller is admin
+  IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = true) THEN
+    RAISE EXCEPTION 'Unauthorized: admin access required';
+  END IF;
+
+  UPDATE trait_categories
+  SET user_visible = p_visible
+  WHERE id = p_category_id;
+END;
+$$;
