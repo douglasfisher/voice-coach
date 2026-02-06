@@ -5,7 +5,7 @@
   "scripts": {
     "start": "expo start --clear",
     "dev": "expo start --clear",
-    "dev:ios": "expo run:ios --device F5111379-952E-4D38-A9D1-1C58C32047E2",
+    "dev:ios": "xcrun simctl boot 6678A2E9-4B20-4390-B891-3A4A78CB8EB9 2>/dev/null; open -a Simulator --args -CurrentDeviceUDID 6678A2E9-4B20-4390-B891-3A4A78CB8EB9 && expo run:ios --device 6678A2E9-4B20-4390-B891-3A4A78CB8EB9",
     "dev:android": "expo start --android --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
