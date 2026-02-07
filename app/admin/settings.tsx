@@ -27,9 +27,13 @@ import {
   Bot,
   ChevronDown,
   RefreshCw,
+  RotateCcw,
 } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { useAdminStatsStore } from '../../stores/adminStatsStore';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
+import { useAuthStore } from '../../stores/authStore';
 import { AppSettingsMap } from '../../types/admin';
 import { supabase } from '../../lib/supabase';
 
@@ -139,7 +143,9 @@ export default function AdminSettingsScreen() {
   } = useAdminStatsStore();
 
   const { personas, fetchPersonas } = useAdminPersonaStore();
+  const { profile } = useAuthStore();
 
+  const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [localSettings, setLocalSettings] = useState<Partial<AppSettingsMap>>({});
   const [hasChanges, setHasChanges] = useState(false);
@@ -186,6 +192,47 @@ export default function AdminSettingsScreen() {
     } finally {
       setIsRefreshingModels(false);
     }
+  };
+
+  // Reset onboarding state for current user
+  const handleResetOnboarding = () => {
+    Alert.alert(
+      'Reset Onboarding',
+      'This will clear splash, carousel, and onboarding completion state. The app will reload to start onboarding from the beginning.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            setIsResettingOnboarding(true);
+            try {
+              // Clear AsyncStorage flags
+              await AsyncStorage.multiRemove([
+                '@dialectica/hasSeenSplash',
+                '@dialectica/hasSeenOnboarding',
+              ]);
+
+              // Reset database flag
+              if (profile?.id) {
+                await supabase
+                  .from('user_profiles')
+                  .update({ onboarding_completed: false })
+                  .eq('id', profile.id);
+              }
+
+              // Navigate to root to re-trigger onboarding checks
+              router.replace('/');
+            } catch (error) {
+              console.error('Failed to reset onboarding:', error);
+              Alert.alert('Error', 'Failed to reset onboarding. Try restarting the app manually.');
+            } finally {
+              setIsResettingOnboarding(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Build model options from database
@@ -271,6 +318,63 @@ export default function AdminSettingsScreen() {
           </View>
         ) : (
           <>
+            {/* Dev Tools */}
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+                marginBottom: 16,
+              }}
+            >
+              DEV TOOLS
+            </Text>
+
+            <View
+              style={{
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginBottom: 24,
+                borderWidth: 1,
+                borderColor: 'rgba(168, 85, 247, 0.2)',
+              }}
+            >
+              <LinearGradient
+                colors={['rgba(168, 85, 247, 0.08)', 'rgba(30, 30, 40, 0.9)']}
+                style={{ padding: 16 }}
+              >
+                <Pressable
+                  onPress={handleResetOnboarding}
+                  disabled={isResettingOnboarding}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 14,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(168, 85, 247, 0.2)',
+                    opacity: isResettingOnboarding ? 0.5 : 1,
+                  }}
+                >
+                  {isResettingOnboarding ? (
+                    <ActivityIndicator size="small" color="#a855f7" />
+                  ) : (
+                    <RotateCcw size={18} color="#a855f7" />
+                  )}
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                      Reset Onboarding
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                      Clear splash, carousel & profile state. App will reload.
+                    </Text>
+                  </View>
+                </Pressable>
+              </LinearGradient>
+            </View>
+
             {/* AI Settings */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <Text

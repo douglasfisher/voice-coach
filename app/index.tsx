@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../stores/authStore';
 
 // Set to false to require authentication
-const DEV_SKIP_AUTH = true;
+const DEV_SKIP_AUTH = false;
 // Set to true to skip onboarding screens in dev
 const DEV_SKIP_ONBOARDING = false;
 
