@@ -91,11 +91,13 @@ fi
 APP_INSTALLED=$(xcrun simctl listapps "$UDID" 2>/dev/null | grep -c "$APP_ID" || true)
 
 if [ "$APP_INSTALLED" -eq 0 ]; then
-  log "App not installed — building and launching dev client..."
-  exec npx expo run:ios --device "$UDID" --port "$PORT"
-else
-  log "App already installed — starting bundler..."
-  xcrun simctl spawn "$UDID" defaults write "$APP_ID" RCT_jsLocation localhost
-  xcrun simctl launch "$UDID" "$APP_ID"
-  exec npx expo start --dev-client --port "$PORT" --clear
+  log "App not installed — building..."
+  npx expo run:ios --device "$UDID" --no-bundler 2>&1 || true
 fi
+
+# ── Set bundler host and launch ────────────────────────────────
+log "Configuring bundler host and launching app..."
+xcrun simctl spawn "$UDID" defaults write "$APP_ID" RCT_jsLocation localhost
+xcrun simctl launch "$UDID" "$APP_ID"
+log "Starting Metro on port $PORT..."
+exec npx expo start --dev-client --port "$PORT" --clear
