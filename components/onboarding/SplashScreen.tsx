@@ -66,10 +66,10 @@ export function SplashScreen() {
       withSpring(0, SPRING_GENTLE),
     );
 
-    // 2400-2800ms: Fade out entire screen
+    // 3400-3800ms: Fade out entire screen
     screenOpacity.value = withDelay(
-      2400,
-      withTiming(0, { duration: 400, easing: EASE_ENTER }),
+      3400,
+      withTiming(0, { duration: 600, easing: EASE_ENTER }),
     );
 
     // Navigate after splash

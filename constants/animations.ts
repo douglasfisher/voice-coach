@@ -6,7 +6,7 @@ export const SPRING_BOUNCY = { damping: 12, stiffness: 120 };
 export const SPRING_STANDARD = { damping: 18, stiffness: 150 };
 
 // Durations
-export const DURATION_SPLASH = 2800;
+export const DURATION_SPLASH = 4000;
 export const STAGGER_GAP = 100;
 
 // Easing presets
