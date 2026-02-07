@@ -314,3 +314,16 @@ RULES:
   'Global fallback template for wrapping scenario prompts. Use {{scenario_prompt}} placeholder.'
 )
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+
+-- ============================================================================
+-- F. REDUCE SCENARIO max_completion_tokens (300 -> 120)
+-- 120 tokens ~ 2-3 sentences. 300 was letting the model ramble.
+-- ============================================================================
+
+UPDATE app_settings
+SET value = jsonb_set(
+  value::jsonb,
+  '{scenario,max_completion_tokens}',
+  '120'
+)
+WHERE key = 'ai_task_settings';
