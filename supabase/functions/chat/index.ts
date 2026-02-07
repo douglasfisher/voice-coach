@@ -133,47 +133,6 @@ function calculateTimingMetrics(
   };
 }
 
-const REPORT_SYSTEM_PROMPT = `You are an expert coach analyzing a dialectical conversation. Generate a comprehensive session report.
-
-IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanations.
-
-Output format:
-{
-  "tldr": "1-2 sentence summary of the conversation quality",
-  "strengths": ["strength 1", "strength 2", "strength 3"],
-  "weaknesses": ["area for improvement 1", "area for improvement 2", "area for improvement 3"],
-  "detailed_analysis": "2-3 paragraphs analyzing the user's reasoning, engagement, and growth opportunities",
-  "overall_score": 75,
-  "dimension_scores": {
-    "logical_reasoning": 80,
-    "bias_awareness": 70,
-    "perspective_taking": 75,
-    "emotional_regulation": 72
-  }
-}
-
-Dimension scoring (0-100 each):
-- logical_reasoning: Argument structure, valid inferences, evidence use, logical consistency
-- bias_awareness: Recognition of cognitive biases, fair consideration of evidence, avoiding fallacies
-- perspective_taking: Willingness to consider alternatives, intellectual humility, openness to challenge
-- emotional_regulation: Composure, non-defensive responses, constructive engagement under pressure
-
-Overall score = weighted average of dimension scores.
-
-Scoring guide (0-100):
-- 90-100: Exceptional critical thinking, nuanced arguments, intellectual humility
-- 75-89: Strong reasoning with minor gaps, good engagement
-- 60-74: Decent engagement but logical gaps or missed opportunities
-- 40-59: Surface-level thinking, defensive responses, or avoidance
-- Below 40: Minimal engagement or poor reasoning
-
-Focus on:
-- Logical consistency and soundness of arguments
-- Openness to new perspectives
-- Quality of questions asked
-- Evidence of intellectual growth during conversation
-- Recognition of complexity and nuance`;
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -219,19 +178,14 @@ serve(async (req) => {
         .eq('key', 'ai_challenge_prompt')
         .single();
 
-      const challengePrompt = challengeSettings?.value || `You are a generator of thought-provoking philosophical and ethical questions. Generate ONE unique, engaging question that will challenge someone's assumptions and spark deep thinking.
+      if (!challengeSettings?.value) {
+        return new Response(
+          JSON.stringify({ error: 'Challenge prompt not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanations.
-
-Output format:
-{"question": "Your thought-provoking question here?", "topic": "Brief topic label (2-3 words)"}
-
-Guidelines:
-- Questions should be open-ended, not yes/no
-- Focus on ethics, philosophy, psychology, society, or personal growth
-- Make it personally relevant - something people encounter in daily life
-- Avoid academic jargon - keep it accessible
-- The question should have no single "right" answer`;
+      const challengePrompt = challengeSettings.value;
 
       const config = await resolveAIConfig(supabase, {
         task: 'challenge',
@@ -281,10 +235,10 @@ Guidelines:
 
     // Handle scenario generation for Q&A mode (doesn't require conversationId)
     if (generateScenario) {
-      // Fetch persona's qa_scenario_prompt
+      // Fetch persona's qa_scenario_prompt and scene template
       const { data: persona, error: personaError } = await supabase
         .from('personas')
-        .select('qa_scenario_prompt')
+        .select('qa_scenario_prompt, qa_scene_template')
         .eq('id', personaId)
         .single();
 
@@ -292,25 +246,51 @@ Guidelines:
         console.error('Failed to fetch persona for scenario:', personaError);
       }
 
-      const scenarioPrompt = persona?.qa_scenario_prompt ||
+      let scenarioPrompt = persona?.qa_scenario_prompt ||
         'Generate a short scenario sentence to set the scene for a practice conversation.';
+
+      // Apply trait token replacement on qa_scenario_prompt (same pattern as ai-config-resolver)
+      // First load persona trait defaults for any categories not overridden by user
+      const mergedTokens: Record<string, string> = {};
+      const { data: personaDefaults } = await supabase
+        .from('persona_trait_defaults')
+        .select('trait_options(prompt_modifier, trait_categories(slug))')
+        .eq('persona_id', personaId);
+
+      if (personaDefaults) {
+        for (const row of personaDefaults as any[]) {
+          const catSlug = row.trait_options?.trait_categories?.slug;
+          if (catSlug) {
+            mergedTokens[catSlug] = row.trait_options.prompt_modifier || '';
+          }
+        }
+      }
+
+      // User selections override persona defaults
+      if (promptTokens) {
+        for (const [key, value] of Object.entries(promptTokens)) {
+          mergedTokens[key] = value;
+        }
+      }
+
+      // Replace tokens in scenario prompt
+      for (const [key, value] of Object.entries(mergedTokens)) {
+        scenarioPrompt = scenarioPrompt.replaceAll(`{{${key}}}`, value || '');
+      }
+      // Clean up unreplaced tokens
+      scenarioPrompt = scenarioPrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
       const scenarioConfig = await resolveAIConfig(supabase, {
         task: 'scenario',
         personaId,
       });
 
-      // Build extra context from promptTokens (traits + user preferences sent by client)
-      let extraContext = '';
-      if (promptTokens && Object.keys(promptTokens).length > 0) {
-        const parts: string[] = [];
-        for (const [_category, modifier] of Object.entries(promptTokens)) {
-          parts.push(modifier);
-        }
-        extraContext = `\nSTYLE GUIDANCE: ${parts.join('. ')}.`;
-      }
+      // Build system prompt from scene template (persona -> global -> minimal fallback)
+      const sceneTemplate = persona?.qa_scene_template
+        || scenarioConfig.scene_template
+        || 'You are a creative scenario writer.\n\n{{scenario_prompt}}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Second person present tense ("You...")\n- Be vivid, specific and immersive\n- Vary locations and details each time';
 
-      const systemPrompt = `You are a creative scenario writer.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Second person present tense ("You...")\n- Be vivid, specific and immersive\n- Vary locations and details each time${extraContext}`;
+      const systemPrompt = sceneTemplate.replace('{{scenario_prompt}}', scenarioPrompt);
 
       const scenarioResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
@@ -405,6 +385,13 @@ ${transcript}
 
 Generate a comprehensive session report.`;
 
+      if (!reportConfig.report_system_prompt) {
+        return new Response(
+          JSON.stringify({ error: 'Report prompt not configured in database' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const reportGroqResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -414,7 +401,7 @@ Generate a comprehensive session report.`;
         body: JSON.stringify({
           model: reportConfig.model,
           messages: [
-            { role: 'system', content: REPORT_SYSTEM_PROMPT },
+            { role: 'system', content: reportConfig.report_system_prompt },
             { role: 'user', content: reportUserPrompt },
           ],
           temperature: reportConfig.temperature,
@@ -825,7 +812,7 @@ Generate a comprehensive session report.`;
         content: m.content,
       }));
 
-      const quickFeedbackPrompt = getQuickFeedbackPrompt(feedbackStyle);
+      const quickFeedbackPrompt = getQuickFeedbackPrompt(feedbackStyle, config.coaching_prompts);
       const nextSequence = (messages?.length || 0) + 1;
 
       const feedbackResponse = await callGroq([

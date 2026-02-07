@@ -14,6 +14,7 @@ import {
   InteractionMode,
   FeedbackStyle,
   SessionPhase,
+  DBCoachingPrompts,
 } from './coaching-prompts.ts';
 
 // =============================================================================
@@ -61,6 +62,11 @@ export interface ResolvedAIConfig {
   // Prompts
   system_prompt: string;
   full_system_prompt: string; // system_prompt with modifiers prepended
+  report_system_prompt?: string; // DB-driven report prompt
+  scene_template?: string; // DB-driven global scene template fallback
+
+  // Coaching prompts from DB
+  coaching_prompts?: DBCoachingPrompts;
 
   // Response style
   response_style: AIResponseStyle;
@@ -140,6 +146,9 @@ export async function resolveAIConfig(
       'ai_task_settings',
       'ai_system_modifiers',
       'ai_response_style',
+      'ai_coaching_prompts',
+      'ai_report_prompt',
+      'ai_scene_template',
     ]);
 
   if (settingsError) {
@@ -159,6 +168,9 @@ export async function resolveAIConfig(
   const responseStyle = (settingsMap.get('ai_response_style') as AIResponseStyle) || FALLBACK_RESPONSE_STYLE;
   const systemModifiers = (settingsMap.get('ai_system_modifiers') as AISystemModifiers) || {};
   const defaultModel = (settingsMap.get('default_model') as string) || FALLBACK_MODEL;
+  const dbCoachingPrompts = settingsMap.get('ai_coaching_prompts') as DBCoachingPrompts | undefined;
+  const dbReportPrompt = settingsMap.get('ai_report_prompt') as string | undefined;
+  const dbSceneTemplate = settingsMap.get('ai_scene_template') as string | undefined;
 
   // 3. Fetch persona config if specified
   let personaConfig: Record<string, unknown> = {};
@@ -280,7 +292,7 @@ export async function resolveAIConfig(
       scenarioContext: coaching.scenarioContext || '',
       scenarioVariant: coaching.scenarioVariant,
       userGoal: coaching.userGoal,
-    });
+    }, dbCoachingPrompts);
   } else {
     // Standard prompt building for challengers
     const modifierText = buildSystemModifiers(systemModifiers, responseStyle);
@@ -298,6 +310,9 @@ export async function resolveAIConfig(
     stop: personaConfig.stop as string[] | undefined,
     system_prompt: personaPrompt,
     full_system_prompt: fullSystemPrompt,
+    report_system_prompt: dbReportPrompt,
+    scene_template: dbSceneTemplate,
+    coaching_prompts: dbCoachingPrompts,
     response_style: responseStyle,
     cost_per_million_input: costConfig.input,
     cost_per_million_output: costConfig.output,

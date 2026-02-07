@@ -471,18 +471,12 @@ export const useChatStore = create<ChatState>()(
 
     set({ isSending: true, error: null });
     try {
-      // Use direct fetch to avoid Supabase client auto-attaching potentially invalid JWT
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      // Build request body with coaching options
       const requestBody: Record<string, unknown> = {
         conversationId: activeConversation.id,
         personaId: activeConversation.persona_id,
         generateGreeting: true,
       };
 
-      // Add coaching fields if this is a coaching session
       if (coachingOptions) {
         if (coachingOptions.scenarioId) {
           requestBody.scenarioId = coachingOptions.scenarioId;
@@ -495,7 +489,6 @@ export const useChatStore = create<ChatState>()(
         }
       }
 
-      // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
         const promptTokens: Record<string, string> = {};
         for (const [slug, selection] of Object.entries(selectedTraits)) {
@@ -504,23 +497,11 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = promptTokens;
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify(requestBody),
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: requestBody,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Start chat error:', response.status, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      if (error) throw error;
 
       // Refresh messages to show greeting/scene context
       await get().fetchMessages(activeConversation.id);
@@ -548,59 +529,30 @@ export const useChatStore = create<ChatState>()(
 
     set({ isGeneratingPreview: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      // Q&A mode: generate scenario via chat endpoint
       if (isQAMode) {
-        const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey || '',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
+        const { data, error } = await supabase.functions.invoke('chat', {
+          body: {
             personaId: activeConversation.persona_id,
             generateScenario: true,
             promptTokens: buildScenarioPromptTokens(selectedTraits),
-          }),
+          },
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Generate scenario error:', response.status, errorData);
-          throw new Error(errorData.error || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
+        if (error) throw error;
         set({
           previewScenario: data.scenario,
           scenarioRefreshCount: 0,
         });
       } else {
-        // Practice mode: generate question
-        const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey || '',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
+        const { data, error } = await supabase.functions.invoke('chat', {
+          body: {
             conversationId: activeConversation.id,
             personaId: activeConversation.persona_id,
             previewGreeting: true,
-          }),
+          },
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Generate preview error:', response.status, errorData);
-          throw new Error(errorData.error || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
+        if (error) throw error;
         set({
           previewQuestion: data.question,
           questionRefreshCount: 0,
@@ -626,30 +578,15 @@ export const useChatStore = create<ChatState>()(
 
     set({ isGeneratingPreview: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
           conversationId: activeConversation.id,
           personaId: activeConversation.persona_id,
           regenerateQuestion: true,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Regenerate question error:', response.status, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      if (error) throw error;
       set({
         previewQuestion: data.question,
         questionRefreshCount: questionRefreshCount + 1,
@@ -676,31 +613,15 @@ export const useChatStore = create<ChatState>()(
 
     set({ isGeneratingPreview: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      // Call chat endpoint to generate scenario
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
           personaId: activeConversation.persona_id,
           generateScenario: true,
           promptTokens: buildScenarioPromptTokens(selectedTraits),
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Regenerate scenario error:', response.status, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      if (error) throw error;
       set({
         previewScenario: data.scenario,
         scenarioRefreshCount: scenarioRefreshCount + 1,
@@ -791,25 +712,11 @@ export const useChatStore = create<ChatState>()(
   generateReport: async (conversationId: string) => {
     set({ isGeneratingReport: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({ conversationId, generateReport: true }),
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: { conversationId, generateReport: true },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      if (error) throw error;
       return data.report as SessionReport;
     } catch (error) {
       console.error('Generate report failed:', error);
@@ -881,9 +788,6 @@ export const useChatStore = create<ChatState>()(
 
     set({ isSending: true, error: null, currentPhase: phase });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
       const requestBody: Record<string, unknown> = {
         conversationId: activeConversation.id,
         personaId: activeConversation.persona_id,
@@ -899,7 +803,6 @@ export const useChatStore = create<ChatState>()(
         }
       }
 
-      // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
         const promptTokens: Record<string, string> = {};
         for (const [slug, selection] of Object.entries(selectedTraits)) {
@@ -908,24 +811,12 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = promptTokens;
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify(requestBody),
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: requestBody,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-
-      // Refresh messages if we got a feedback response
       if (data.response) {
         await get().fetchMessages(activeConversation.id);
       }
@@ -946,9 +837,6 @@ export const useChatStore = create<ChatState>()(
 
     set({ isSending: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
       const requestBody: Record<string, unknown> = {
         conversationId: activeConversation.id,
         personaId: activeConversation.persona_id,
@@ -959,7 +847,6 @@ export const useChatStore = create<ChatState>()(
         requestBody.scenarioId = coachingOptions.scenarioId;
       }
 
-      // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
         const promptTokens: Record<string, string> = {};
         for (const [slug, selection] of Object.entries(selectedTraits)) {
@@ -968,24 +855,12 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = promptTokens;
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify(requestBody),
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: requestBody,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-
-      // Refresh messages to show feedback
       await get().fetchMessages(activeConversation.id);
 
       return { response: data.response };
@@ -1044,37 +919,28 @@ export const useChatStore = create<ChatState>()(
 
     set({ isLoadingChallenge: true });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      // Pick a random persona for the challenge
       const randomPersona = personas[Math.floor(Math.random() * personas.length)];
 
       // Retry logic for edge function cold starts
-      let response: Response | null = null;
+      let data: { question: string; topic: string } | null = null;
       for (let attempt = 0; attempt < 2; attempt++) {
-        response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey || '',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
+        const result = await supabase.functions.invoke('chat', {
+          body: {
             personaId: randomPersona.id,
             generateChallenge: true,
-          }),
+          },
         });
 
-        if (response.ok) break;
+        if (!result.error) {
+          data = result.data;
+          break;
+        }
         if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
       }
 
-      if (!response?.ok) {
-        throw new Error(`HTTP ${response?.status}`);
+      if (!data) {
+        throw new Error('Challenge generation failed');
       }
-
-      const data = await response.json();
 
       set({
         dailyChallenge: {
@@ -1086,7 +952,15 @@ export const useChatStore = create<ChatState>()(
       });
     } catch (error) {
       console.error('Failed to fetch daily challenge:', error);
-      // Fallback - don't crash the app
+      // Client-side fallback so the home screen still shows a challenge
+      set({
+        dailyChallenge: {
+          question: "What belief do you hold that you've never seriously questioned?",
+          topic: 'Self-Reflection',
+          personaId: personas[0]?.id || '',
+          generatedAt: new Date().toISOString(),
+        },
+      });
     } finally {
       set({ isLoadingChallenge: false });
     }

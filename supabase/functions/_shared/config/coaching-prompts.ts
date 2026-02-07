@@ -25,6 +25,13 @@ export type FeedbackStyle = 'sandwich' | 'direct' | 'question_based' | 'observat
 
 export type SessionPhase = 'roleplay' | 'feedback';
 
+export interface DBCoachingPrompts {
+  coaching_styles?: Record<string, string>;
+  interaction_modes?: Record<string, string>;
+  feedback_styles?: Record<string, string>;
+  phases?: Record<string, string>;
+}
+
 export interface CoachingPromptContext {
   coachingStyle: CoachingStyle;
   interactionMode: InteractionMode;
@@ -195,25 +202,34 @@ const PHASE_PROMPTS: Record<SessionPhase, string> = {
  */
 export function buildCoachingPrompt(
   basePersonaPrompt: string,
-  context: CoachingPromptContext
+  context: CoachingPromptContext,
+  dbPrompts?: DBCoachingPrompts
 ): string {
   const parts: string[] = [];
 
   // 1. Base persona prompt
   parts.push(basePersonaPrompt);
 
-  // 2. Coaching style
-  parts.push(COACHING_STYLE_PROMPTS[context.coachingStyle]);
+  // 2. Coaching style (DB overrides hardcoded)
+  const stylePrompt = dbPrompts?.coaching_styles?.[context.coachingStyle]
+    ?? COACHING_STYLE_PROMPTS[context.coachingStyle];
+  parts.push(stylePrompt);
 
-  // 3. Interaction mode
-  parts.push(INTERACTION_MODE_PROMPTS[context.interactionMode]);
+  // 3. Interaction mode (DB overrides hardcoded)
+  const modePrompt = dbPrompts?.interaction_modes?.[context.interactionMode]
+    ?? INTERACTION_MODE_PROMPTS[context.interactionMode];
+  parts.push(modePrompt);
 
-  // 4. Current phase
-  parts.push(PHASE_PROMPTS[context.currentPhase]);
+  // 4. Current phase (DB overrides hardcoded)
+  const phasePrompt = dbPrompts?.phases?.[context.currentPhase]
+    ?? PHASE_PROMPTS[context.currentPhase];
+  parts.push(phasePrompt);
 
   // 5. Feedback style (only relevant in feedback phase, but include for context)
   if (context.currentPhase === 'feedback') {
-    parts.push(FEEDBACK_STYLE_PROMPTS[context.feedbackStyle]);
+    const feedbackPrompt = dbPrompts?.feedback_styles?.[context.feedbackStyle]
+      ?? FEEDBACK_STYLE_PROMPTS[context.feedbackStyle];
+    parts.push(feedbackPrompt);
   }
 
   // 6. Scenario context
@@ -303,9 +319,11 @@ export function generateSceneContext(
  * Generate a prompt for the "quick feedback" feature
  * Used when user requests mid-session feedback without ending roleplay
  */
-export function getQuickFeedbackPrompt(feedbackStyle: FeedbackStyle): string {
+export function getQuickFeedbackPrompt(feedbackStyle: FeedbackStyle, dbPrompts?: DBCoachingPrompts): string {
+  const feedbackPrompt = dbPrompts?.feedback_styles?.[feedbackStyle]
+    ?? FEEDBACK_STYLE_PROMPTS[feedbackStyle];
   return `The user has requested a quick coaching check-in. Briefly:
-${FEEDBACK_STYLE_PROMPTS[feedbackStyle]}
+${feedbackPrompt}
 
 Keep it to 2-3 sentences focused on their most recent exchange. Then ask if they want to continue practicing.`;
 }
