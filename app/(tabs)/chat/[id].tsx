@@ -220,8 +220,8 @@ export default function ChatScreen() {
 
     setIsStartingChat(true);
     try {
-      // If we have preview question, save it and start
-      if (previewQuestion) {
+      // If we have preview content (question for practice, scenario for Q&A), save and start
+      if (previewQuestion || previewScenario) {
         await startChatWithPreview();
       } else {
         // Fallback to original behavior
