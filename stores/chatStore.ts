@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
 import { InteractionMode, SessionPhase, SituationVariant, TraitSelection } from '../types/coaching';
 import { ChallengeStyle } from '../types/persona';
+import { useAuthStore } from './authStore';
 
 interface SessionReport {
   tldr: string;
@@ -545,6 +546,8 @@ export const useChatStore = create<ChatState>()(
           body: JSON.stringify({
             personaId: activeConversation.persona_id,
             generateScenario: true,
+            userGender: useAuthStore.getState().preferences?.user_gender || null,
+            interestedIn: useAuthStore.getState().preferences?.interested_in || null,
           }),
         });
 
@@ -671,6 +674,8 @@ export const useChatStore = create<ChatState>()(
         body: JSON.stringify({
           personaId: activeConversation.persona_id,
           generateScenario: true,
+          userGender: useAuthStore.getState().preferences?.user_gender || null,
+          interestedIn: useAuthStore.getState().preferences?.interested_in || null,
         }),
       });
 

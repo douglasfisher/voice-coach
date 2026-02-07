@@ -37,6 +37,8 @@ interface ChatRequest {
   requestQuickFeedback?: boolean;
   switchPhase?: 'roleplay' | 'feedback';
   promptTokens?: Record<string, string>;
+  userGender?: string | null;
+  interestedIn?: string | null;
 }
 
 interface GroqMessage {
@@ -208,6 +210,8 @@ serve(async (req) => {
       requestQuickFeedback,
       switchPhase,
       promptTokens,
+      userGender,
+      interestedIn,
     } = await req.json() as ChatRequest;
 
     // Handle challenge generation (doesn't require conversationId)
@@ -300,7 +304,15 @@ Guidelines:
         personaId,
       });
 
-      const systemPrompt = `You are a creative scenario writer.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- MAXIMUM 1 sentence, under 25 words\n- Second person present tense ("You...")\n- Set the scene briefly: who, where, what's happening\n- Be specific but extremely concise\n- Vary locations and details each time\n- Examples of good length: "You're at a rooftop bar and lock eyes with someone across the room." or "Your interviewer leans back and asks you to sell yourself in 30 seconds."`;
+      let preferenceContext = '';
+      if (userGender || interestedIn) {
+        const parts: string[] = [];
+        if (userGender) parts.push(`The user is ${userGender}`);
+        if (interestedIn) parts.push(`interested in ${interestedIn}`);
+        preferenceContext = `\nUSER CONTEXT: ${parts.join(', ')}. Use the appropriate gender pronouns for the person they encounter.`;
+      }
+
+      const systemPrompt = `You are a creative scenario writer.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Second person present tense ("You...")\n- Be vivid, specific and immersive\n- Vary locations and details each time${preferenceContext}`;
 
       const scenarioResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
@@ -315,7 +327,7 @@ Guidelines:
             { role: 'user', content: 'Generate a new scenario.' },
           ],
           temperature: scenarioConfig.temperature,
-          max_tokens: Math.min(scenarioConfig.max_completion_tokens, 60),
+          max_tokens: scenarioConfig.max_completion_tokens,
         }),
       });
 

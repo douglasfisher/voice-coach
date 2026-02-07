@@ -8,6 +8,7 @@ import { usePersonas } from '../../../hooks/usePersonas';
 import { useAuthStore } from '../../../stores/authStore';
 import { PersonaCard } from '../../../components/personas/PersonaCard';
 import { PersonaDisplay } from '../../../types/persona';
+import { supabase } from '../../../lib/supabase';
 
 export default function PickPersonasScreen() {
   const { personas, isLoading } = usePersonas();
@@ -30,7 +31,30 @@ export default function PickPersonasScreen() {
     if (selectedIds.length > 0) {
       await updatePreferences({ preferred_persona_ids: selectedIds });
     }
-    router.push('/(auth)/onboarding/preferences');
+
+    // Check if any selected persona is a dating coach
+    const selectedPersonas = personas.filter((p) => selectedIds.includes(p.id));
+    let hasDatingCoach = false;
+
+    if (selectedPersonas.some((p) => p.personaType === 'coach' && p.domainId)) {
+      const { data: datingDomain } = await supabase
+        .from('coaching_domains')
+        .select('id')
+        .eq('slug', 'dating')
+        .single();
+
+      if (datingDomain) {
+        hasDatingCoach = selectedPersonas.some(
+          (p) => p.personaType === 'coach' && p.domainId === datingDomain.id
+        );
+      }
+    }
+
+    if (hasDatingCoach) {
+      router.push('/(auth)/onboarding/dating-preferences');
+    } else {
+      router.push('/(auth)/onboarding/preferences');
+    }
   };
 
   return (

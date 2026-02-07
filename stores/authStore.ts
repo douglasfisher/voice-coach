@@ -40,6 +40,8 @@ const MOCK_PREFERENCES: UserPreferences = {
   preferred_persona_ids: null,
   avoided_topics: null,
   immersive_chat_enabled: true,
+  user_gender: null,
+  interested_in: null,
   updated_at: new Date().toISOString(),
 };
 

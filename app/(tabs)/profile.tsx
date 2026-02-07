@@ -19,6 +19,7 @@ import {
   Award,
   MessageSquare,
   Flame,
+  Heart,
   LayoutDashboard,
   Maximize2,
 } from 'lucide-react-native';
@@ -42,6 +43,12 @@ export default function ProfileScreen() {
   );
   const [immersiveChatEnabled, setImmersiveChatEnabled] = useState(
     preferences?.immersive_chat_enabled ?? true
+  );
+  const [userGender, setUserGender] = useState<string | null>(
+    preferences?.user_gender ?? null
+  );
+  const [interestedIn, setInterestedIn] = useState<string | null>(
+    preferences?.interested_in ?? null
   );
 
   // Check if voice input is available and has permission on mount
@@ -127,6 +134,16 @@ export default function ProfileScreen() {
   const toggleImmersiveChat = async (value: boolean) => {
     setImmersiveChatEnabled(value);
     await updatePreferences({ immersive_chat_enabled: value });
+  };
+
+  const selectUserGender = async (value: string | null) => {
+    setUserGender(value);
+    await updatePreferences({ user_gender: value });
+  };
+
+  const selectInterestedIn = async (value: string | null) => {
+    setInterestedIn(value);
+    await updatePreferences({ interested_in: value });
   };
 
   const intensityLabels = ['Gentle', 'Moderate', 'Challenging', 'Intense'];
@@ -444,6 +461,150 @@ export default function ProfileScreen() {
           value={immersiveChatEnabled}
           onValueChange={toggleImmersiveChat}
         />
+
+        {/* Dating Preferences */}
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: 12,
+            fontWeight: '600',
+            letterSpacing: 1,
+            marginTop: 8,
+            marginBottom: 12,
+            marginLeft: 4,
+          }}
+        >
+          DATING SCENARIOS
+        </Text>
+
+        <View
+          style={{
+            borderRadius: 20,
+            overflow: 'hidden',
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+          }}
+        >
+          <LinearGradient
+            colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 18 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(244, 114, 182, 0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <Heart size={20} color="#f472b6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                  Dating Preferences
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+                  Personalize your dating scenarios
+                </Text>
+              </View>
+            </View>
+
+            {/* I am */}
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: 13,
+                fontWeight: '600',
+                marginBottom: 8,
+              }}
+            >
+              I am
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+              {(['male', 'female'] as const).map((g) => (
+                <Pressable
+                  key={g}
+                  onPress={() => selectUserGender(userGender === g ? null : g)}
+                  style={{ flex: 1 }}
+                >
+                  <View
+                    style={{
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      backgroundColor:
+                        userGender === g ? 'rgba(244, 114, 182, 0.2)' : 'rgba(255,255,255,0.05)',
+                      borderWidth: 2,
+                      borderColor:
+                        userGender === g ? '#f472b6' : 'rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: userGender === g ? '#f472b6' : 'rgba(255,255,255,0.5)',
+                        fontSize: 15,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {g === 'male' ? 'Male' : 'Female'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Interested in */}
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: 13,
+                fontWeight: '600',
+                marginBottom: 8,
+              }}
+            >
+              Interested in
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {(['men', 'women'] as const).map((i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => selectInterestedIn(interestedIn === i ? null : i)}
+                  style={{ flex: 1 }}
+                >
+                  <View
+                    style={{
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      backgroundColor:
+                        interestedIn === i ? 'rgba(192, 132, 252, 0.2)' : 'rgba(255,255,255,0.05)',
+                      borderWidth: 2,
+                      borderColor:
+                        interestedIn === i ? '#c084fc' : 'rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: interestedIn === i ? '#c084fc' : 'rgba(255,255,255,0.5)',
+                        fontSize: 15,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {i === 'men' ? 'Men' : 'Women'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </LinearGradient>
+        </View>
 
         {/* About Section */}
         <Text

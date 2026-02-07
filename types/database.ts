@@ -153,6 +153,8 @@ export interface Database {
           preferred_persona_ids: string[] | null;
           avoided_topics: string[] | null;
           immersive_chat_enabled: boolean;
+          user_gender: string | null;
+          interested_in: string | null;
           updated_at: string;
         };
         Insert: {
@@ -166,6 +168,8 @@ export interface Database {
           preferred_persona_ids?: string[] | null;
           avoided_topics?: string[] | null;
           immersive_chat_enabled?: boolean;
+          user_gender?: string | null;
+          interested_in?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -179,6 +183,8 @@ export interface Database {
           preferred_persona_ids?: string[] | null;
           avoided_topics?: string[] | null;
           immersive_chat_enabled?: boolean;
+          user_gender?: string | null;
+          interested_in?: string | null;
           updated_at?: string;
         };
       };
