@@ -10,7 +10,6 @@ MODE="${1:-dev}"  # "dev" (default), "fresh", or "reset"
 
 # ── Helpers ─────────────────────────────────────────────────────
 log()  { echo "▸ $*"; }
-warn() { echo "⚠ $*"; }
 die()  { echo "✖ $*" >&2; exit 1; }
 
 get_latest_runtime() {
@@ -35,6 +34,18 @@ for runtime, devices in data['devices'].items():
 " 2>/dev/null || true
 }
 
+get_sim_state() {
+  xcrun simctl list devices -j | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for runtime, devices in data['devices'].items():
+    for d in devices:
+        if d['udid'] == '$1':
+            print(d['state'])
+            sys.exit(0)
+"
+}
+
 # ── Kill port ───────────────────────────────────────────────────
 log "Clearing port $PORT..."
 lsof -ti:$PORT | xargs kill -9 2>/dev/null || true
@@ -53,15 +64,7 @@ else
 fi
 
 # ── Boot simulator ──────────────────────────────────────────────
-STATE=$(xcrun simctl list devices -j | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for runtime, devices in data['devices'].items():
-    for d in devices:
-        if d['udid'] == '$UDID':
-            print(d['state'])
-            sys.exit(0)
-")
+STATE=$(get_sim_state "$UDID")
 
 if [ "$STATE" != "Booted" ]; then
   log "Booting simulator..."
@@ -70,7 +73,7 @@ fi
 
 open -a Simulator --args -CurrentDeviceUDID "$UDID"
 
-# ── Handle modes ────────────────────────────────────────────────
+# ── Handle reset mode ──────────────────────────────────────────
 if [ "$MODE" = "reset" ]; then
   log "Resetting app data..."
   xcrun simctl spawn "$UDID" defaults delete "$APP_ID" 2>/dev/null || true
@@ -78,32 +81,21 @@ if [ "$MODE" = "reset" ]; then
   exit 0
 fi
 
+# ── Handle fresh mode ──────────────────────────────────────────
 if [ "$MODE" = "fresh" ]; then
   log "Uninstalling existing app..."
   xcrun simctl uninstall "$UDID" "$APP_ID" 2>/dev/null || true
 fi
 
-# ── Check if app installed, build if needed ─────────────────────
+# ── Check if app installed ──────────────────────────────────────
 APP_INSTALLED=$(xcrun simctl listapps "$UDID" 2>/dev/null | grep -c "$APP_ID" || true)
 
 if [ "$APP_INSTALLED" -eq 0 ]; then
-  log "App not installed — building dev client..."
-  (expo run:ios --device "$UDID" --no-bundler 2>&1 || true)
-
-  # Verify it installed
-  APP_INSTALLED=$(xcrun simctl listapps "$UDID" 2>/dev/null | grep -c "$APP_ID" || true)
-  [ "$APP_INSTALLED" -eq 0 ] && die "Build failed — app not installed."
-  log "Build complete."
+  log "App not installed — building and launching dev client..."
+  exec npx expo run:ios --device "$UDID" --port "$PORT"
 else
-  log "App already installed."
+  log "App already installed — starting bundler..."
+  xcrun simctl spawn "$UDID" defaults write "$APP_ID" RCT_jsLocation localhost
+  xcrun simctl launch "$UDID" "$APP_ID"
+  exec npx expo start --dev-client --port "$PORT" --clear
 fi
-
-# ── Configure and launch ────────────────────────────────────────
-log "Setting dev server to localhost..."
-xcrun simctl spawn "$UDID" defaults write "$APP_ID" RCT_jsLocation localhost
-
-log "Launching app..."
-xcrun simctl launch "$UDID" "$APP_ID"
-
-log "Starting bundler on port $PORT..."
-exec expo start --dev-client --port "$PORT" --clear
