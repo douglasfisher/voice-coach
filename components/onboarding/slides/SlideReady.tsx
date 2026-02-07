@@ -308,6 +308,7 @@ export function SlideReady({ isActive }: SlideReadyProps) {
           justifyContent: 'flex-end',
           alignItems: 'center',
           paddingBottom: 120,
+          zIndex: 20,
         }}
       >
         <Animated.Text
