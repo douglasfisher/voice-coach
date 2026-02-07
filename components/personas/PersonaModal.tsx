@@ -26,7 +26,7 @@ const COACHING_STYLE_DESCRIPTIONS: Record<string, string> = {
 };
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const HERO_HEIGHT = SCREEN_HEIGHT * 0.45;
+const HERO_HEIGHT = SCREEN_HEIGHT * 0.55;
 
 // Challenge style colors and gradients
 const STYLE_THEMES: Record<ChallengeStyle, {
