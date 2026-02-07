@@ -9,6 +9,97 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      coaching_domains: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          icon: string;
+          color: string;
+          tagline: string | null;
+          is_active: boolean;
+          is_premium: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          description?: string | null;
+          icon: string;
+          color?: string;
+          tagline?: string | null;
+          is_active?: boolean;
+          is_premium?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          description?: string | null;
+          icon?: string;
+          color?: string;
+          tagline?: string | null;
+          is_active?: boolean;
+          is_premium?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
+      scenarios: {
+        Row: {
+          id: string;
+          domain_id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          interaction_mode: string;
+          difficulty_level: number;
+          scenario_context: string;
+          user_goal: string | null;
+          situation_variants: { name: string; context: string }[];
+          recommended_coaches: string[] | null;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          domain_id: string;
+          slug: string;
+          name: string;
+          description?: string | null;
+          interaction_mode?: string;
+          difficulty_level?: number;
+          scenario_context: string;
+          user_goal?: string | null;
+          situation_variants?: { name: string; context: string }[];
+          recommended_coaches?: string[] | null;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          domain_id?: string;
+          slug?: string;
+          name?: string;
+          description?: string | null;
+          interaction_mode?: string;
+          difficulty_level?: number;
+          scenario_context?: string;
+          user_goal?: string | null;
+          situation_variants?: { name: string; context: string }[];
+          recommended_coaches?: string[] | null;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
       user_profiles: {
         Row: {
           id: string;
@@ -127,6 +218,12 @@ export interface Database {
             cost_per_million_output?: number;
           } | null;
           created_at: string;
+          // Coaching fields
+          persona_type: 'challenger' | 'coach';
+          domain_id: string | null;
+          coaching_style: string | null;
+          default_interaction_mode: string;
+          feedback_style: string;
         };
         Insert: {
           id?: string;
@@ -163,6 +260,12 @@ export interface Database {
             cost_per_million_output?: number;
           } | null;
           created_at?: string;
+          // Coaching fields
+          persona_type?: 'challenger' | 'coach';
+          domain_id?: string | null;
+          coaching_style?: string | null;
+          default_interaction_mode?: string;
+          feedback_style?: string;
         };
         Update: {
           id?: string;
@@ -199,6 +302,12 @@ export interface Database {
             cost_per_million_output?: number;
           } | null;
           created_at?: string;
+          // Coaching fields
+          persona_type?: 'challenger' | 'coach';
+          domain_id?: string | null;
+          coaching_style?: string | null;
+          default_interaction_mode?: string;
+          feedback_style?: string;
         };
       };
       conversations: {
@@ -214,7 +323,20 @@ export interface Database {
           ended_at: string | null;
           analysis_summary: Json | null;
           overall_score: number | null;
+          timing_metrics: {
+            total_duration_ms: number;
+            user_avg_response_ms: number;
+            assistant_avg_response_ms: number;
+            exchange_count: number;
+            word_count_total: number;
+          } | null;
           created_at: string;
+          // Coaching fields
+          domain_id: string | null;
+          scenario_id: string | null;
+          interaction_mode: string;
+          current_phase: string;
+          scenario_variant: Json | null;
         };
         Insert: {
           id?: string;
@@ -228,7 +350,20 @@ export interface Database {
           ended_at?: string | null;
           analysis_summary?: Json | null;
           overall_score?: number | null;
+          timing_metrics?: {
+            total_duration_ms: number;
+            user_avg_response_ms: number;
+            assistant_avg_response_ms: number;
+            exchange_count: number;
+            word_count_total: number;
+          } | null;
           created_at?: string;
+          // Coaching fields
+          domain_id?: string | null;
+          scenario_id?: string | null;
+          interaction_mode?: string;
+          current_phase?: string;
+          scenario_variant?: Json | null;
         };
         Update: {
           id?: string;
@@ -242,7 +377,20 @@ export interface Database {
           ended_at?: string | null;
           analysis_summary?: Json | null;
           overall_score?: number | null;
+          timing_metrics?: {
+            total_duration_ms: number;
+            user_avg_response_ms: number;
+            assistant_avg_response_ms: number;
+            exchange_count: number;
+            word_count_total: number;
+          } | null;
           created_at?: string;
+          // Coaching fields
+          domain_id?: string | null;
+          scenario_id?: string | null;
+          interaction_mode?: string;
+          current_phase?: string;
+          scenario_variant?: Json | null;
         };
       };
       messages: {
@@ -255,6 +403,7 @@ export interface Database {
           audio_duration_ms: number | null;
           analysis: Json | null;
           sequence: number;
+          response_time_ms: number | null;
           created_at: string;
         };
         Insert: {
@@ -266,6 +415,7 @@ export interface Database {
           audio_duration_ms?: number | null;
           analysis?: Json | null;
           sequence: number;
+          response_time_ms?: number | null;
           created_at?: string;
         };
         Update: {
@@ -277,6 +427,7 @@ export interface Database {
           audio_duration_ms?: number | null;
           analysis?: Json | null;
           sequence?: number;
+          response_time_ms?: number | null;
           created_at?: string;
         };
       };
@@ -469,6 +620,7 @@ export interface Database {
           completion_tokens: number;
           total_tokens: number;
           estimated_cost_cents: number;
+          task_type: string;
           created_at: string;
         };
         Insert: {
@@ -481,6 +633,7 @@ export interface Database {
           completion_tokens: number;
           total_tokens: number;
           estimated_cost_cents: number;
+          task_type?: string;
           created_at?: string;
         };
         Update: {
@@ -493,6 +646,7 @@ export interface Database {
           completion_tokens?: number;
           total_tokens?: number;
           estimated_cost_cents?: number;
+          task_type?: string;
           created_at?: string;
         };
       };
@@ -557,6 +711,334 @@ export interface Database {
           updated_at?: string;
         };
       };
+      user_progress: {
+        Row: {
+          user_id: string;
+          current_xp: number;
+          current_level: number;
+          lifetime_xp: number;
+          current_streak: number;
+          longest_streak: number;
+          last_session_date: string | null;
+          streak_freeze_available: number;
+          streak_freeze_used_this_week: boolean;
+          growth_velocity: number | null;
+          velocity_trend: 'accelerating' | 'stable' | 'decelerating' | null;
+          projected_score_30day: number | null;
+          optimal_potential_score: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          current_xp?: number;
+          current_level?: number;
+          lifetime_xp?: number;
+          current_streak?: number;
+          longest_streak?: number;
+          last_session_date?: string | null;
+          streak_freeze_available?: number;
+          streak_freeze_used_this_week?: boolean;
+          growth_velocity?: number | null;
+          velocity_trend?: 'accelerating' | 'stable' | 'decelerating' | null;
+          projected_score_30day?: number | null;
+          optimal_potential_score?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          current_xp?: number;
+          current_level?: number;
+          lifetime_xp?: number;
+          current_streak?: number;
+          longest_streak?: number;
+          last_session_date?: string | null;
+          streak_freeze_available?: number;
+          streak_freeze_used_this_week?: boolean;
+          growth_velocity?: number | null;
+          velocity_trend?: 'accelerating' | 'stable' | 'decelerating' | null;
+          projected_score_30day?: number | null;
+          optimal_potential_score?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      achievements: {
+        Row: {
+          id: string;
+          name: string;
+          description: string;
+          category: 'milestone' | 'streak' | 'score' | 'pattern' | 'special';
+          rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+          icon: string;
+          xp_reward: number;
+          requirement_type: string;
+          requirement_value: number;
+          requirement_dimension: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          description: string;
+          category: 'milestone' | 'streak' | 'score' | 'pattern' | 'special';
+          rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+          icon: string;
+          xp_reward?: number;
+          requirement_type: string;
+          requirement_value: number;
+          requirement_dimension?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string;
+          category?: 'milestone' | 'streak' | 'score' | 'pattern' | 'special';
+          rarity?: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+          icon?: string;
+          xp_reward?: number;
+          requirement_type?: string;
+          requirement_value?: number;
+          requirement_dimension?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+      };
+      user_achievements: {
+        Row: {
+          id: string;
+          user_id: string;
+          achievement_id: string;
+          unlocked_at: string;
+          xp_awarded: number;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          achievement_id: string;
+          unlocked_at?: string;
+          xp_awarded?: number;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          achievement_id?: string;
+          unlocked_at?: string;
+          xp_awarded?: number;
+        };
+      };
+      xp_transactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount: number;
+          source: string;
+          source_id: string | null;
+          description: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount: number;
+          source: string;
+          source_id?: string | null;
+          description?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          amount?: number;
+          source?: string;
+          source_id?: string | null;
+          description?: string | null;
+          created_at?: string;
+        };
+      };
+      growth_projections: {
+        Row: {
+          id: string;
+          user_id: string;
+          current_overall: number | null;
+          current_logical: number | null;
+          current_bias_awareness: number | null;
+          current_perspective: number | null;
+          current_emotional: number | null;
+          projected_30_day: number | null;
+          optimal_potential: number | null;
+          dimension_projections: Json | null;
+          limiting_factor: string | null;
+          confidence_level: number | null;
+          valid_until: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          current_overall?: number | null;
+          current_logical?: number | null;
+          current_bias_awareness?: number | null;
+          current_perspective?: number | null;
+          current_emotional?: number | null;
+          projected_30_day?: number | null;
+          optimal_potential?: number | null;
+          dimension_projections?: Json | null;
+          limiting_factor?: string | null;
+          confidence_level?: number | null;
+          valid_until: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          current_overall?: number | null;
+          current_logical?: number | null;
+          current_bias_awareness?: number | null;
+          current_perspective?: number | null;
+          current_emotional?: number | null;
+          projected_30_day?: number | null;
+          optimal_potential?: number | null;
+          dimension_projections?: Json | null;
+          limiting_factor?: string | null;
+          confidence_level?: number | null;
+          valid_until?: string;
+          created_at?: string;
+        };
+      };
+      user_insights: {
+        Row: {
+          id: string;
+          user_id: string;
+          insight_type: 'celebration' | 'focus' | 'recommendation' | 'warning' | 'milestone';
+          trigger_event: string | null;
+          title: string;
+          message: string;
+          action_type: string | null;
+          action_data: Json | null;
+          dismissed: boolean;
+          read_at: string | null;
+          priority: number;
+          created_at: string;
+          expires_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          insight_type: 'celebration' | 'focus' | 'recommendation' | 'warning' | 'milestone';
+          trigger_event?: string | null;
+          title: string;
+          message: string;
+          action_type?: string | null;
+          action_data?: Json | null;
+          dismissed?: boolean;
+          read_at?: string | null;
+          priority?: number;
+          created_at?: string;
+          expires_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          insight_type?: 'celebration' | 'focus' | 'recommendation' | 'warning' | 'milestone';
+          trigger_event?: string | null;
+          title?: string;
+          message?: string;
+          action_type?: string | null;
+          action_data?: Json | null;
+          dismissed?: boolean;
+          read_at?: string | null;
+          priority?: number;
+          created_at?: string;
+          expires_at?: string | null;
+        };
+      };
+      ai_budgets: {
+        Row: {
+          id: string;
+          name: string;
+          budget_type: 'daily' | 'weekly' | 'monthly' | 'total';
+          limit_cents: number;
+          alert_threshold_percent: number;
+          current_spend_cents: number;
+          period_start: string | null;
+          period_end: string | null;
+          is_active: boolean;
+          notify_on_threshold: boolean;
+          notify_on_exceeded: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          budget_type: 'daily' | 'weekly' | 'monthly' | 'total';
+          limit_cents: number;
+          alert_threshold_percent?: number;
+          current_spend_cents?: number;
+          period_start?: string | null;
+          period_end?: string | null;
+          is_active?: boolean;
+          notify_on_threshold?: boolean;
+          notify_on_exceeded?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          budget_type?: 'daily' | 'weekly' | 'monthly' | 'total';
+          limit_cents?: number;
+          alert_threshold_percent?: number;
+          current_spend_cents?: number;
+          period_start?: string | null;
+          period_end?: string | null;
+          is_active?: boolean;
+          notify_on_threshold?: boolean;
+          notify_on_exceeded?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      ai_cost_snapshots: {
+        Row: {
+          id: string;
+          snapshot_date: string;
+          total_cost_cents: number;
+          total_tokens: number;
+          total_requests: number;
+          cost_by_model: Json;
+          cost_by_persona: Json;
+          cost_by_user: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          snapshot_date: string;
+          total_cost_cents?: number;
+          total_tokens?: number;
+          total_requests?: number;
+          cost_by_model?: Json;
+          cost_by_persona?: Json;
+          cost_by_user?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          snapshot_date?: string;
+          total_cost_cents?: number;
+          total_tokens?: number;
+          total_requests?: number;
+          cost_by_model?: Json;
+          cost_by_persona?: Json;
+          cost_by_user?: Json;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -584,3 +1066,17 @@ export type GrowthSnapshot = Tables<'growth_snapshots'>;
 export type AIUsage = Tables<'ai_usage'>;
 export type AppSettings = Tables<'app_settings'>;
 export type AIModel = Tables<'ai_models'>;
+export type UserProgressDB = Tables<'user_progress'>;
+export type AchievementDB = Tables<'achievements'>;
+export type UserAchievementDB = Tables<'user_achievements'>;
+export type XPTransactionDB = Tables<'xp_transactions'>;
+export type GrowthProjectionDB = Tables<'growth_projections'>;
+export type UserInsightDB = Tables<'user_insights'>;
+
+// Coaching tables
+export type CoachingDomainDB = Tables<'coaching_domains'>;
+export type ScenarioDB = Tables<'scenarios'>;
+
+// Cost center tables
+export type AIBudgetDB = Tables<'ai_budgets'>;
+export type AICostSnapshotDB = Tables<'ai_cost_snapshots'>;

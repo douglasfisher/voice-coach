@@ -25,8 +25,10 @@ import {
   Save,
   Trash2,
   ChevronDown,
+  Plus,
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
+import { useTraits } from '../../../hooks/useTraits';
 import { Persona } from '../../../types/database';
 import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
@@ -49,6 +51,21 @@ const VOICE_PROVIDERS = [
   { value: 'elevenlabs', label: 'ElevenLabs' },
   { value: 'playht', label: 'PlayHT' },
   { value: 'azure', label: 'Azure' },
+];
+
+const TRAIT_TOKENS = [
+  'character_demeanor',
+  'conversation_register',
+  'response_length',
+  'response_depth',
+  'humor_style',
+  'challenge_intensity',
+  'emotional_attunement',
+  'directness',
+  'topic_flexibility',
+  'question_frequency',
+  'energy_mirroring',
+  'coaching_method',
 ];
 
 interface FormInputProps {
@@ -220,7 +237,14 @@ export default function AdminPersonaEditScreen() {
     updatePersona,
     deletePersona,
     clearSelectedPersona,
+    personaTraitDefaults,
+    fetchPersonaTraitDefaults,
+    updatePersonaTraitDefault,
   } = useAdminPersonaStore();
+
+  // All trait categories + options for the defaults selector
+  const personaType = !isNew && selectedPersona?.persona_type as 'coach' | 'challenger' | undefined;
+  const { categories: allTraitCategories, options: allTraitOptions } = useTraits(personaType || undefined);
 
   const [form, setForm] = useState<PersonaFormData>({
     name: '',
@@ -251,6 +275,12 @@ export default function AdminPersonaEditScreen() {
       temperature: 0.7,
       max_completion_tokens: 1024,
     },
+    // Coaching fields
+    persona_type: 'challenger',
+    domain_id: null,
+    coaching_style: null,
+    default_interaction_mode: 'coach_leads',
+    feedback_style: 'sandwich',
   });
 
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
@@ -271,6 +301,7 @@ export default function AdminPersonaEditScreen() {
   useEffect(() => {
     if (!isNew && id) {
       fetchPersona(id);
+      fetchPersonaTraitDefaults(id);
     }
     return () => clearSelectedPersona();
   }, [id, isNew]);
@@ -306,20 +337,17 @@ export default function AdminPersonaEditScreen() {
           temperature: 0.7,
           max_completion_tokens: 1024,
         },
+        // Coaching fields
+        persona_type: selectedPersona.persona_type || 'challenger',
+        domain_id: selectedPersona.domain_id,
+        coaching_style: selectedPersona.coaching_style,
+        default_interaction_mode: selectedPersona.default_interaction_mode || 'coach_leads',
+        feedback_style: selectedPersona.feedback_style || 'sandwich',
       });
     }
   }, [selectedPersona, isNew]);
 
-  const handleSave = async () => {
-    if (!form.name.trim()) {
-      Alert.alert('Error', 'Name is required');
-      return;
-    }
-    if (!form.system_prompt.trim()) {
-      Alert.alert('Error', 'System prompt is required');
-      return;
-    }
-
+  const doSave = async () => {
     if (isNew) {
       const { error } = await createPersona(form);
       if (!error) {
@@ -335,6 +363,35 @@ export default function AdminPersonaEditScreen() {
         Alert.alert('Error', error.message);
       }
     }
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      Alert.alert('Error', 'Name is required');
+      return;
+    }
+    if (!form.system_prompt.trim()) {
+      Alert.alert('Error', 'System prompt is required');
+      return;
+    }
+
+    const missing = TRAIT_TOKENS.filter(
+      (t) => !form.system_prompt.includes(`{{${t}}}`)
+    );
+
+    if (missing.length > 0) {
+      Alert.alert(
+        'Missing Trait Tokens',
+        `The system prompt is missing these tokens:\n\n${missing.map((t) => `{{${t}}}`).join('\n')}\n\nTraits using these tokens won't affect this persona.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Save Anyway', onPress: doSave },
+        ]
+      );
+      return;
+    }
+
+    await doSave();
   };
 
   const handleDelete = () => {
@@ -361,6 +418,16 @@ export default function AdminPersonaEditScreen() {
 
   const updateForm = <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const missingTokens = TRAIT_TOKENS.filter(
+    (t) => !form.system_prompt.includes(`{{${t}}}`)
+  );
+
+  const handleInsertMissingTokens = () => {
+    if (missingTokens.length === 0) return;
+    const tokensBlock = missingTokens.map((t) => `{{${t}}}`).join('\n');
+    updateForm('system_prompt', form.system_prompt.trimEnd() + '\n\n' + tokensBlock);
   };
 
   if (isLoading && !isNew) {
@@ -582,11 +649,156 @@ export default function AdminPersonaEditScreen() {
               fontWeight: '600',
               letterSpacing: 1,
               marginTop: 8,
-              marginBottom: 16,
+              marginBottom: 12,
             }}
           >
             SYSTEM PROMPT
           </Text>
+
+          {/* Trait Token Status Badges */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+            {TRAIT_TOKENS.map((token) => {
+              const present = form.system_prompt.includes(`{{${token}}}`);
+              return (
+                <View
+                  key={token}
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 6,
+                    backgroundColor: present
+                      ? 'rgba(74, 222, 128, 0.12)'
+                      : 'rgba(239, 68, 68, 0.12)',
+                    borderWidth: 1,
+                    borderColor: present
+                      ? 'rgba(74, 222, 128, 0.3)'
+                      : 'rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '600',
+                      color: present ? '#4ade80' : '#ef4444',
+                    }}
+                  >
+                    {`{{${token}}}`}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {missingTokens.length > 0 && (
+            <Pressable
+              onPress={handleInsertMissingTokens}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                alignSelf: 'flex-start',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(245, 158, 11, 0.25)',
+                marginBottom: 12,
+              }}
+            >
+              <Plus size={14} color="#F59E0B" />
+              <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
+                Insert Missing Tokens ({missingTokens.length})
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Trait Defaults Section */}
+          {!isNew && allTraitCategories.length > 0 && (
+            <>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.5)',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  letterSpacing: 1,
+                  marginTop: 8,
+                  marginBottom: 12,
+                }}
+              >
+                TRAIT DEFAULTS
+              </Text>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.35)',
+                  fontSize: 12,
+                  marginBottom: 14,
+                }}
+              >
+                Set the default trait for each category. User selections override these at chat time.
+              </Text>
+              {allTraitCategories.map((cat) => {
+                const currentDefault = personaTraitDefaults.find(
+                  (d) => d.categorySlug === cat.slug
+                );
+                const options = allTraitOptions[cat.slug] || [];
+                return (
+                  <View key={cat.id} style={{ marginBottom: 14 }}>
+                    <Text
+                      style={{
+                        color: 'rgba(255,255,255,0.6)',
+                        fontSize: 13,
+                        fontWeight: '500',
+                        marginBottom: 8,
+                      }}
+                    >
+                      {cat.name}
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 6 }}
+                    >
+                      {options.map((opt) => {
+                        const isSelected = currentDefault?.optionId === opt.id;
+                        return (
+                          <Pressable
+                            key={opt.id}
+                            onPress={() => {
+                              if (!isSelected && id) {
+                                updatePersonaTraitDefault(id, opt.id);
+                              }
+                            }}
+                            style={{
+                              paddingHorizontal: 12,
+                              paddingVertical: 7,
+                              borderRadius: 8,
+                              backgroundColor: isSelected
+                                ? 'rgba(245, 158, 11, 0.15)'
+                                : 'rgba(255,255,255,0.05)',
+                              borderWidth: 1,
+                              borderColor: isSelected
+                                ? 'rgba(245, 158, 11, 0.4)'
+                                : 'rgba(255,255,255,0.08)',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: isSelected ? '#F59E0B' : 'rgba(255,255,255,0.6)',
+                                fontSize: 12,
+                                fontWeight: isSelected ? '600' : '400',
+                              }}
+                            >
+                              {opt.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                );
+              })}
+            </>
+          )}
 
           <FormInput
             label="System Prompt"

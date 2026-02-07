@@ -1,21 +1,19 @@
 /**
  * Admin Panel Layout
  *
- * Tab navigation for admin panel with 5 sections:
- * Dashboard, Personas, Users, Usage, Settings
+ * Stack navigation with a slide-in side panel for admin navigation.
+ * Replaces the previous bottom tab bar for better visibility of all 8 admin pages.
  */
 
-import { Tabs, Redirect, router } from 'expo-router';
+import { useState, useCallback } from 'react';
 import { View, ActivityIndicator, Text, Pressable } from 'react-native';
+import { Stack, Redirect, router, usePathname } from 'expo-router';
 import {
-  LayoutDashboard,
-  Users,
-  UserCog,
-  BarChart3,
-  Settings,
   ArrowLeft,
+  Menu,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
+import { AdminSidePanel } from '../../components/admin/AdminSidePanel';
 
 function BackToAppButton() {
   return (
@@ -35,29 +33,32 @@ function BackToAppButton() {
   );
 }
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const color = focused ? '#F59E0B' : '#6E6E73';
-  const size = 22;
-
-  const icons: Record<string, React.ReactNode> = {
-    index: <LayoutDashboard size={size} color={color} />,
-    personas: <Users size={size} color={color} />,
-    users: <UserCog size={size} color={color} />,
-    usage: <BarChart3 size={size} color={color} />,
-    settings: <Settings size={size} color={color} />,
-  };
-
+function MenuButton({ onPress }: { onPress: () => void }) {
   return (
-    <View style={{ alignItems: 'center' }}>
-      {icons[name]}
-    </View>
+    <Pressable
+      onPress={onPress}
+      hitSlop={12}
+      style={{
+        paddingRight: 16,
+        paddingLeft: 8,
+        paddingVertical: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      <Menu size={22} color="#F59E0B" />
+    </Pressable>
   );
 }
 
 export default function AdminLayout() {
   const { profile, isLoading } = useAuthStore();
+  const [panelOpen, setPanelOpen] = useState(false);
+  const pathname = usePathname();
 
-  // Show loading while checking auth
+  const openPanel = useCallback(() => setPanelOpen(true), []);
+  const closePanel = useCallback(() => setPanelOpen(false), []);
+
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#0a0a0f', alignItems: 'center', justifyContent: 'center' }}>
@@ -66,88 +67,72 @@ export default function AdminLayout() {
     );
   }
 
-  // Redirect non-admins
   if (!profile?.is_admin) {
     return <Redirect href="/(tabs)" />;
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: true,
-        headerStyle: {
-          backgroundColor: '#1A1A1F',
-          borderBottomWidth: 1,
-          borderBottomColor: '#252529',
-        },
-        headerTintColor: '#F59E0B',
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
-        headerLeft: () => <BackToAppButton />,
-        tabBarStyle: {
-          backgroundColor: '#1A1A1F',
-          borderTopColor: '#252529',
-          borderTopWidth: 1,
-          height: 85,
-          paddingTop: 10,
-          paddingBottom: 25,
-        },
-        tabBarActiveTintColor: '#F59E0B',
-        tabBarInactiveTintColor: '#6E6E73',
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Dashboard',
-          headerTitle: 'Admin Dashboard',
-          tabBarIcon: ({ focused }) => <TabIcon name="index" focused={focused} />,
+    <View style={{ flex: 1 }}>
+      <Stack
+        screenOptions={{
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: '#1A1A1F',
+          },
+          headerTintColor: '#F59E0B',
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+          headerLeft: () => <BackToAppButton />,
+          headerRight: () => <MenuButton onPress={openPanel} />,
+          contentStyle: {
+            backgroundColor: '#0a0a0f',
+          },
         }}
+      >
+        <Stack.Screen
+          name="index"
+          options={{ headerTitle: 'Admin Dashboard' }}
+        />
+        <Stack.Screen
+          name="personas"
+          options={{ headerTitle: 'Manage Personas' }}
+        />
+        <Stack.Screen
+          name="traits"
+          options={{ headerTitle: 'Trait Manager' }}
+        />
+        <Stack.Screen
+          name="users"
+          options={{ headerTitle: 'User Management' }}
+        />
+        <Stack.Screen
+          name="usage"
+          options={{ headerTitle: 'AI Usage & Costs' }}
+        />
+        <Stack.Screen
+          name="costs"
+          options={{ headerTitle: 'AI Cost Center' }}
+        />
+        <Stack.Screen
+          name="pricing"
+          options={{ headerTitle: 'Model Pricing' }}
+        />
+        <Stack.Screen
+          name="settings"
+          options={{ headerTitle: 'App Settings' }}
+        />
+        <Stack.Screen
+          name="persona/[id]"
+          options={{ headerTitle: 'Edit Persona' }}
+        />
+      </Stack>
+
+      <AdminSidePanel
+        visible={panelOpen}
+        onClose={closePanel}
+        currentPath={pathname}
       />
-      <Tabs.Screen
-        name="personas"
-        options={{
-          title: 'Personas',
-          headerTitle: 'Manage Personas',
-          tabBarIcon: ({ focused }) => <TabIcon name="personas" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="users"
-        options={{
-          title: 'Users',
-          headerTitle: 'User Management',
-          tabBarIcon: ({ focused }) => <TabIcon name="users" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="usage"
-        options={{
-          title: 'Usage',
-          headerTitle: 'AI Usage & Costs',
-          tabBarIcon: ({ focused }) => <TabIcon name="usage" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          headerTitle: 'App Settings',
-          tabBarIcon: ({ focused }) => <TabIcon name="settings" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="persona/[id]"
-        options={{
-          href: null,
-          headerTitle: 'Edit Persona',
-        }}
-      />
-    </Tabs>
+    </View>
   );
 }

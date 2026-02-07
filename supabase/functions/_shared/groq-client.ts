@@ -108,6 +108,28 @@ export class GroqClient {
   }
 
   /**
+   * Simple completion with system + user prompts - returns content and usage
+   */
+  async completeWithUsage(
+    systemPrompt: string,
+    userPrompt: string,
+    settings?: Partial<GroqCompletionSettings>
+  ): Promise<{ content: string; usage: GroqResponse['usage']; model: string }> {
+    const messages: GroqMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ];
+
+    const mergedSettings = { ...this.defaultSettings, ...settings };
+    const response = await this.chat(messages, settings);
+    return {
+      content: response.choices[0]?.message?.content || '',
+      usage: response.usage,
+      model: mergedSettings.model || response.model,
+    };
+  }
+
+  /**
    * Completion with conversation history
    */
   async completeWithHistory(
@@ -183,6 +205,57 @@ IMPORTANT: You must respond with valid JSON only. No markdown, no explanations, 
     }
 
     return { content, parsed };
+  }
+
+  /**
+   * JSON-mode completion with usage tracking
+   */
+  async completeJSONWithUsage<T = unknown>(
+    systemPrompt: string,
+    userPrompt: string,
+    settings?: Partial<GroqCompletionSettings>
+  ): Promise<{ content: string; parsed: T | null; usage: GroqResponse['usage']; model: string }> {
+    // Enhance system prompt to enforce JSON output
+    const jsonSystemPrompt = `${systemPrompt}
+
+IMPORTANT: You must respond with valid JSON only. No markdown, no explanations, just the JSON object.`;
+
+    const mergedSettings = {
+      ...this.defaultSettings,
+      ...settings,
+      temperature: settings?.temperature ?? 0.3, // Lower temp for structured output
+    };
+
+    const messages: GroqMessage[] = [
+      { role: 'system', content: jsonSystemPrompt },
+      { role: 'user', content: userPrompt },
+    ];
+
+    const response = await this.chat(messages, mergedSettings);
+    const content = response.choices[0]?.message?.content || '';
+
+    // Try to parse JSON from response
+    let parsed: T | null = null;
+    try {
+      // Handle potential markdown code blocks
+      const jsonMatch = content.match(/```(?:json)?\n?([\s\S]*?)\n?```/) ||
+        content.match(/\{[\s\S]*\}/);
+
+      const jsonStr = jsonMatch
+        ? (jsonMatch[1] || jsonMatch[0])
+        : content;
+
+      parsed = JSON.parse(jsonStr.trim());
+    } catch {
+      console.warn('Failed to parse JSON response:', content.slice(0, 200));
+    }
+
+    return {
+      content,
+      parsed,
+      usage: response.usage,
+      model: mergedSettings.model || response.model,
+    };
   }
 }
 

@@ -1,7 +1,27 @@
 import { View, Text, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Play, Pause, Volume2, Sparkles, Zap, Brain, Heart, Scale, Eye } from 'lucide-react-native';
+import { Play, Pause, Volume2, Sparkles, Zap, Brain, Heart, Scale, Eye, Clock, MessageSquare } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle } from '../../types/persona';
+
+/**
+ * Formats response time in milliseconds to a human-readable string.
+ */
+function formatResponseTime(ms: number | null | undefined): string | null {
+  if (!ms || ms <= 0) return null;
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+/**
+ * Counts words in a string.
+ */
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+}
 
 // Challenge style themes
 const STYLE_THEMES: Record<ChallengeStyle, {
@@ -49,6 +69,8 @@ interface MessageBubbleProps {
   onPlayAudio?: () => void;
   isPlaying?: boolean;
   timestamp?: string;
+  responseTimeMs?: number | null;
+  showMetrics?: boolean;
   immersiveMode?: boolean;
 }
 
@@ -60,6 +82,8 @@ export function MessageBubble({
   onPlayAudio,
   isPlaying,
   timestamp,
+  responseTimeMs,
+  showMetrics = true,
   immersiveMode = false,
 }: MessageBubbleProps) {
   const isUser = role === 'user';
@@ -207,21 +231,78 @@ export function MessageBubble({
             </Pressable>
           )}
 
-          {/* Timestamp */}
-          {timestamp && (
-            <Text
+          {/* Message Metrics */}
+          {showMetrics && (
+            <View
               style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.4)',
-                marginTop: 6,
-                textAlign: isUser ? 'right' : 'left',
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 8,
+                justifyContent: isUser ? 'flex-end' : 'flex-start',
+                flexWrap: 'wrap',
+                gap: 8,
               }}
             >
-              {new Date(timestamp).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
+              {/* Timestamp */}
+              {timestamp && (
+                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                  {new Date(timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </Text>
+              )}
+
+              {/* Word count pill */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: 'rgba(255,255,255,0.08)',
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 10,
+                }}
+              >
+                <MessageSquare size={10} color="rgba(255,255,255,0.5)" />
+                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '500' }}>
+                  {countWords(content)}
+                </Text>
+              </View>
+
+              {/* Response time pill - prominent display */}
+              {formatResponseTime(responseTimeMs) && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: isUser
+                      ? 'rgba(245, 158, 11, 0.15)'
+                      : `${theme?.accent || '#4ade80'}20`,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: isUser
+                      ? 'rgba(245, 158, 11, 0.3)'
+                      : `${theme?.accent || '#4ade80'}40`,
+                  }}
+                >
+                  <Clock size={10} color={isUser ? '#F59E0B' : (theme?.accent || '#4ade80')} />
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: isUser ? '#F59E0B' : (theme?.accent || '#4ade80'),
+                      fontWeight: '600',
+                    }}
+                  >
+                    {formatResponseTime(responseTimeMs)}
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </View>

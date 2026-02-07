@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
+import Animated from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
+import { useScrollHideAnimation } from '../../hooks/useScrollHideAnimation';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+
+// Height of header content (title + subtitle + filter pills) without safe area
+const HEADER_CONTENT_HEIGHT = 135;
 
 const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: '#F59E0B' },
@@ -22,17 +27,23 @@ const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string
 ];
 
 export default function PersonasScreen() {
+  const insets = useSafeAreaInsets();
+  const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
+
   const { personas, isLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
-  const { createConversation } = useChatStore();
+  const { createConversation, challengersActiveFilter, setChallengersActiveFilter } = useChatStore();
+  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<ChallengeStyle | 'all'>('all');
 
-  const filteredPersonas = activeFilter === 'all'
-    ? personas
-    : personas.filter(p => p.challengeStyle === activeFilter);
+  // Filter to only show challengers (not coaches)
+  const challengers = personas.filter(p => p.personaType === 'challenger');
+
+  const filteredPersonas = challengersActiveFilter === 'all'
+    ? challengers
+    : challengers.filter(p => p.challengeStyle === challengersActiveFilter);
 
   const featuredPersona = filteredPersonas[0];
   const otherPersonas = filteredPersonas.slice(1);
@@ -61,70 +72,92 @@ export default function PersonasScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-bg-primary">
-      {/* Header */}
-      <View className="px-6 pt-4 pb-2">
-        <View className="flex-row items-center justify-between">
-          <View>
-            <View className="flex-row items-center">
-              <Sparkles size={24} color="#F59E0B" />
-              <Text className="text-text-primary text-2xl font-bold ml-2">
-                Challengers
+    <View style={{ flex: 1, backgroundColor: '#0F0F12' }}>
+      {/* Floating header — slides fully off screen including safe area */}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            backgroundColor: '#0F0F12',
+            paddingTop: insets.top,
+          },
+          headerAnimatedStyle,
+        ]}
+      >
+        {/* Header */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Sparkles size={24} color="#F59E0B" />
+                <Text className="text-text-primary text-2xl font-bold ml-2">
+                  Challengers
+                </Text>
+              </View>
+              <Text className="text-text-secondary mt-1">
+                Choose your intellectual sparring partner
               </Text>
             </View>
-            <Text className="text-text-secondary mt-1">
-              Choose your intellectual sparring partner
-            </Text>
           </View>
         </View>
-      </View>
 
-      {/* Filter Pills */}
-      <View className="py-3">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-        >
-          {STYLE_FILTERS.map((filter) => {
-            const isActive = activeFilter === filter.key;
-            return (
-              <Pressable
-                key={filter.key}
-                onPress={() => setActiveFilter(filter.key)}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
-                  borderWidth: 1,
-                  borderColor: isActive ? filter.color : 'rgba(255,255,255,0.1)',
-                }}
-              >
-                <Text
+        {/* Filter Pills */}
+        <View style={{ paddingVertical: 12 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+          >
+            {STYLE_FILTERS.map((filter) => {
+              const isActive = challengersActiveFilter === filter.key;
+              return (
+                <Pressable
+                  key={filter.key}
+                  onPress={() => setChallengersActiveFilter(filter.key)}
                   style={{
-                    fontSize: 14,
-                    fontWeight: '500',
-                    color: isActive ? filter.color : '#9A9A9E'
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
+                    borderWidth: 1,
+                    borderColor: isActive ? filter.color : 'rgba(255,255,255,0.1)',
                   }}
                 >
-                  {filter.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '500',
+                      color: isActive ? filter.color : '#9A9A9E'
+                    }}
+                  >
+                    {filter.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Animated.View>
 
       {isLoading ? (
-        <View className="flex-1 items-center justify-center">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#F59E0B" />
         </View>
       ) : (
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="px-4 pb-6"
+        <Animated.ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingTop: headerHeight,
+            paddingHorizontal: 16,
+            paddingBottom: 100,
+          }}
           showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
         >
           {/* Featured Persona */}
           {featuredPersona && (
@@ -137,9 +170,9 @@ export default function PersonasScreen() {
 
           {/* Section Header */}
           {otherPersonas.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {activeFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[activeFilter]}
+                {challengersActiveFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[challengersActiveFilter]}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', marginRight: 6 }} />
@@ -151,9 +184,9 @@ export default function PersonasScreen() {
           )}
 
           {/* Grid of Personas */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
             {otherPersonas.map((persona) => (
-              <View key={persona.id} style={{ width: '50%', padding: 8 }}>
+              <View key={persona.id} style={{ width: '50%', padding: 4 }}>
                 <PersonaCard
                   persona={persona}
                   onPress={() => setSelectedPersona(persona)}
@@ -167,7 +200,7 @@ export default function PersonasScreen() {
               <Text className="text-text-muted">No challengers match this filter</Text>
             </View>
           )}
-        </ScrollView>
+        </Animated.ScrollView>
       )}
 
       <PersonaModal
@@ -190,6 +223,6 @@ export default function PersonasScreen() {
           </LinearGradient>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }

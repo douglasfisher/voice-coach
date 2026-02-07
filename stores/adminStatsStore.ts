@@ -38,6 +38,7 @@ interface AdminStatsState {
   isLoadingUsage: boolean;
   isLoadingSettings: boolean;
   isSavingSettings: boolean;
+  isUpdatingModel: boolean;
 
   error: string | null;
 
@@ -49,6 +50,11 @@ interface AdminStatsState {
   updateSetting: <K extends keyof AppSettingsMap>(
     key: K,
     value: AppSettingsMap[K]
+  ) => Promise<{ error: Error | null }>;
+  updateModelPricing: (
+    modelId: string,
+    costPerMillionInput: number,
+    costPerMillionOutput: number
   ) => Promise<{ error: Error | null }>;
 }
 
@@ -62,6 +68,7 @@ export const useAdminStatsStore = create<AdminStatsState>((set, get) => ({
   isLoadingUsage: false,
   isLoadingSettings: false,
   isSavingSettings: false,
+  isUpdatingModel: false,
   error: null,
 
   fetchDashboardStats: async () => {
@@ -377,6 +384,33 @@ export const useAdminStatsStore = create<AdminStatsState>((set, get) => ({
       return { error: error as Error };
     } finally {
       set({ isSavingSettings: false });
+    }
+  },
+
+  updateModelPricing: async (
+    modelId: string,
+    costPerMillionInput: number,
+    costPerMillionOutput: number
+  ) => {
+    set({ isUpdatingModel: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('ai_models')
+        .update({
+          cost_per_million_input: costPerMillionInput,
+          cost_per_million_output: costPerMillionOutput,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', modelId);
+
+      if (error) throw error;
+
+      return { error: null };
+    } catch (error) {
+      set({ error: (error as Error).message });
+      return { error: error as Error };
+    } finally {
+      set({ isUpdatingModel: false });
     }
   },
 }));

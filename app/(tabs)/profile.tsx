@@ -44,16 +44,33 @@ export default function ProfileScreen() {
     preferences?.immersive_chat_enabled ?? true
   );
 
-  // Check if voice input is available on mount
+  // Check if voice input is available and has permission on mount
   useEffect(() => {
-    // First check if native module is even loaded (sync check)
-    if (!isSTTModuleAvailable()) {
-      setVoiceInputAvailable(false);
-      return;
-    }
-    // Then check if speech recognition is available on this device
-    checkSTTAvailability().then(setVoiceInputAvailable);
-  }, []);
+    const checkVoiceInputStatus = async () => {
+      // First check if native module is even loaded (sync check)
+      if (!isSTTModuleAvailable()) {
+        setVoiceInputAvailable(false);
+        return;
+      }
+
+      // Then check if speech recognition is available on this device
+      const available = await checkSTTAvailability();
+      setVoiceInputAvailable(available);
+
+      // If voice input is enabled in preferences but we don't have permission,
+      // disable it to prevent issues
+      if (available && preferences?.voice_input_enabled) {
+        const hasPermission = await getSTTPermissionStatus();
+        if (!hasPermission) {
+          setVoiceInputEnabled(false);
+          // Silently update preferences to reflect reality
+          updatePreferences({ voice_input_enabled: false });
+        }
+      }
+    };
+
+    checkVoiceInputStatus();
+  }, [preferences?.voice_input_enabled]);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -121,7 +138,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -235,6 +252,69 @@ export default function ProfileScreen() {
             </View>
           </LinearGradient>
         </View>
+
+        {/* Admin Section - Only show for admins */}
+        {profile?.is_admin && (
+          <>
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+                marginBottom: 12,
+                marginLeft: 4,
+              }}
+            >
+              ADMIN
+            </Text>
+
+            <Pressable
+              onPress={() => router.push('/admin')}
+              style={{
+                borderRadius: 16,
+                overflow: 'hidden',
+                marginBottom: 20,
+                borderWidth: 1,
+                borderColor: 'rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              <LinearGradient
+                colors={['rgba(245, 158, 11, 0.15)', 'rgba(245, 158, 11, 0.05)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 18,
+                }}
+              >
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}
+                >
+                  <LayoutDashboard size={20} color="#F59E0B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                    Admin Panel
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+                    Manage personas, users & settings
+                  </Text>
+                </View>
+                <ChevronRight size={20} color="#F59E0B" />
+              </LinearGradient>
+            </Pressable>
+          </>
+        )}
 
         {/* Preferences Section */}
         <Text
@@ -364,70 +444,6 @@ export default function ProfileScreen() {
           value={immersiveChatEnabled}
           onValueChange={toggleImmersiveChat}
         />
-
-        {/* Admin Section - Only show for admins */}
-        {profile?.is_admin && (
-          <>
-            <Text
-              style={{
-                color: 'rgba(255,255,255,0.5)',
-                fontSize: 12,
-                fontWeight: '600',
-                letterSpacing: 1,
-                marginTop: 8,
-                marginBottom: 12,
-                marginLeft: 4,
-              }}
-            >
-              ADMIN
-            </Text>
-
-            <Pressable
-              onPress={() => router.push('/admin')}
-              style={{
-                borderRadius: 16,
-                overflow: 'hidden',
-                marginBottom: 20,
-                borderWidth: 1,
-                borderColor: 'rgba(245, 158, 11, 0.3)',
-              }}
-            >
-              <LinearGradient
-                colors={['rgba(245, 158, 11, 0.15)', 'rgba(245, 158, 11, 0.05)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  padding: 18,
-                }}
-              >
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 12,
-                  }}
-                >
-                  <LayoutDashboard size={20} color="#F59E0B" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
-                    Admin Panel
-                  </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
-                    Manage personas, users & settings
-                  </Text>
-                </View>
-                <ChevronRight size={20} color="#F59E0B" />
-              </LinearGradient>
-            </Pressable>
-          </>
-        )}
 
         {/* About Section */}
         <Text

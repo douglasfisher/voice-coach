@@ -89,14 +89,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession();
 
-      if (session) {
+      if (session && !sessionError) {
         set({ session, user: session.user });
-        await get().fetchProfile();
+
+        // Validate session by actually fetching profile
+        // If this fails, the session is likely stale
+        try {
+          await get().fetchProfile();
+        } catch (profileError) {
+          console.warn('Profile fetch failed, clearing stale session:', profileError);
+          await supabase.auth.signOut();
+          set({ session: null, user: null, profile: null, preferences: null });
+        }
+      } else if (sessionError) {
+        console.warn('Session error, clearing auth state:', sessionError);
+        await supabase.auth.signOut();
+        set({ session: null, user: null, profile: null, preferences: null });
       }
 
       supabase.auth.onAuthStateChange(async (event, session) => {
+        // Handle token refresh errors
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.warn('Token refresh failed, signing out');
+          set({ session: null, user: null, profile: null, preferences: null });
+          return;
+        }
+
         set({ session, user: session?.user ?? null });
         if (session) {
           await get().fetchProfile();
@@ -181,9 +202,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       supabase.from('user_preferences').select('*').eq('user_id', user.id).single(),
     ]);
 
+    // Check for auth errors (indicates stale session)
+    if (profileResult.error?.code === 'PGRST301' || preferencesResult.error?.code === 'PGRST301') {
+      throw new Error('Authentication required');
+    }
+
     // If profile doesn't exist, create it (handles users created outside the app)
     if (!profileResult.data && profileResult.error?.code === 'PGRST116') {
-      const { data: newProfile } = await supabase
+      const { data: newProfile, error: insertError } = await supabase
         .from('user_profiles')
         .insert({
           id: user.id,
@@ -191,6 +217,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         })
         .select()
         .single();
+
+      if (insertError) {
+        throw insertError;
+      }
 
       if (newProfile) {
         await supabase.from('user_preferences').insert({ user_id: user.id });

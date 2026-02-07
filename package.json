@@ -5,7 +5,9 @@
   "scripts": {
     "start": "expo start --clear",
     "dev": "expo start --clear",
-    "dev:ios": "expo start --ios --clear",
+    "dev:ios": "xcrun simctl boot 261C1A9B-B345-4050-B06B-CB0DFA887F10 2>/dev/null; open -a Simulator --args -CurrentDeviceUDID 261C1A9B-B345-4050-B06B-CB0DFA887F10 && expo run:ios --device 261C1A9B-B345-4050-B06B-CB0DFA887F10",
+    "fresh": "xcrun simctl boot 261C1A9B-B345-4050-B06B-CB0DFA887F10 2>/dev/null; xcrun simctl uninstall 261C1A9B-B345-4050-B06B-CB0DFA887F10 com.dialectica.app 2>/dev/null; expo run:ios --device 261C1A9B-B345-4050-B06B-CB0DFA887F10",
+    "reset:onboarding": "xcrun simctl boot 261C1A9B-B345-4050-B06B-CB0DFA887F10 2>/dev/null; xcrun simctl spawn 261C1A9B-B345-4050-B06B-CB0DFA887F10 defaults delete com.dialectica.app 2>/dev/null; echo 'AsyncStorage cleared — restart the app'",
     "dev:android": "expo start --android --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",

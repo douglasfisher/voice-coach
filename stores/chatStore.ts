@@ -1,6 +1,10 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
+import { InteractionMode, SessionPhase, SituationVariant, TraitSelection } from '../types/coaching';
+import { ChallengeStyle } from '../types/persona';
 
 interface SessionReport {
   tldr: string;
@@ -21,6 +25,20 @@ interface CompletedConversation {
 
 interface ChatMessage extends Omit<Message, 'analysis'> {}
 
+interface DailyChallenge {
+  question: string;
+  topic: string;
+  personaId: string;
+  generatedAt: string;
+}
+
+interface CoachingSessionOptions {
+  domainId?: string;
+  scenarioId?: string;
+  interactionMode?: InteractionMode;
+  scenarioVariant?: SituationVariant;
+}
+
 interface ChatState {
   conversations: Conversation[];
   activeConversation: Conversation | null;
@@ -33,8 +51,28 @@ interface ChatState {
 
   // Preview state (question only, no intro)
   previewQuestion: string | null;
+  previewScenario: string | null;  // For Q&A mode
   questionRefreshCount: number;
+  scenarioRefreshCount: number;  // For Q&A mode
   isGeneratingPreview: boolean;
+
+  // Daily challenge
+  dailyChallenge: DailyChallenge | null;
+  isLoadingChallenge: boolean;
+
+  // Coaching state
+  currentPhase: SessionPhase;
+  coachingOptions: CoachingSessionOptions | null;
+
+  // Global interaction mode preference (Practice vs Q&A)
+  globalInteractionMode: 'practice' | 'question';
+
+  // Trait selections for prompt token system
+  selectedTraits: TraitSelection;
+
+  // Screen filter preferences (persisted)
+  coachesActiveDomain: string;
+  challengersActiveFilter: ChallengeStyle | 'all';
 
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
@@ -43,6 +81,13 @@ interface ChatState {
   createConversation: (
     userId: string,
     personaId: string,
+    topic?: string,
+    coachingOptions?: CoachingSessionOptions
+  ) => Promise<string | null>;
+  startChallengeChat: (
+    userId: string,
+    personaId: string,
+    challengeQuestion: string,
     topic?: string
   ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string } | null>;
@@ -50,16 +95,32 @@ interface ChatState {
   startChatWithPreview: () => Promise<boolean>;
   generatePreview: () => Promise<void>;
   regenerateQuestion: () => Promise<boolean>;
+  regenerateScenario: () => Promise<boolean>;
   generateReport: (conversationId: string) => Promise<SessionReport | null>;
   clearPreview: () => void;
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
+  fetchDailyChallenge: (personas: { id: string }[]) => Promise<void>;
+  // Coaching-specific actions
+  switchPhase: (phase: SessionPhase) => Promise<{ response: string } | null>;
+  requestQuickFeedback: () => Promise<{ response: string } | null>;
+  setCoachingOptions: (options: CoachingSessionOptions | null) => void;
+  // Global interaction mode
+  setGlobalInteractionMode: (mode: 'practice' | 'question') => void;
+  // Trait actions
+  setTrait: (categorySlug: string, optionId: string, promptModifier: string) => void;
+  clearTraits: () => void;
+  // Filter actions
+  setCoachesActiveDomain: (domain: string) => void;
+  setChallengersActiveFilter: (filter: ChallengeStyle | 'all') => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => ({
   conversations: [],
   activeConversation: null,
   messages: [],
@@ -71,8 +132,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // Preview state (question only, no intro)
   previewQuestion: null,
+  previewScenario: null,
   questionRefreshCount: 0,
+  scenarioRefreshCount: 0,
   isGeneratingPreview: false,
+
+  // Daily challenge
+  dailyChallenge: null,
+  isLoadingChallenge: false,
+
+  // Coaching state
+  currentPhase: 'roleplay',
+  coachingOptions: null,
+
+  // Global interaction mode
+  globalInteractionMode: 'practice',
+
+  // Trait selections
+  selectedTraits: {},
+
+  // Screen filter preferences
+  coachesActiveDomain: 'all',
+  challengersActiveFilter: 'all',
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
@@ -103,6 +184,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (error) throw error;
       set({ activeConversation: data });
+
+      // Load saved trait selections for this conversation
+      const { data: savedTraits } = await supabase
+        .from('conversation_traits')
+        .select('trait_option_id, trait_options(category_id, slug, prompt_modifier, trait_categories(slug))')
+        .eq('conversation_id', id);
+
+      if (savedTraits && savedTraits.length > 0) {
+        const restoredTraits: TraitSelection = {};
+        for (const row of savedTraits as any[]) {
+          const opt = row.trait_options;
+          const catSlug = opt.trait_categories.slug;
+          restoredTraits[catSlug] = {
+            optionId: row.trait_option_id,
+            promptModifier: opt.prompt_modifier,
+          };
+        }
+        set({ selectedTraits: restoredTraits });
+      } else {
+        set({ selectedTraits: {} });
+      }
+
       await get().fetchMessages(id);
     } catch (error) {
       set({ error: (error as Error).message });
@@ -131,6 +234,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       audio_url: msg.audio_url as string | null,
       audio_duration_ms: msg.audio_duration_ms as number | null,
       sequence: msg.sequence as number,
+      response_time_ms: msg.response_time_ms as number | null,
       created_at: msg.created_at as string,
     }));
 
@@ -155,23 +259,63 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  createConversation: async (userId, personaId, topic) => {
+  createConversation: async (userId, personaId, topic, coachingOptions) => {
+    const { globalInteractionMode, selectedTraits } = get();
     set({ isLoading: true, error: null });
     try {
+      const insertData: Record<string, unknown> = {
+        user_id: userId,
+        persona_id: personaId,
+        topic,
+        status: 'active',
+      };
+
+      // Apply global interaction mode if set to question mode
+      if (globalInteractionMode === 'question') {
+        insertData.interaction_mode = 'question_mode';
+      }
+
+      // Add coaching fields if provided (these can override global mode)
+      if (coachingOptions) {
+        if (coachingOptions.domainId) {
+          insertData.domain_id = coachingOptions.domainId;
+        }
+        if (coachingOptions.scenarioId) {
+          insertData.scenario_id = coachingOptions.scenarioId;
+        }
+        if (coachingOptions.interactionMode) {
+          insertData.interaction_mode = coachingOptions.interactionMode;
+        }
+        if (coachingOptions.scenarioVariant) {
+          insertData.scenario_variant = coachingOptions.scenarioVariant;
+        }
+        insertData.current_phase = 'roleplay';
+      }
+
       const { data, error } = await supabase
         .from('conversations')
-        .insert({
-          user_id: userId,
-          persona_id: personaId,
-          topic,
-          status: 'active',
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (error) throw error;
 
-      set({ activeConversation: data, messages: [] });
+      // Save trait selections to conversation_traits
+      const traitEntries = Object.values(selectedTraits);
+      if (traitEntries.length > 0) {
+        const traitRows = traitEntries.map(({ optionId }) => ({
+          conversation_id: data.id,
+          trait_option_id: optionId,
+        }));
+        await supabase.from('conversation_traits').insert(traitRows);
+      }
+
+      set({
+        activeConversation: data,
+        messages: [],
+        coachingOptions: coachingOptions || null,
+        currentPhase: 'roleplay',
+      });
       return data.id;
     } catch (error) {
       console.error('createConversation error:', error);
@@ -182,8 +326,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  startChallengeChat: async (userId, personaId, challengeQuestion, topic) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Create the conversation
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert({
+          user_id: userId,
+          persona_id: personaId,
+          topic: topic || 'Daily Challenge',
+          status: 'active',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Save the challenge question as the first assistant message
+      const { error: msgError } = await supabase.from('messages').insert({
+        conversation_id: data.id,
+        role: 'assistant',
+        content: challengeQuestion,
+        sequence: 1,
+      });
+
+      if (msgError) throw msgError;
+
+      // Set active conversation and fetch the message
+      set({ activeConversation: data });
+      await get().fetchMessages(data.id);
+
+      return data.id;
+    } catch (error) {
+      console.error('startChallengeChat error:', error);
+      set({ error: (error as Error).message });
+      return null;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   sendMessage: async (content) => {
-    const { activeConversation, messages } = get();
+    const { activeConversation, messages, coachingOptions, currentPhase, selectedTraits } = get();
     if (!activeConversation) return null;
 
     set({ isSending: true, error: null });
@@ -199,18 +384,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
         audio_url: null,
         audio_duration_ms: null,
         sequence,
+        response_time_ms: null,
         created_at: new Date().toISOString(),
       };
 
       set({ messages: [...messages, userMessage] });
 
+      // Build request body with coaching context
+      const requestBody: Record<string, unknown> = {
+        conversationId: activeConversation.id,
+        userMessage: content,
+        personaId: activeConversation.persona_id,
+      };
+
+      // Add coaching context if this is a coaching session
+      if (coachingOptions) {
+        if (coachingOptions.scenarioId) {
+          requestBody.scenarioId = coachingOptions.scenarioId;
+        }
+        if (coachingOptions.interactionMode) {
+          requestBody.interactionMode = coachingOptions.interactionMode;
+        }
+        requestBody.currentPhase = currentPhase;
+        if (coachingOptions.scenarioVariant) {
+          requestBody.scenarioVariant = coachingOptions.scenarioVariant;
+        }
+      }
+
+      // Add prompt tokens from trait selections
+      if (Object.keys(selectedTraits).length > 0) {
+        const promptTokens: Record<string, string> = {};
+        for (const [slug, selection] of Object.entries(selectedTraits)) {
+          promptTokens[slug] = selection.promptModifier;
+        }
+        requestBody.promptTokens = promptTokens;
+      }
+
       // Call Edge Function for AI response
       const { data, error } = await supabase.functions.invoke('chat', {
-        body: {
-          conversationId: activeConversation.id,
-          userMessage: content,
-          personaId: activeConversation.persona_id,
-        },
+        body: requestBody,
       });
 
       if (error) throw error;
@@ -230,12 +442,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   startChat: async () => {
-    const { activeConversation } = get();
+    const { activeConversation, coachingOptions, selectedTraits } = get();
     if (!activeConversation) return false;
 
     console.log('Starting chat with:', {
       conversationId: activeConversation.id,
       personaId: activeConversation.persona_id,
+      coachingOptions,
     });
 
     set({ isSending: true, error: null });
@@ -244,6 +457,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+      // Build request body with coaching options
+      const requestBody: Record<string, unknown> = {
+        conversationId: activeConversation.id,
+        personaId: activeConversation.persona_id,
+        generateGreeting: true,
+      };
+
+      // Add coaching fields if this is a coaching session
+      if (coachingOptions) {
+        if (coachingOptions.scenarioId) {
+          requestBody.scenarioId = coachingOptions.scenarioId;
+        }
+        if (coachingOptions.interactionMode) {
+          requestBody.interactionMode = coachingOptions.interactionMode;
+        }
+        if (coachingOptions.scenarioVariant) {
+          requestBody.scenarioVariant = coachingOptions.scenarioVariant;
+        }
+      }
+
+      // Add prompt tokens from trait selections
+      if (Object.keys(selectedTraits).length > 0) {
+        const promptTokens: Record<string, string> = {};
+        for (const [slug, selection] of Object.entries(selectedTraits)) {
+          promptTokens[slug] = selection.promptModifier;
+        }
+        requestBody.promptTokens = promptTokens;
+      }
+
       const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
         method: 'POST',
         headers: {
@@ -251,11 +493,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           'apikey': supabaseAnonKey || '',
           'Authorization': `Bearer ${supabaseAnonKey}`,
         },
-        body: JSON.stringify({
-          conversationId: activeConversation.id,
-          personaId: activeConversation.persona_id,
-          generateGreeting: true,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -266,7 +504,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       const data = await response.json();
 
-      // Refresh messages to show greeting
+      // Refresh messages to show greeting/scene context
       await get().fetchMessages(activeConversation.id);
       return true;
     } catch (error) {
@@ -279,12 +517,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   generatePreview: async () => {
-    const { activeConversation } = get();
+    const { activeConversation, globalInteractionMode } = get();
     if (!activeConversation) return;
+
+    const isQAMode = globalInteractionMode === 'question';
 
     console.log('Generating preview for:', {
       conversationId: activeConversation.id,
       personaId: activeConversation.persona_id,
+      isQAMode,
     });
 
     set({ isGeneratingPreview: true, error: null });
@@ -292,31 +533,60 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
-          conversationId: activeConversation.id,
-          personaId: activeConversation.persona_id,
-          previewGreeting: true,
-        }),
-      });
+      // Q&A mode: generate scenario via chat endpoint
+      if (isQAMode) {
+        const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey || '',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({
+            personaId: activeConversation.persona_id,
+            generateScenario: true,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Generate preview error:', response.status, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Generate scenario error:', response.status, errorData);
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        set({
+          previewScenario: data.scenario,
+          scenarioRefreshCount: 0,
+        });
+      } else {
+        // Practice mode: generate question
+        const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey || '',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({
+            conversationId: activeConversation.id,
+            personaId: activeConversation.persona_id,
+            previewGreeting: true,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Generate preview error:', response.status, errorData);
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        set({
+          previewQuestion: data.question,
+          questionRefreshCount: 0,
+        });
       }
-
-      const data = await response.json();
-      set({
-        previewQuestion: data.question,
-        questionRefreshCount: 0,
-      });
     } catch (error) {
       console.error('Generate preview failed:', error);
       set({ error: (error as Error).message });
@@ -375,34 +645,109 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  regenerateScenario: async () => {
+    const { activeConversation, scenarioRefreshCount } = get();
+    if (!activeConversation) return false;
+    if (scenarioRefreshCount >= MAX_QUESTION_REFRESHES) return false;
+
+    console.log('Regenerating scenario:', {
+      personaId: activeConversation.persona_id,
+      refreshCount: scenarioRefreshCount + 1,
+    });
+
+    set({ isGeneratingPreview: true, error: null });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      // Call chat endpoint to generate scenario
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          personaId: activeConversation.persona_id,
+          generateScenario: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Regenerate scenario error:', response.status, errorData);
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      set({
+        previewScenario: data.scenario,
+        scenarioRefreshCount: scenarioRefreshCount + 1,
+      });
+      return true;
+    } catch (error) {
+      console.error('Regenerate scenario failed:', error);
+      set({ error: (error as Error).message });
+      return false;
+    } finally {
+      set({ isGeneratingPreview: false });
+    }
+  },
+
   startChatWithPreview: async () => {
-    const { activeConversation, previewQuestion } = get();
-    if (!activeConversation || !previewQuestion) return false;
+    const { activeConversation, previewQuestion, previewScenario, globalInteractionMode } = get();
+    const isQAMode = globalInteractionMode === 'question';
+
+    // For Q&A mode, we need a scenario; for practice mode, we need a question
+    if (!activeConversation) return false;
+    if (isQAMode && !previewScenario) return false;
+    if (!isQAMode && !previewQuestion) return false;
 
     console.log('Starting chat with preview:', {
       conversationId: activeConversation.id,
       personaId: activeConversation.persona_id,
+      isQAMode,
     });
 
     set({ isSending: true, error: null });
     try {
-      // Save only the question message to the database
-      const { error: insertError } = await supabase.from('messages').insert({
-        conversation_id: activeConversation.id,
-        role: 'assistant',
-        content: previewQuestion,
-        sequence: 1,
-      });
+      if (isQAMode) {
+        // Q&A mode: Save scenario as system message (context only)
+        // User will type the first actual message
+        const { error: insertError } = await supabase.from('messages').insert({
+          conversation_id: activeConversation.id,
+          role: 'system',
+          content: `[SCENE CONTEXT]\n${previewScenario}`,
+          sequence: 1,
+        });
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
 
-      // Clear preview state
-      set({
-        previewQuestion: null,
-        questionRefreshCount: 0,
-      });
+        // Clear preview state
+        set({
+          previewScenario: null,
+          scenarioRefreshCount: 0,
+        });
+      } else {
+        // Practice mode: Save the question as first assistant message
+        const { error: insertError } = await supabase.from('messages').insert({
+          conversation_id: activeConversation.id,
+          role: 'assistant',
+          content: previewQuestion,
+          sequence: 1,
+        });
 
-      // Refresh messages to show greeting
+        if (insertError) throw insertError;
+
+        // Clear preview state
+        set({
+          previewQuestion: null,
+          questionRefreshCount: 0,
+        });
+      }
+
+      // Refresh messages to show greeting/context
       await get().fetchMessages(activeConversation.id);
       return true;
     } catch (error) {
@@ -417,7 +762,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearPreview: () => {
     set({
       previewQuestion: null,
+      previewScenario: null,
       questionRefreshCount: 0,
+      scenarioRefreshCount: 0,
     });
   },
 
@@ -427,14 +774,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
       const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/report`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': supabaseAnonKey || '',
           'Authorization': `Bearer ${supabaseAnonKey}`,
         },
-        body: JSON.stringify({ conversationId }),
+        body: JSON.stringify({ conversationId, generateReport: true }),
       });
 
       if (!response.ok) {
@@ -498,6 +845,236 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   clearActiveConversation: () => {
-    set({ activeConversation: null, messages: [] });
+    set({
+      activeConversation: null,
+      messages: [],
+      coachingOptions: null,
+      currentPhase: 'roleplay',
+      selectedTraits: {},
+    });
   },
-}));
+
+  // Coaching-specific actions
+  switchPhase: async (phase) => {
+    const { activeConversation, coachingOptions, selectedTraits } = get();
+    if (!activeConversation) return null;
+
+    set({ isSending: true, error: null, currentPhase: phase });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const requestBody: Record<string, unknown> = {
+        conversationId: activeConversation.id,
+        personaId: activeConversation.persona_id,
+        switchPhase: phase,
+      };
+
+      if (coachingOptions) {
+        if (coachingOptions.scenarioId) {
+          requestBody.scenarioId = coachingOptions.scenarioId;
+        }
+        if (coachingOptions.scenarioVariant) {
+          requestBody.scenarioVariant = coachingOptions.scenarioVariant;
+        }
+      }
+
+      // Add prompt tokens from trait selections
+      if (Object.keys(selectedTraits).length > 0) {
+        const promptTokens: Record<string, string> = {};
+        for (const [slug, selection] of Object.entries(selectedTraits)) {
+          promptTokens[slug] = selection.promptModifier;
+        }
+        requestBody.promptTokens = promptTokens;
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Refresh messages if we got a feedback response
+      if (data.response) {
+        await get().fetchMessages(activeConversation.id);
+      }
+
+      return { response: data.response || data.message };
+    } catch (error) {
+      console.error('Switch phase failed:', error);
+      set({ error: (error as Error).message });
+      return null;
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  requestQuickFeedback: async () => {
+    const { activeConversation, coachingOptions, selectedTraits } = get();
+    if (!activeConversation) return null;
+
+    set({ isSending: true, error: null });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      const requestBody: Record<string, unknown> = {
+        conversationId: activeConversation.id,
+        personaId: activeConversation.persona_id,
+        requestQuickFeedback: true,
+      };
+
+      if (coachingOptions?.scenarioId) {
+        requestBody.scenarioId = coachingOptions.scenarioId;
+      }
+
+      // Add prompt tokens from trait selections
+      if (Object.keys(selectedTraits).length > 0) {
+        const promptTokens: Record<string, string> = {};
+        for (const [slug, selection] of Object.entries(selectedTraits)) {
+          promptTokens[slug] = selection.promptModifier;
+        }
+        requestBody.promptTokens = promptTokens;
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Refresh messages to show feedback
+      await get().fetchMessages(activeConversation.id);
+
+      return { response: data.response };
+    } catch (error) {
+      console.error('Quick feedback failed:', error);
+      set({ error: (error as Error).message });
+      return null;
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  setCoachingOptions: (options) => {
+    set({ coachingOptions: options });
+  },
+
+  setGlobalInteractionMode: (mode) => {
+    set({ globalInteractionMode: mode });
+  },
+
+  setTrait: (categorySlug, optionId, promptModifier) => {
+    const { selectedTraits } = get();
+    set({
+      selectedTraits: {
+        ...selectedTraits,
+        [categorySlug]: { optionId, promptModifier },
+      },
+    });
+  },
+
+  clearTraits: () => {
+    set({ selectedTraits: {} });
+  },
+
+  setCoachesActiveDomain: (domain) => {
+    set({ coachesActiveDomain: domain });
+  },
+
+  setChallengersActiveFilter: (filter) => {
+    set({ challengersActiveFilter: filter });
+  },
+
+  fetchDailyChallenge: async (personas) => {
+    const { dailyChallenge } = get();
+
+    // Check if we have a valid challenge for today
+    if (dailyChallenge) {
+      const generatedDate = new Date(dailyChallenge.generatedAt).toDateString();
+      const today = new Date().toDateString();
+      if (generatedDate === today) {
+        return; // Already have today's challenge
+      }
+    }
+
+    if (personas.length === 0) return;
+
+    set({ isLoadingChallenge: true });
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+      // Pick a random persona for the challenge
+      const randomPersona = personas[Math.floor(Math.random() * personas.length)];
+
+      // Use the existing chat function with generateChallenge flag
+      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey || '',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          personaId: randomPersona.id,
+          generateChallenge: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      set({
+        dailyChallenge: {
+          question: data.question,
+          topic: data.topic,
+          personaId: randomPersona.id,
+          generatedAt: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error('Failed to fetch daily challenge:', error);
+      // Fallback - don't crash the app
+    } finally {
+      set({ isLoadingChallenge: false });
+    }
+  },
+    }),
+    {
+      name: 'dialectica-preferences',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        globalInteractionMode: state.globalInteractionMode,
+        selectedTraits: state.selectedTraits,
+        coachesActiveDomain: state.coachesActiveDomain,
+        challengersActiveFilter: state.challengersActiveFilter,
+      }),
+    },
+  ),
+);

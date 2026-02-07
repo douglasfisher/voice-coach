@@ -11,7 +11,14 @@ export default function AuthLayout() {
     >
       <Stack.Screen name="login" />
       <Stack.Screen name="signup" />
-      <Stack.Screen name="onboarding/welcome" />
+      <Stack.Screen
+        name="onboarding/splash"
+        options={{ animation: 'fade', gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="onboarding/welcome"
+        options={{ animation: 'fade' }}
+      />
       <Stack.Screen name="onboarding/pick-personas" />
       <Stack.Screen name="onboarding/preferences" />
     </Stack>

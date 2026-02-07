@@ -6,12 +6,15 @@ export default function ChatLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: '#0F0F12' },
-        animation: 'slide_from_right',
+        animation: 'none',
       }}
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="[id]" />
-      <Stack.Screen name="report/[id]" />
+      <Stack.Screen
+        name="report/[id]"
+        options={{ animation: 'slide_from_right' }}
+      />
     </Stack>
   );
 }

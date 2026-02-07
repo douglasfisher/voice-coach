@@ -9,12 +9,22 @@ import { supabase } from '../lib/supabase';
 import { Persona, InsertTables, UpdateTables } from '../types/database';
 import { AdminPersonaView, PersonaFormData } from '../types/admin';
 
+interface PersonaTraitDefault {
+  categoryId: string;
+  categorySlug: string;
+  categoryName: string;
+  optionId: string;
+  optionSlug: string;
+  optionName: string;
+}
+
 interface AdminPersonaState {
   personas: AdminPersonaView[];
   selectedPersona: AdminPersonaView | null;
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
+  personaTraitDefaults: PersonaTraitDefault[];
 
   // Actions
   fetchPersonas: () => Promise<void>;
@@ -25,6 +35,8 @@ interface AdminPersonaState {
   toggleActive: (id: string) => Promise<{ error: Error | null }>;
   reorderPersonas: (ids: string[]) => Promise<{ error: Error | null }>;
   clearSelectedPersona: () => void;
+  fetchPersonaTraitDefaults: (personaId: string) => Promise<void>;
+  updatePersonaTraitDefault: (personaId: string, traitOptionId: string) => Promise<void>;
 }
 
 export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
@@ -33,6 +45,7 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
   isLoading: false,
   isSaving: false,
   error: null,
+  personaTraitDefaults: [],
 
   fetchPersonas: async () => {
     set({ isLoading: true, error: null });
@@ -260,6 +273,53 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
   },
 
   clearSelectedPersona: () => {
-    set({ selectedPersona: null });
+    set({ selectedPersona: null, personaTraitDefaults: [] });
+  },
+
+  fetchPersonaTraitDefaults: async (personaId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('persona_trait_defaults')
+        .select(`
+          trait_option_id,
+          trait_options (
+            id, slug, name,
+            trait_categories (id, slug, name)
+          )
+        `)
+        .eq('persona_id', personaId);
+
+      if (error) throw error;
+
+      const defaults: PersonaTraitDefault[] = (data || []).map((row: any) => ({
+        categoryId: row.trait_options?.trait_categories?.id,
+        categorySlug: row.trait_options?.trait_categories?.slug,
+        categoryName: row.trait_options?.trait_categories?.name,
+        optionId: row.trait_options?.id,
+        optionSlug: row.trait_options?.slug,
+        optionName: row.trait_options?.name,
+      }));
+
+      set({ personaTraitDefaults: defaults });
+    } catch (error) {
+      console.error('Failed to fetch persona trait defaults:', error);
+    }
+  },
+
+  updatePersonaTraitDefault: async (personaId: string, traitOptionId: string) => {
+    try {
+      // The DB trigger handles one-per-category constraint (deletes old, inserts new)
+      const { error } = await supabase
+        .from('persona_trait_defaults')
+        .insert({ persona_id: personaId, trait_option_id: traitOptionId });
+
+      if (error) throw error;
+
+      // Refresh defaults
+      await get().fetchPersonaTraitDefaults(personaId);
+    } catch (error) {
+      console.error('Failed to update persona trait default:', error);
+      set({ error: (error as Error).message });
+    }
   },
 }));
