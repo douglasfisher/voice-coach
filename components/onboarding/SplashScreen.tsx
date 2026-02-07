@@ -6,8 +6,8 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
-  runOnJS,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { resolvePersonaAvatar } from '../../lib/personaImages';
 import { ParticleField } from './ParticleField';
@@ -155,35 +155,30 @@ export function SplashScreen() {
             resizeMode: 'cover',
           }}
         />
-        {/* Gradient overlay - heavy fade to black at top */}
-        <View
+        {/* Gradient overlay - smooth fade to dark at top */}
+        <LinearGradient
+          colors={['#0F0F12', 'rgba(15, 15, 18, 0.85)', 'transparent']}
+          locations={[0, 0.5, 1]}
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
-            height: '60%',
-            backgroundColor: 'transparent',
+            height: '70%',
           }}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: '#0F0F12',
-              opacity: 0.9,
-            }}
-          />
-        </View>
+          pointerEvents="none"
+        />
         {/* Bottom subtle gradient */}
-        <View
+        <LinearGradient
+          colors={['transparent', 'rgba(15, 15, 18, 0.6)']}
           style={{
             position: 'absolute',
             bottom: 0,
             left: 0,
             right: 0,
-            height: '20%',
-            backgroundColor: 'rgba(15, 15, 18, 0.6)',
+            height: '25%',
           }}
+          pointerEvents="none"
         />
       </Animated.View>
 

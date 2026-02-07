@@ -14,7 +14,7 @@ import { SlideConversation } from './slides/SlideConversation';
 import { SlideGrowth } from './slides/SlideGrowth';
 import { SlideReady } from './slides/SlideReady';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SLIDE_COUNT = 5;
 
 const SLIDES = [0, 1, 2, 3, 4];
@@ -79,7 +79,9 @@ export function OnboardingCarousel() {
 
   const renderItem = useCallback(
     ({ item }: { item: number }) => (
-      <SlideRenderer index={item} activeIndex={activeIndex} />
+      <View style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}>
+        <SlideRenderer index={item} activeIndex={activeIndex} />
+      </View>
     ),
     [activeIndex],
   );
@@ -124,7 +126,7 @@ export function OnboardingCarousel() {
       )}
 
       {/* Pagination dots */}
-      <SafeAreaView edges={['bottom']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+      <SafeAreaView pointerEvents="box-none" edges={['bottom']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
         <PaginationDots
           count={SLIDE_COUNT}
           scrollX={scrollX}
