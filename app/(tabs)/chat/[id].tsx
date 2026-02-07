@@ -147,6 +147,15 @@ export default function ChatScreen() {
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
 
+  // Navigate back to the source tab based on persona type
+  const goBackToSource = () => {
+    if (persona?.personaType === 'coach') {
+      router.navigate('/(tabs)/coaches');
+    } else {
+      router.navigate('/(tabs)/personas');
+    }
+  };
+
   // Immersive mode: show full-bleed persona image with messages overlaid
   const immersiveModeEnabled = preferences?.immersive_chat_enabled ?? true;
   const showImmersiveLayout = immersiveModeEnabled && chatStarted && !!persona;
@@ -191,16 +200,16 @@ export default function ChatScreen() {
     if (report) {
       router.replace(`/(tabs)/chat/report/${conversation.id}`);
     } else {
-      // Fallback: just end and go back
+      // Fallback: just end and go back to source tab
       await end();
-      router.back();
+      goBackToSource();
     }
   };
 
   const handleChooseNewChallenger = async () => {
     await end();
     setShowEndModal(false);
-    router.push('/(tabs)/personas');
+    goBackToSource();
   };
 
   const handleStartChat = async () => {
@@ -329,7 +338,7 @@ export default function ChatScreen() {
             This conversation may have been deleted or doesn't exist.
           </Text>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.navigate('/(tabs)/personas')}
             style={{
               paddingHorizontal: 24,
               paddingVertical: 12,
@@ -398,7 +407,7 @@ export default function ChatScreen() {
           }}
         >
           <Pressable
-            onPress={() => router.back()}
+            onPress={goBackToSource}
             style={{
               padding: 16,
               paddingRight: 8,
@@ -595,7 +604,7 @@ export default function ChatScreen() {
               This conversation has ended
             </Text>
             <Pressable
-              onPress={() => router.push('/(tabs)/personas')}
+              onPress={goBackToSource}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',

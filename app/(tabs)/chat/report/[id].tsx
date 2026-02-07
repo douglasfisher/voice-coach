@@ -190,7 +190,7 @@ export default function ReportScreen() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <Text style={{ color: '#fff', fontSize: 18 }}>Report not found</Text>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.navigate('/(tabs)/personas')}
             style={{
               marginTop: 16,
               paddingHorizontal: 20,
@@ -687,7 +687,7 @@ export default function ReportScreen() {
           borderTopColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <Pressable onPress={() => router.push('/(tabs)/personas')}>
+        <Pressable onPress={() => router.navigate(persona?.personaType === 'coach' ? '/(tabs)/coaches' : '/(tabs)/personas')}>
           <LinearGradient
             colors={['#F59E0B', '#D97706']}
             start={{ x: 0, y: 0 }}
@@ -709,7 +709,7 @@ export default function ReportScreen() {
                 marginLeft: 8,
               }}
             >
-              Start New Challenge
+              {persona?.personaType === 'coach' ? 'Start New Session' : 'Start New Challenge'}
             </Text>
           </LinearGradient>
         </Pressable>
