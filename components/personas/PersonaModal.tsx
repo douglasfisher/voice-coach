@@ -130,7 +130,7 @@ export function PersonaModal({
             {/* Gradient overlay */}
             <LinearGradient
               colors={theme.gradient}
-              locations={[0, 0.6, 1]}
+              locations={[0, 0.8, 1]}
               style={{
                 position: 'absolute',
                 width: '100%',
