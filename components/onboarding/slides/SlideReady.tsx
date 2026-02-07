@@ -64,13 +64,13 @@ function shuffleArr<T>(arr: T[]): T[] {
 // Scattered layout: absolute pixel positions from top-left of full-width container
 // 8 circles, varied sizes, spread across the whole screen width
 const LAYOUT = [
-  { left: 10,  top: 0,   size: 110 },  // top-left
-  { left: 155, top: 5,   size: 100 },  // top-center
-  { left: 275, top: 0,   size: 105 },  // top-right
-  { left: 60,  top: 90,  size: 280 },  // CENTER HERO - much bigger
-  { left: -5,  top: 150, size: 110 },  // mid-left
-  { left: 275, top: 155, size: 115 },  // mid-right
-  { left: 20,  top: 310, size: 105 },  // bottom-left
+  { left: -10, top: 20, size: 120 },  // top-left
+  { left: 155, top: 15, size: 100 },  // top-center
+  { left: 275, top: 0, size: 140 },  // top-right
+  { left: 60, top: 90, size: 280 },  // CENTER HERO - much bigger
+  { left: -30, top: 150, size: 170 },  // mid-left
+  { left: 300, top: 155, size: 115 },  // mid-right
+  { left: 20, top: 350, size: 125 },  // bottom-left
   { left: 260, top: 300, size: 110 },  // bottom-right
 ];
 
