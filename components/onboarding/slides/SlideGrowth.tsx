@@ -39,7 +39,7 @@ interface SlideGrowthProps {
 const STATS: { value: string; label: string; icon: LucideIcon; color: string; gradient: [string, string] }[] = [
   { value: '12', label: 'Sessions', icon: Target, color: '#60a5fa', gradient: ['#1e3a5f', '#0c1f3d'] },
   { value: '5 Day', label: 'Streak', icon: Flame, color: '#F59E0B', gradient: ['#713f12', '#422508'] },
-  { value: 'Top 15%', label: 'Ranking', icon: Trophy, color: '#4ade80', gradient: ['#14532d', '#0a2e18'] },
+  { value: 'Top 5%', label: 'Ranking', icon: Trophy, color: '#4ade80', gradient: ['#14532d', '#0a2e18'] },
 ];
 
 const BADGES: { icon: LucideIcon; label: string; color: string }[] = [
