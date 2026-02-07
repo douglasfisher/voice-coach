@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
@@ -32,6 +33,7 @@ import { useTraits } from '../../../hooks/useTraits';
 import { Persona } from '../../../types/database';
 import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
+import { resolvePersonaAvatar } from '../../../lib/personaImages';
 
 interface AIModelOption {
   id: string;
@@ -483,6 +485,24 @@ export default function AdminPersonaEditScreen() {
             onChangeText={(text) => updateForm('avatar_url', text)}
             placeholder="https://..."
           />
+
+          {form.name.trim().length > 0 && (
+            <View style={{ alignItems: 'center', marginBottom: 16 }}>
+              <Image
+                source={resolvePersonaAvatar(form.name)}
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  borderWidth: 2,
+                  borderColor: 'rgba(245, 158, 11, 0.3)',
+                }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6 }}>
+                Local avatar preview
+              </Text>
+            </View>
+          )}
 
           <FormInput
             label="Cultural Background"
