@@ -92,6 +92,7 @@ export default function TabsLayout() {
           name="chat"
           options={{
             href: null,
+            tabBarStyle: { display: 'none' },
           }}
         />
       </Tabs>
