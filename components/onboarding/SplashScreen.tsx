@@ -125,7 +125,7 @@ export function SplashScreen() {
             bottom: 0,
             left: -50,
             right: -50,
-            height: SCREEN_HEIGHT * 0.7,
+            height: SCREEN_HEIGHT * 0.6,
             borderRadius: SCREEN_WIDTH,
             backgroundColor: 'rgba(245, 158, 11, 0.08)',
           },
@@ -133,7 +133,7 @@ export function SplashScreen() {
         ]}
       />
 
-      {/* Alex Rivera photo - bottom 65% */}
+      {/* Alex Rivera photo - bottom 55% */}
       <Animated.View
         style={[
           {
@@ -141,7 +141,7 @@ export function SplashScreen() {
             bottom: 0,
             left: 0,
             right: 0,
-            height: SCREEN_HEIGHT * 0.65,
+            height: SCREEN_HEIGHT * 0.55,
             overflow: 'hidden',
           },
           photoStyle,
@@ -157,8 +157,8 @@ export function SplashScreen() {
         />
         {/* Gradient overlay - smooth fade to dark at top */}
         <LinearGradient
-          colors={['#0F0F12', 'rgba(15, 15, 18, 0.85)', 'transparent']}
-          locations={[0, 0.5, 1]}
+          colors={['#0F0F12', '#0F0F12', 'rgba(15, 15, 18, 0.7)', 'transparent']}
+          locations={[0, 0.35, 0.7, 1]}
           style={{
             position: 'absolute',
             top: 0,
