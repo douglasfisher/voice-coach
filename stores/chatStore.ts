@@ -1030,22 +1030,28 @@ export const useChatStore = create<ChatState>()(
       // Pick a random persona for the challenge
       const randomPersona = personas[Math.floor(Math.random() * personas.length)];
 
-      // Use the existing chat function with generateChallenge flag
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
-          personaId: randomPersona.id,
-          generateChallenge: true,
-        }),
-      });
+      // Retry logic for edge function cold starts
+      let response: Response | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey || '',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+          },
+          body: JSON.stringify({
+            personaId: randomPersona.id,
+            generateChallenge: true,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        if (response.ok) break;
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
+      }
+
+      if (!response?.ok) {
+        throw new Error(`HTTP ${response?.status}`);
       }
 
       const data = await response.json();
