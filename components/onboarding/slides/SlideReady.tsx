@@ -215,6 +215,7 @@ export function SlideReady({ isActive }: SlideReadyProps) {
                   top: layout.top,
                   width: size,
                   alignItems: 'center',
+                  zIndex: i === 3 ? 10 : 1,
                 },
                 animStyle,
               ]}
