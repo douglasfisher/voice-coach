@@ -119,6 +119,23 @@ interface ChatState {
 
 const MAX_QUESTION_REFRESHES = 3;
 
+/** Build promptTokens for scenario generation from traits + gender preferences */
+function buildScenarioPromptTokens(selectedTraits: TraitSelection): Record<string, string> {
+  const promptTokens: Record<string, string> = {};
+  for (const [slug, selection] of Object.entries(selectedTraits)) {
+    promptTokens[slug] = selection.promptModifier;
+  }
+  // Add gender/dating preference context as a pseudo-token
+  const prefs = useAuthStore.getState().preferences;
+  if (prefs?.user_gender || prefs?.interested_in) {
+    const parts: string[] = [];
+    if (prefs.user_gender) parts.push(`The user is ${prefs.user_gender}`);
+    if (prefs.interested_in) parts.push(`interested in ${prefs.interested_in}`);
+    promptTokens['_user_context'] = `${parts.join(', ')}. Use appropriate gender pronouns for the person they encounter.`;
+  }
+  return promptTokens;
+}
+
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
@@ -518,7 +535,7 @@ export const useChatStore = create<ChatState>()(
   },
 
   generatePreview: async () => {
-    const { activeConversation, globalInteractionMode } = get();
+    const { activeConversation, globalInteractionMode, selectedTraits } = get();
     if (!activeConversation) return;
 
     const isQAMode = globalInteractionMode === 'question';
@@ -546,8 +563,7 @@ export const useChatStore = create<ChatState>()(
           body: JSON.stringify({
             personaId: activeConversation.persona_id,
             generateScenario: true,
-            userGender: useAuthStore.getState().preferences?.user_gender || null,
-            interestedIn: useAuthStore.getState().preferences?.interested_in || null,
+            promptTokens: buildScenarioPromptTokens(selectedTraits),
           }),
         });
 
@@ -649,7 +665,7 @@ export const useChatStore = create<ChatState>()(
   },
 
   regenerateScenario: async () => {
-    const { activeConversation, scenarioRefreshCount } = get();
+    const { activeConversation, scenarioRefreshCount, selectedTraits } = get();
     if (!activeConversation) return false;
     if (scenarioRefreshCount >= MAX_QUESTION_REFRESHES) return false;
 
@@ -674,8 +690,7 @@ export const useChatStore = create<ChatState>()(
         body: JSON.stringify({
           personaId: activeConversation.persona_id,
           generateScenario: true,
-          userGender: useAuthStore.getState().preferences?.user_gender || null,
-          interestedIn: useAuthStore.getState().preferences?.interested_in || null,
+          promptTokens: buildScenarioPromptTokens(selectedTraits),
         }),
       });
 

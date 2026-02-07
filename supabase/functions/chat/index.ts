@@ -37,8 +37,6 @@ interface ChatRequest {
   requestQuickFeedback?: boolean;
   switchPhase?: 'roleplay' | 'feedback';
   promptTokens?: Record<string, string>;
-  userGender?: string | null;
-  interestedIn?: string | null;
 }
 
 interface GroqMessage {
@@ -210,8 +208,6 @@ serve(async (req) => {
       requestQuickFeedback,
       switchPhase,
       promptTokens,
-      userGender,
-      interestedIn,
     } = await req.json() as ChatRequest;
 
     // Handle challenge generation (doesn't require conversationId)
@@ -304,15 +300,17 @@ Guidelines:
         personaId,
       });
 
-      let preferenceContext = '';
-      if (userGender || interestedIn) {
+      // Build extra context from promptTokens (traits + user preferences sent by client)
+      let extraContext = '';
+      if (promptTokens && Object.keys(promptTokens).length > 0) {
         const parts: string[] = [];
-        if (userGender) parts.push(`The user is ${userGender}`);
-        if (interestedIn) parts.push(`interested in ${interestedIn}`);
-        preferenceContext = `\nUSER CONTEXT: ${parts.join(', ')}. Use the appropriate gender pronouns for the person they encounter.`;
+        for (const [_category, modifier] of Object.entries(promptTokens)) {
+          parts.push(modifier);
+        }
+        extraContext = `\nSTYLE GUIDANCE: ${parts.join('. ')}.`;
       }
 
-      const systemPrompt = `You are a creative scenario writer.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Second person present tense ("You...")\n- Be vivid, specific and immersive\n- Vary locations and details each time${preferenceContext}`;
+      const systemPrompt = `You are a creative scenario writer.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Second person present tense ("You...")\n- Be vivid, specific and immersive\n- Vary locations and details each time${extraContext}`;
 
       const scenarioResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
