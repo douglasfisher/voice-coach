@@ -126,7 +126,7 @@ export function SlideHero({ isActive }: SlideHeroProps) {
           justifyContent: 'center',
           alignItems: 'center',
           paddingHorizontal: 32,
-          paddingBottom: 40,
+          paddingBottom: 80,
         }}
       >
         <Animated.Text
