@@ -30,26 +30,26 @@ interface CoachEntry {
 }
 
 const ALL_COACHES: CoachEntry[] = [
-  { name: 'alex rivera', badge: 'Dating Coach', badgeColor: '#f472b6' },
-  { name: 'jordan chen', badge: 'Dating Coach', badgeColor: '#f472b6' },
-  { name: 'sam taylor', badge: 'Dating Coach', badgeColor: '#f472b6' },
-  { name: 'mia chang', badge: 'Dating Coach', badgeColor: '#f472b6' },
-  { name: 'priya sharma', badge: 'Interview Coach', badgeColor: '#60a5fa' },
-  { name: 'michael santos', badge: 'Interview Coach', badgeColor: '#60a5fa' },
-  { name: 'grace williams', badge: 'Interview Coach', badgeColor: '#60a5fa' },
-  { name: 'david park', badge: 'Interview Coach', badgeColor: '#60a5fa' },
-  { name: 'james morrison', badge: 'Presentation Coach', badgeColor: '#4ade80' },
-  { name: 'aisha rahman', badge: 'Presentation Coach', badgeColor: '#4ade80' },
-  { name: 'lisa park', badge: 'Presentation Coach', badgeColor: '#4ade80' },
-  { name: 'victor reyes', badge: 'Negotiation Coach', badgeColor: '#fbbf24' },
-  { name: 'catherine walsh', badge: 'Negotiation Coach', badgeColor: '#fbbf24' },
-  { name: 'omar hassan', badge: 'Negotiation Coach', badgeColor: '#fbbf24' },
+  { name: 'alex rivera', badge: 'Dating', badgeColor: '#f472b6' },
+  { name: 'jordan chen', badge: 'Dating', badgeColor: '#f472b6' },
+  { name: 'sam taylor', badge: 'Dating', badgeColor: '#f472b6' },
+  { name: 'mia chang', badge: 'Dating', badgeColor: '#f472b6' },
+  { name: 'priya sharma', badge: 'Interviews', badgeColor: '#60a5fa' },
+  { name: 'michael santos', badge: 'Interviews', badgeColor: '#60a5fa' },
+  { name: 'grace williams', badge: 'Interviews', badgeColor: '#60a5fa' },
+  { name: 'david park', badge: 'Interviews', badgeColor: '#60a5fa' },
+  { name: 'james morrison', badge: 'Presenting', badgeColor: '#4ade80' },
+  { name: 'aisha rahman', badge: 'Presenting', badgeColor: '#4ade80' },
+  { name: 'lisa park', badge: 'Presenting', badgeColor: '#4ade80' },
+  { name: 'victor reyes', badge: 'Negotiation', badgeColor: '#fbbf24' },
+  { name: 'catherine walsh', badge: 'Negotiation', badgeColor: '#fbbf24' },
+  { name: 'omar hassan', badge: 'Negotiation', badgeColor: '#fbbf24' },
   { name: 'dr. nina patel', badge: 'Difficult Talks', badgeColor: '#c084fc' },
   { name: 'marcus johnson', badge: 'Difficult Talks', badgeColor: '#c084fc' },
   { name: 'emma larsson', badge: 'Difficult Talks', badgeColor: '#c084fc' },
-  { name: 'derek thompson', badge: 'Networking Coach', badgeColor: '#2dd4bf' },
-  { name: 'yuki yamamoto', badge: 'Networking Coach', badgeColor: '#2dd4bf' },
-  { name: 'sophia martinez', badge: 'Networking Coach', badgeColor: '#2dd4bf' },
+  { name: 'derek thompson', badge: 'Networking', badgeColor: '#2dd4bf' },
+  { name: 'yuki yamamoto', badge: 'Networking', badgeColor: '#2dd4bf' },
+  { name: 'sophia martinez', badge: 'Networking', badgeColor: '#2dd4bf' },
 ];
 
 function shuffleArr<T>(arr: T[]): T[] {
@@ -62,18 +62,16 @@ function shuffleArr<T>(arr: T[]): T[] {
 }
 
 // Scattered layout: positions as % of container, plus sizes
-// Designed to feel organic - varied sizes, non-grid placement
+// 5 circles, well-spaced to avoid overlap, varied sizes
 const LAYOUT = [
-  { x: 0.02, y: 0.08, size: 80 },   // top-left, medium
-  { x: 0.52, y: 0.00, size: 72 },   // top-right, smaller
-  { x: 0.22, y: 0.32, size: 100 },  // center-left, large (hero)
-  { x: 0.60, y: 0.25, size: 88 },   // center-right, medium-large
-  { x: 0.08, y: 0.62, size: 68 },   // bottom-left, small
-  { x: 0.48, y: 0.58, size: 76 },   // bottom-center-right, medium
-  { x: 0.78, y: 0.48, size: 64 },   // right edge, smallest
+  { x: 0.05, y: 0.02, size: 90 },   // top-left
+  { x: 0.58, y: 0.00, size: 80 },   // top-right
+  { x: 0.28, y: 0.38, size: 110 },  // center, hero (largest)
+  { x: 0.00, y: 0.72, size: 75 },   // bottom-left
+  { x: 0.55, y: 0.65, size: 85 },   // bottom-right
 ];
 
-const COACH_COUNT = 7;
+const COACH_COUNT = 5;
 
 export function SlideReady({ isActive }: SlideReadyProps) {
   const selectedCoaches = useMemo(() => shuffleArr(ALL_COACHES).slice(0, COACH_COUNT), []);
@@ -176,7 +174,7 @@ export function SlideReady({ isActive }: SlideReadyProps) {
   };
 
   const containerWidth = SCREEN_WIDTH - 64;
-  const containerHeight = SCREEN_HEIGHT * 0.38;
+  const containerHeight = SCREEN_HEIGHT * 0.42;
 
   return (
     <View
