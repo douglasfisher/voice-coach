@@ -17,10 +17,9 @@ import {
   EASE_ENTER,
 } from '../../constants/animations';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export function SplashScreen() {
-  const glowOpacity = useSharedValue(0);
   const photoOpacity = useSharedValue(0);
   const photoScale = useSharedValue(1.08);
   const titleOpacity = useSharedValue(0);
@@ -31,10 +30,7 @@ export function SplashScreen() {
   const screenOpacity = useSharedValue(1);
 
   useEffect(() => {
-    // 0-400ms: Amber glow
-    glowOpacity.value = withTiming(1, { duration: 400, easing: EASE_ENTER });
-
-    // 200-800ms: Photo fade in + Ken Burns settle
+    // 0-600ms: Photo fade in + Ken Burns settle
     photoOpacity.value = withDelay(
       200,
       withTiming(1, { duration: 600, easing: EASE_ENTER }),
@@ -88,10 +84,6 @@ export function SplashScreen() {
     opacity: screenOpacity.value,
   }));
 
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
-
   const photoStyle = useAnimatedStyle(() => ({
     opacity: photoOpacity.value,
     transform: [{ scale: photoScale.value }],
@@ -117,32 +109,15 @@ export function SplashScreen() {
     <Animated.View
       style={[{ flex: 1, backgroundColor: '#0F0F12' }, screenStyle]}
     >
-      {/* Amber radial glow behind photo */}
+      {/* Alex Rivera photo - full screen */}
       <Animated.View
         style={[
           {
             position: 'absolute',
-            bottom: 0,
-            left: -50,
-            right: -50,
-            height: SCREEN_HEIGHT * 0.6,
-            borderRadius: SCREEN_WIDTH,
-            backgroundColor: 'rgba(245, 158, 11, 0.08)',
-          },
-          glowStyle,
-        ]}
-      />
-
-      {/* Alex Rivera photo - bottom 55% */}
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            bottom: 0,
+            top: 0,
             left: 0,
             right: 0,
-            height: SCREEN_HEIGHT * 0.55,
-            overflow: 'hidden',
+            bottom: 0,
           },
           photoStyle,
         ]}
@@ -155,45 +130,34 @@ export function SplashScreen() {
             resizeMode: 'cover',
           }}
         />
-        {/* Gradient overlay - smooth fade to dark at top */}
-        <LinearGradient
-          colors={['#0F0F12', '#0F0F12', 'rgba(15, 15, 18, 0.7)', 'transparent']}
-          locations={[0, 0.35, 0.7, 1]}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '70%',
-          }}
-          pointerEvents="none"
-        />
-        {/* Bottom subtle gradient */}
-        <LinearGradient
-          colors={['transparent', 'rgba(15, 15, 18, 0.6)']}
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '25%',
-          }}
-          pointerEvents="none"
-        />
       </Animated.View>
+
+      {/* Gradient overlay - lower half only, for text readability */}
+      <LinearGradient
+        colors={['transparent', 'rgba(15, 15, 18, 0.6)', 'rgba(15, 15, 18, 0.9)', '#0F0F12']}
+        locations={[0, 0.3, 0.65, 1]}
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: SCREEN_HEIGHT * 0.5,
+        }}
+        pointerEvents="none"
+      />
 
       {/* Particles */}
       <ParticleField />
 
-      {/* Text content - centered above photo */}
+      {/* Text content - lower third */}
       <View
         style={{
           position: 'absolute',
-          top: 0,
+          bottom: 0,
           left: 0,
           right: 0,
-          height: SCREEN_HEIGHT * 0.45,
-          justifyContent: 'flex-end',
+          height: SCREEN_HEIGHT * 0.33,
+          justifyContent: 'center',
           alignItems: 'center',
           paddingBottom: 40,
         }}
