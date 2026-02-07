@@ -300,20 +300,12 @@ export function PersonaModal({
               <PersonalityBar label="Formality" value={persona.personality.formality} color={theme.accent} isLast />
             </View>
 
-            {/* Spacer for button */}
-            <View style={{ height: 100 }} />
-          </View>
+            </View>
         </ScrollView>
 
         {/* Fixed CTA Button */}
         <View
           style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 999,
-            elevation: 999,
             backgroundColor: '#0a0a0f',
             paddingHorizontal: 24,
             paddingTop: 16,
