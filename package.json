@@ -5,9 +5,9 @@
   "scripts": {
     "start": "expo start --clear",
     "dev": "expo start --clear",
-    "dev:ios": "lsof -ti:8081 | xargs kill -9 2>/dev/null; xcrun simctl boot 261C1A9B-B345-4050-B06B-CB0DFA887F10 2>/dev/null; open -a Simulator --args -CurrentDeviceUDID 261C1A9B-B345-4050-B06B-CB0DFA887F10 && (expo run:ios --device 261C1A9B-B345-4050-B06B-CB0DFA887F10 --no-bundler 2>&1 || true) && xcrun simctl spawn 261C1A9B-B345-4050-B06B-CB0DFA887F10 defaults write com.dialectica.app RCT_jsLocation localhost && xcrun simctl launch 261C1A9B-B345-4050-B06B-CB0DFA887F10 com.dialectica.app && expo start --dev-client --port 8081 --clear",
-    "fresh": "lsof -ti:8081 | xargs kill -9 2>/dev/null; xcrun simctl boot 261C1A9B-B345-4050-B06B-CB0DFA887F10 2>/dev/null; xcrun simctl uninstall 261C1A9B-B345-4050-B06B-CB0DFA887F10 com.dialectica.app 2>/dev/null; (expo run:ios --device 261C1A9B-B345-4050-B06B-CB0DFA887F10 --no-bundler 2>&1 || true) && xcrun simctl spawn 261C1A9B-B345-4050-B06B-CB0DFA887F10 defaults write com.dialectica.app RCT_jsLocation localhost && xcrun simctl launch 261C1A9B-B345-4050-B06B-CB0DFA887F10 com.dialectica.app && expo start --dev-client --port 8081 --clear",
-    "reset:onboarding": "xcrun simctl boot 261C1A9B-B345-4050-B06B-CB0DFA887F10 2>/dev/null; xcrun simctl spawn 261C1A9B-B345-4050-B06B-CB0DFA887F10 defaults delete com.dialectica.app 2>/dev/null; echo 'AsyncStorage cleared — restart the app'",
+    "dev:ios": "bash scripts/dev-ios.sh dev",
+    "fresh": "bash scripts/dev-ios.sh fresh",
+    "reset:onboarding": "bash scripts/dev-ios.sh reset",
     "dev:android": "expo start --android --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
