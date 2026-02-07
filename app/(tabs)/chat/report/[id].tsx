@@ -231,7 +231,7 @@ export default function ReportScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ padding: 8 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Persona Hero Card */}
@@ -243,7 +243,7 @@ export default function ReportScreen() {
               marginBottom: 20,
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.1)',
-              height: 480,
+              height: 550,
               position: 'relative',
             }}
           >
@@ -577,9 +577,9 @@ export default function ReportScreen() {
                 const wordCount = countWords(msg.content);
                 const timestamp = msg.created_at
                   ? new Date(msg.created_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
                   : null;
 
                 return (
