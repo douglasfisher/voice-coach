@@ -243,7 +243,7 @@ export default function ReportScreen() {
               marginBottom: 20,
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.1)',
-              aspectRatio: 1 / 1.3,
+              height: 480,
               position: 'relative',
             }}
           >
