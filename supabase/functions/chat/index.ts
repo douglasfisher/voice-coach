@@ -293,14 +293,14 @@ Guidelines:
       }
 
       const scenarioPrompt = persona?.qa_scenario_prompt ||
-        'Generate a brief practice scenario (2-3 sentences). Set a realistic scene. Second person, present tense.';
+        'Generate a short scenario sentence to set the scene for a practice conversation.';
 
       const scenarioConfig = await resolveAIConfig(supabase, {
         task: 'scenario',
         personaId,
       });
 
-      const systemPrompt = `You are a creative scenario writer. Your job is to create immersive, realistic practice scenarios.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Keep it to 2-3 sentences maximum\n- Make it vivid and specific\n- Use second person present tense ("You...")\n- End on the moment of action\n- Vary locations, people, and details each time`;
+      const systemPrompt = `You are a creative scenario writer.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- MAXIMUM 1 sentence, under 25 words\n- Second person present tense ("You...")\n- Set the scene briefly: who, where, what's happening\n- Be specific but extremely concise\n- Vary locations and details each time\n- Examples of good length: "You're at a rooftop bar and lock eyes with someone across the room." or "Your interviewer leans back and asks you to sell yourself in 30 seconds."`;
 
       const scenarioResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
@@ -315,7 +315,7 @@ Guidelines:
             { role: 'user', content: 'Generate a new scenario.' },
           ],
           temperature: scenarioConfig.temperature,
-          max_tokens: scenarioConfig.max_completion_tokens,
+          max_tokens: Math.min(scenarioConfig.max_completion_tokens, 60),
         }),
       });
 
