@@ -716,7 +716,17 @@ export const useChatStore = create<ChatState>()(
         body: { conversationId, generateReport: true },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Extract the actual error body from the edge function response
+        let detail = error.message;
+        if (error.context && typeof error.context.json === 'function') {
+          try {
+            const body = await error.context.json();
+            detail = body?.error || JSON.stringify(body);
+          } catch { /* use default message */ }
+        }
+        throw new Error(detail);
+      }
       return data.report as SessionReport;
     } catch (error) {
       console.error('Generate report failed:', error);
