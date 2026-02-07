@@ -411,8 +411,8 @@ Generate a comprehensive session report.`;
 
       if (!reportGroqResponse.ok) {
         const errorText = await reportGroqResponse.text();
-        console.error('Groq report error:', reportGroqResponse.status, errorText);
-        throw new Error(`Groq API error ${reportGroqResponse.status}: ${errorText.slice(0, 200)}`);
+        console.error('Groq error:', reportGroqResponse.status, errorText);
+        throw new Error(`Groq API error: ${reportGroqResponse.status}`);
       }
 
       const reportGroqData = await reportGroqResponse.json();
