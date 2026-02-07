@@ -61,17 +61,20 @@ function shuffleArr<T>(arr: T[]): T[] {
   return copy;
 }
 
-// Scattered layout: positions as % of container, plus sizes
-// 5 circles, well-spaced to avoid overlap, varied sizes
+// Scattered layout: absolute pixel positions from top-left of full-width container
+// 8 circles, varied sizes, spread across the whole screen width
 const LAYOUT = [
-  { x: 0.05, y: 0.02, size: 90 },   // top-left
-  { x: 0.58, y: 0.00, size: 80 },   // top-right
-  { x: 0.28, y: 0.38, size: 110 },  // center, hero (largest)
-  { x: 0.00, y: 0.72, size: 75 },   // bottom-left
-  { x: 0.55, y: 0.65, size: 85 },   // bottom-right
+  { left: 16,  top: 0,   size: 95 },   // top-left
+  { left: 150, top: 10,  size: 80 },   // top-center
+  { left: 270, top: 0,   size: 90 },   // top-right
+  { left: 50,  top: 110, size: 115 },  // mid-left, hero
+  { left: 210, top: 105, size: 100 },  // mid-right
+  { left: 0,   top: 240, size: 80 },   // bottom-left
+  { left: 120, top: 250, size: 90 },   // bottom-center
+  { left: 260, top: 230, size: 85 },   // bottom-right
 ];
 
-const COACH_COUNT = 5;
+const COACH_COUNT = 8;
 
 export function SlideReady({ isActive }: SlideReadyProps) {
   const selectedCoaches = useMemo(() => shuffleArr(ALL_COACHES).slice(0, COACH_COUNT), []);
@@ -173,8 +176,7 @@ export function SlideReady({ isActive }: SlideReadyProps) {
     router.push('/(auth)/login');
   };
 
-  const containerWidth = SCREEN_WIDTH - 64;
-  const containerHeight = SCREEN_HEIGHT * 0.42;
+  const containerHeight = 360;
 
   return (
     <View
@@ -184,13 +186,12 @@ export function SlideReady({ isActive }: SlideReadyProps) {
         backgroundColor: '#0F0F12',
       }}
     >
-      {/* Scattered avatar field - top 55% */}
+      {/* Scattered avatar field - full width */}
       <View
         style={{
-          width: containerWidth,
+          width: SCREEN_WIDTH,
           height: containerHeight,
-          marginHorizontal: 32,
-          marginTop: SCREEN_HEIGHT * 0.1,
+          marginTop: SCREEN_HEIGHT * 0.08,
         }}
       >
         {selectedCoaches.map((coach, i) => {
@@ -210,8 +211,8 @@ export function SlideReady({ isActive }: SlideReadyProps) {
               style={[
                 {
                   position: 'absolute',
-                  left: layout.x * (containerWidth - size),
-                  top: layout.y * (containerHeight - size),
+                  left: layout.left,
+                  top: layout.top,
                   width: size,
                   alignItems: 'center',
                 },
@@ -284,7 +285,7 @@ export function SlideReady({ isActive }: SlideReadyProps) {
           paddingHorizontal: 32,
           justifyContent: 'flex-end',
           alignItems: 'center',
-          paddingBottom: 80,
+          paddingBottom: 70,
         }}
       >
         <Animated.Text
