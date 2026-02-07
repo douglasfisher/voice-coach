@@ -73,8 +73,9 @@ export default function HomeScreen() {
   );
 
   const featuredCoach = shuffledCoaches[0] ?? null;
-  const gridCoaches = shuffledCoaches.slice(1, 5);
-  const highlightedChallengers = shuffledChallengers.slice(0, 6);
+  const scrollCoaches = shuffledCoaches.slice(1, 7);
+  const featuredChallenger = shuffledChallengers[0] ?? null;
+  const scrollChallengers = shuffledChallengers.slice(1, 7);
 
   const activeConversations = conversations.filter((c) => c.status === 'active');
   const recentConversations = conversations.slice(0, 5);
@@ -409,18 +410,22 @@ export default function HomeScreen() {
               />
             )}
 
-            {/* Coach Grid 2x2 */}
-            {gridCoaches.length > 0 && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
-                {gridCoaches.map((coach) => (
-                  <View key={coach.id} style={{ width: '50%', padding: 4 }}>
+            {/* Coach Scroll Row */}
+            {scrollCoaches.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 0, gap: 12 }}
+              >
+                {scrollCoaches.map((coach) => (
+                  <View key={coach.id} style={{ width: 200 }}>
                     <PersonaCard
                       persona={coach}
                       onPress={() => setSelectedPersona(coach)}
                     />
                   </View>
                 ))}
-              </View>
+              </ScrollView>
             )}
 
             {/* See All Coaches */}
@@ -447,7 +452,7 @@ export default function HomeScreen() {
         )}
 
         {/* Meet the Challengers */}
-        {highlightedChallengers.length > 0 && (
+        {shuffledChallengers.length > 0 && (
           <View style={{ marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 }}>
               <Zap size={16} color="#8B5CF6" />
@@ -456,20 +461,34 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-            >
-              {highlightedChallengers.map((challenger) => (
-                <View key={challenger.id} style={{ width: 200 }}>
-                  <PersonaCard
-                    persona={challenger}
-                    onPress={() => setSelectedPersona(challenger)}
-                  />
-                </View>
-              ))}
-            </ScrollView>
+            {/* Featured Challenger */}
+            {featuredChallenger && (
+              <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+                <PersonaCard
+                  persona={featuredChallenger}
+                  onPress={() => setSelectedPersona(featuredChallenger)}
+                  variant="featured"
+                />
+              </View>
+            )}
+
+            {/* Challenger Scroll Row */}
+            {scrollChallengers.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+              >
+                {scrollChallengers.map((challenger) => (
+                  <View key={challenger.id} style={{ width: 200 }}>
+                    <PersonaCard
+                      persona={challenger}
+                      onPress={() => setSelectedPersona(challenger)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            )}
 
             {/* See All Challengers */}
             <Pressable
