@@ -67,7 +67,7 @@ const LAYOUT = [
   { left: 10,  top: 0,   size: 110 },  // top-left
   { left: 155, top: 5,   size: 100 },  // top-center
   { left: 275, top: 0,   size: 105 },  // top-right
-  { left: 75,  top: 100, size: 240 },  // CENTER HERO - much bigger
+  { left: 60,  top: 90,  size: 280 },  // CENTER HERO - much bigger
   { left: -5,  top: 150, size: 110 },  // mid-left
   { left: 275, top: 155, size: 115 },  // mid-right
   { left: 20,  top: 310, size: 105 },  // bottom-left
