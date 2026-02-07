@@ -110,8 +110,8 @@ export function MessageBubble({
           ...(isUser ? { flexDirection: 'row-reverse' } : {}),
         }}
       >
-        {/* Avatar for assistant */}
-        {!isUser && persona && (
+        {/* Avatar for assistant (hidden for scene context) */}
+        {!isUser && persona && !isSceneContext && (
           <View
             style={{
               width: 36,
