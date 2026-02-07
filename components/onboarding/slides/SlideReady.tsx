@@ -64,14 +64,14 @@ function shuffleArr<T>(arr: T[]): T[] {
 // Scattered layout: absolute pixel positions from top-left of full-width container
 // 8 circles, varied sizes, spread across the whole screen width
 const LAYOUT = [
-  { left: 16,  top: 0,   size: 95 },   // top-left
-  { left: 150, top: 10,  size: 80 },   // top-center
-  { left: 270, top: 0,   size: 90 },   // top-right
-  { left: 50,  top: 110, size: 115 },  // mid-left, hero
-  { left: 210, top: 105, size: 100 },  // mid-right
-  { left: 0,   top: 240, size: 80 },   // bottom-left
-  { left: 120, top: 250, size: 90 },   // bottom-center
-  { left: 260, top: 230, size: 85 },   // bottom-right
+  { left: 10,  top: 0,   size: 120 },  // top-left
+  { left: 155, top: 5,   size: 105 },  // top-center
+  { left: 270, top: 0,   size: 115 },  // top-right
+  { left: 40,  top: 130, size: 140 },  // mid-left, hero
+  { left: 210, top: 125, size: 125 },  // mid-right
+  { left: -5,  top: 290, size: 110 },  // bottom-left
+  { left: 130, top: 300, size: 115 },  // bottom-center
+  { left: 265, top: 280, size: 110 },  // bottom-right
 ];
 
 const COACH_COUNT = 8;
@@ -176,7 +176,7 @@ export function SlideReady({ isActive }: SlideReadyProps) {
     router.push('/(auth)/login');
   };
 
-  const containerHeight = 360;
+  const containerHeight = 440;
 
   return (
     <View
