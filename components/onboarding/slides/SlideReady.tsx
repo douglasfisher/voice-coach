@@ -64,14 +64,14 @@ function shuffleArr<T>(arr: T[]): T[] {
 // Scattered layout: absolute pixel positions from top-left of full-width container
 // 8 circles, varied sizes, spread across the whole screen width
 const LAYOUT = [
-  { left: 10,  top: 0,   size: 120 },  // top-left
-  { left: 155, top: 5,   size: 105 },  // top-center
-  { left: 270, top: 0,   size: 115 },  // top-right
-  { left: 40,  top: 130, size: 140 },  // mid-left, hero
-  { left: 210, top: 125, size: 125 },  // mid-right
-  { left: -5,  top: 290, size: 110 },  // bottom-left
-  { left: 130, top: 300, size: 115 },  // bottom-center
-  { left: 265, top: 280, size: 110 },  // bottom-right
+  { left: 10,  top: 0,   size: 110 },  // top-left
+  { left: 155, top: 5,   size: 100 },  // top-center
+  { left: 275, top: 0,   size: 105 },  // top-right
+  { left: 95,  top: 115, size: 200 },  // CENTER HERO - much bigger
+  { left: -5,  top: 150, size: 110 },  // mid-left
+  { left: 275, top: 155, size: 115 },  // mid-right
+  { left: 20,  top: 310, size: 105 },  // bottom-left
+  { left: 260, top: 300, size: 110 },  // bottom-right
 ];
 
 const COACH_COUNT = 8;
