@@ -221,6 +221,9 @@ export default function AdminSettingsScreen() {
                   .eq('id', profile.id);
               }
 
+              // Sign out so user must re-authenticate after onboarding
+              await signOut();
+
               // Navigate to root to re-trigger onboarding checks
               router.replace('/');
             } catch (error) {
