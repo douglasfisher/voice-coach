@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Flame,
@@ -15,16 +15,30 @@ import {
   Sparkles,
   Users,
   RefreshCw,
+  GraduationCap,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
 import { usePersonaStore } from '../../stores/personaStore';
+import { PersonaCard } from '../../components/personas/PersonaCard';
+import { PersonaModal } from '../../components/personas/PersonaModal';
+import { PersonaDisplay } from '../../types/persona';
+
+function shuffle<T>(array: T[]): T[] {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
 export default function HomeScreen() {
   const { profile, user } = useAuthStore();
   const {
     conversations,
     fetchConversations,
+    createConversation,
     dailyChallenge,
     isLoadingChallenge,
     fetchDailyChallenge,
@@ -32,6 +46,8 @@ export default function HomeScreen() {
   } = useChatStore();
   const { getPersonaById, personas } = usePersonaStore();
   const [isStartingChallenge, setIsStartingChallenge] = useState(false);
+  const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -45,6 +61,20 @@ export default function HomeScreen() {
       fetchDailyChallenge(personas);
     }
   }, [personas, fetchDailyChallenge]);
+
+  // Shuffle coaches and challengers once per mount
+  const shuffledCoaches = useMemo(
+    () => shuffle(personas.filter((p) => p.personaType === 'coach')),
+    [personas]
+  );
+  const shuffledChallengers = useMemo(
+    () => shuffle(personas.filter((p) => p.personaType === 'challenger')),
+    [personas]
+  );
+
+  const featuredCoach = shuffledCoaches[0] ?? null;
+  const gridCoaches = shuffledCoaches.slice(1, 5);
+  const highlightedChallengers = shuffledChallengers.slice(0, 6);
 
   const activeConversations = conversations.filter((c) => c.status === 'active');
   const recentConversations = conversations.slice(0, 5);
@@ -82,6 +112,23 @@ export default function HomeScreen() {
       console.error('Failed to start challenge:', error);
     } finally {
       setIsStartingChallenge(false);
+    }
+  };
+
+  const handlePersonaChallenge = async (persona: PersonaDisplay) => {
+    if (!user?.id) return;
+
+    setIsCreatingSession(true);
+    try {
+      const conversationId = await createConversation(user.id, persona.id);
+      if (conversationId) {
+        setSelectedPersona(null);
+        router.push(`/(tabs)/chat/${conversationId}`);
+      }
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+    } finally {
+      setIsCreatingSession(false);
     }
   };
 
@@ -343,6 +390,138 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        {/* Meet the Coaches */}
+        {shuffledCoaches.length > 0 && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <GraduationCap size={16} color="#10b981" />
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginLeft: 8 }}>
+                MEET THE COACHES
+              </Text>
+            </View>
+
+            {/* Featured Coach */}
+            {featuredCoach && (
+              <PersonaCard
+                persona={featuredCoach}
+                onPress={() => setSelectedPersona(featuredCoach)}
+                variant="featured"
+              />
+            )}
+
+            {/* Coach Grid 2x2 */}
+            {gridCoaches.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+                {gridCoaches.map((coach) => (
+                  <View key={coach.id} style={{ width: '50%', padding: 4 }}>
+                    <PersonaCard
+                      persona={coach}
+                      onPress={() => setSelectedPersona(coach)}
+                    />
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* See All Coaches */}
+            <Pressable
+              onPress={() => router.push('/(tabs)/coaches')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 14,
+                marginTop: 8,
+                borderRadius: 14,
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(16, 185, 129, 0.2)',
+              }}
+            >
+              <Text style={{ color: '#10b981', fontSize: 14, fontWeight: '600' }}>
+                See All Coaches
+              </Text>
+              <ChevronRight size={16} color="#10b981" style={{ marginLeft: 4 }} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Meet the Challengers */}
+        {highlightedChallengers.length > 0 && (
+          <View style={{ marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 }}>
+              <Zap size={16} color="#8B5CF6" />
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginLeft: 8 }}>
+                MEET THE CHALLENGERS
+              </Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 16 }}
+            >
+              {highlightedChallengers.map((challenger) => {
+                const imageSource = typeof challenger.avatarUrl === 'string'
+                  ? { uri: challenger.avatarUrl }
+                  : challenger.avatarUrl;
+
+                return (
+                  <Pressable
+                    key={challenger.id}
+                    onPress={() => setSelectedPersona(challenger)}
+                    style={{ alignItems: 'center', width: 72 }}
+                  >
+                    <View style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 32,
+                      overflow: 'hidden',
+                      borderWidth: 2,
+                      borderColor: 'rgba(139, 92, 246, 0.4)',
+                      marginBottom: 8,
+                    }}>
+                      <Image
+                        source={imageSource as ImageSourcePropType}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    </View>
+                    <Text
+                      style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, textAlign: 'center' }}
+                      numberOfLines={1}
+                    >
+                      {challenger.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {/* See All Challengers */}
+            <Pressable
+              onPress={() => router.push('/(tabs)/personas')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 14,
+                marginTop: 12,
+                marginHorizontal: 16,
+                borderRadius: 14,
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(139, 92, 246, 0.2)',
+              }}
+            >
+              <Text style={{ color: '#8B5CF6', fontSize: 14, fontWeight: '600' }}>
+                See All Challengers
+              </Text>
+              <ChevronRight size={16} color="#8B5CF6" style={{ marginLeft: 4 }} />
+            </Pressable>
+          </View>
+        )}
+
         {/* Active Conversation */}
         {activeConversations.length > 0 && (
           <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
@@ -470,57 +649,39 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
-
-        {/* Empty State */}
-        {recentConversations.length === 0 && (
-          <View style={{ paddingHorizontal: 16 }}>
-            <LinearGradient
-              colors={['rgba(139, 92, 246, 0.15)', 'rgba(139, 92, 246, 0.05)', 'transparent']}
-              style={{
-                borderRadius: 24,
-                padding: 32,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: 'rgba(139, 92, 246, 0.2)',
-              }}
-            >
-              <View style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 20,
-              }}>
-                <Users size={36} color="#8B5CF6" />
-              </View>
-              <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 }}>
-                Ready to think sharper?
-              </Text>
-              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
-                Challenge your assumptions with our AI personas. Each one brings a unique perspective.
-              </Text>
-              <Pressable
-                onPress={() => router.push('/(tabs)/personas')}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: '#8B5CF6',
-                  paddingHorizontal: 16,
-                  paddingVertical: 14,
-                  borderRadius: 16,
-                }}
-              >
-                <Sparkles size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 }}>
-                  Meet the Challengers
-                </Text>
-              </Pressable>
-            </LinearGradient>
-          </View>
-        )}
       </ScrollView>
+
+      {/* Persona Modal */}
+      <PersonaModal
+        persona={selectedPersona}
+        visible={selectedPersona !== null}
+        onClose={() => setSelectedPersona(null)}
+        onChallenge={handlePersonaChallenge}
+      />
+
+      {/* Creating session overlay */}
+      {isCreatingSession && (
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <LinearGradient
+            colors={['#1a1a2e', '#16213e', '#0f3460']}
+            style={{ borderRadius: 16, padding: 24, alignItems: 'center' }}
+          >
+            <ActivityIndicator size="large" color="#10b981" />
+            <Text style={{ color: '#fff', marginTop: 16, fontSize: 14 }}>
+              Starting session...
+            </Text>
+          </LinearGradient>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
