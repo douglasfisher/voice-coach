@@ -61,23 +61,22 @@ export default function PreferencesScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         {/* Header */}
         <View style={{ padding: 20, paddingBottom: 16 }}>
-          {/* Back button */}
-          <Pressable
-            onPress={() => router.back()}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 20,
-            }}
-          >
-            <ChevronLeft size={24} color="#F59E0B" />
-            <Text style={{ color: '#F59E0B', fontSize: 16, fontWeight: '600', marginLeft: 4 }}>
-              Back
-            </Text>
-          </Pressable>
-
-          {/* Title section */}
+          {/* Title section with inline back button */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Pressable
+              onPress={() => router.back()}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 10,
+              }}
+            >
+              <ChevronLeft size={20} color="#F59E0B" />
+            </Pressable>
             <View
               style={{
                 width: 44,

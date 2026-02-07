@@ -3,7 +3,7 @@ import { View, Text, FlatList, Pressable, ActivityIndicator } from 'react-native
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Users, ChevronRight, ChevronLeft, Check, Sparkles } from 'lucide-react-native';
+import { Users, ChevronRight, Check, Sparkles } from 'lucide-react-native';
 import { usePersonas } from '../../../hooks/usePersonas';
 import { useAuthStore } from '../../../stores/authStore';
 import { PersonaCard } from '../../../components/personas/PersonaCard';
@@ -52,21 +52,6 @@ export default function PickPersonasScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         {/* Header */}
         <View style={{ padding: 20, paddingBottom: 16 }}>
-          {/* Back button */}
-          <Pressable
-            onPress={() => router.back()}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 20,
-            }}
-          >
-            <ChevronLeft size={24} color="#F59E0B" />
-            <Text style={{ color: '#F59E0B', fontSize: 16, fontWeight: '600', marginLeft: 4 }}>
-              Back
-            </Text>
-          </Pressable>
-
           {/* Title section */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
             <View
