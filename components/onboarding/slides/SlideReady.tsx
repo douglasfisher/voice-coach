@@ -61,18 +61,24 @@ function shuffleArr<T>(arr: T[]): T[] {
   return copy;
 }
 
-// Scattered layout: absolute pixel positions from top-left of full-width container
-// 8 circles, varied sizes, spread across the whole screen width
+// Designed at 390px width — scales proportionally to any screen
+const DESIGN_WIDTH = 390;
+const S = SCREEN_WIDTH / DESIGN_WIDTH;
+
 const LAYOUT = [
-  { left: -10, top: 20, size: 120 },  // top-left
-  { left: 155, top: 15, size: 100 },  // top-center
-  { left: 275, top: 0, size: 140 },  // top-right
-  { left: 60, top: 90, size: 280 },  // CENTER HERO - much bigger
+  { left: -10, top: 20, size: 120 },   // top-left
+  { left: 155, top: 15, size: 100 },   // top-center
+  { left: 275, top: 0, size: 140 },    // top-right
+  { left: 60, top: 90, size: 280 },    // CENTER HERO - much bigger
   { left: -30, top: 150, size: 170 },  // mid-left
   { left: 300, top: 155, size: 115 },  // mid-right
-  { left: 20, top: 350, size: 125 },  // bottom-left
+  { left: 20, top: 350, size: 125 },   // bottom-left
   { left: 260, top: 300, size: 110 },  // bottom-right
-];
+].map(item => ({
+  left: Math.round(item.left * S),
+  top: Math.round(item.top * S),
+  size: Math.round(item.size * S),
+}));
 
 const COACH_COUNT = 8;
 
@@ -83,13 +89,13 @@ export function SlideReady({ isActive }: SlideReadyProps) {
   const randomizedLayout = useMemo(() => {
     return LAYOUT.map((item, i) => {
       if (i === 3) return item; // keep hero fixed
-      const offsetX = Math.round((Math.random() - 0.5) * 30);
-      const offsetY = Math.round((Math.random() - 0.5) * 25);
-      const sizeJitter = Math.round((Math.random() - 0.5) * 20);
+      const offsetX = Math.round((Math.random() - 0.5) * 30 * S);
+      const offsetY = Math.round((Math.random() - 0.5) * 25 * S);
+      const sizeJitter = Math.round((Math.random() - 0.5) * 20 * S);
       return {
         left: item.left + offsetX,
         top: item.top + offsetY,
-        size: Math.max(85, item.size + sizeJitter),
+        size: Math.max(Math.round(85 * S), item.size + sizeJitter),
       };
     });
   }, []);
@@ -191,7 +197,7 @@ export function SlideReady({ isActive }: SlideReadyProps) {
     router.push('/(auth)/login');
   };
 
-  const containerHeight = 440;
+  const containerHeight = Math.round(440 * S);
 
   return (
     <View
