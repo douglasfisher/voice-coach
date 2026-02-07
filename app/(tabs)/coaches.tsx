@@ -34,12 +34,11 @@ export default function CoachesScreen() {
 
   const { personas, isLoading: personasLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
-  const { createConversation, globalInteractionMode, setGlobalInteractionMode } = useChatStore();
+  const { createConversation, globalInteractionMode, setGlobalInteractionMode, coachesActiveDomain, setCoachesActiveDomain } = useChatStore();
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeDomain, setActiveDomain] = useState<string | 'all'>('all');
   const [domains, setDomains] = useState<CoachingDomain[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(true);
 
@@ -68,9 +67,9 @@ export default function CoachesScreen() {
   // Filter to only show coaches
   const coaches = personas.filter(p => p.personaType === 'coach');
 
-  const filteredCoaches = activeDomain === 'all'
+  const filteredCoaches = coachesActiveDomain === 'all'
     ? coaches
-    : coaches.filter(p => p.domainId === activeDomain);
+    : coaches.filter(p => p.domainId === coachesActiveDomain);
 
   const featuredCoach = filteredCoaches[0];
   const otherCoaches = filteredCoaches.slice(1);
@@ -162,21 +161,21 @@ export default function CoachesScreen() {
           >
             {/* All filter */}
             <Pressable
-              onPress={() => setActiveDomain('all')}
+              onPress={() => setCoachesActiveDomain('all')}
               style={{
                 paddingHorizontal: 16,
                 paddingVertical: 8,
                 borderRadius: 20,
-                backgroundColor: activeDomain === 'all' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
+                backgroundColor: coachesActiveDomain === 'all' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
                 borderWidth: 1,
-                borderColor: activeDomain === 'all' ? '#10b981' : 'rgba(255,255,255,0.1)',
+                borderColor: coachesActiveDomain === 'all' ? '#10b981' : 'rgba(255,255,255,0.1)',
               }}
             >
               <Text
                 style={{
                   fontSize: 14,
                   fontWeight: '500',
-                  color: activeDomain === 'all' ? '#10b981' : '#9A9A9E'
+                  color: coachesActiveDomain === 'all' ? '#10b981' : '#9A9A9E'
                 }}
               >
                 All
@@ -185,11 +184,11 @@ export default function CoachesScreen() {
 
             {/* Domain filters */}
             {domains.map((domain) => {
-              const isActive = activeDomain === domain.id;
+              const isActive = coachesActiveDomain === domain.id;
               return (
                 <Pressable
                   key={domain.id}
-                  onPress={() => setActiveDomain(domain.id)}
+                  onPress={() => setCoachesActiveDomain(domain.id)}
                   style={{
                     paddingHorizontal: 16,
                     paddingVertical: 8,
@@ -244,7 +243,7 @@ export default function CoachesScreen() {
           {otherCoaches.length > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {getDomainName(activeDomain)}
+                {getDomainName(coachesActiveDomain)}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 }} />

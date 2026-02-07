@@ -32,19 +32,18 @@ export default function PersonasScreen() {
 
   const { personas, isLoading, refresh } = usePersonas();
   const { user } = useAuthStore();
-  const { createConversation } = useChatStore();
+  const { createConversation, challengersActiveFilter, setChallengersActiveFilter } = useChatStore();
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<ChallengeStyle | 'all'>('all');
 
   // Filter to only show challengers (not coaches)
   const challengers = personas.filter(p => p.personaType === 'challenger');
 
-  const filteredPersonas = activeFilter === 'all'
+  const filteredPersonas = challengersActiveFilter === 'all'
     ? challengers
-    : challengers.filter(p => p.challengeStyle === activeFilter);
+    : challengers.filter(p => p.challengeStyle === challengersActiveFilter);
 
   const featuredPersona = filteredPersonas[0];
   const otherPersonas = filteredPersonas.slice(1);
@@ -114,11 +113,11 @@ export default function PersonasScreen() {
             contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
           >
             {STYLE_FILTERS.map((filter) => {
-              const isActive = activeFilter === filter.key;
+              const isActive = challengersActiveFilter === filter.key;
               return (
                 <Pressable
                   key={filter.key}
-                  onPress={() => setActiveFilter(filter.key)}
+                  onPress={() => setChallengersActiveFilter(filter.key)}
                   style={{
                     paddingHorizontal: 16,
                     paddingVertical: 8,
@@ -173,7 +172,7 @@ export default function PersonasScreen() {
           {otherPersonas.length > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {activeFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[activeFilter]}
+                {challengersActiveFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[challengersActiveFilter]}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', marginRight: 6 }} />

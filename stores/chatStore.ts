@@ -1,7 +1,10 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
 import { InteractionMode, SessionPhase, SituationVariant, TraitSelection } from '../types/coaching';
+import { ChallengeStyle } from '../types/persona';
 
 interface SessionReport {
   tldr: string;
@@ -67,6 +70,10 @@ interface ChatState {
   // Trait selections for prompt token system
   selectedTraits: TraitSelection;
 
+  // Screen filter preferences (persisted)
+  coachesActiveDomain: string;
+  challengersActiveFilter: ChallengeStyle | 'all';
+
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
@@ -104,11 +111,16 @@ interface ChatState {
   // Trait actions
   setTrait: (categorySlug: string, optionId: string, promptModifier: string) => void;
   clearTraits: () => void;
+  // Filter actions
+  setCoachesActiveDomain: (domain: string) => void;
+  setChallengersActiveFilter: (filter: ChallengeStyle | 'all') => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => ({
   conversations: [],
   activeConversation: null,
   messages: [],
@@ -138,6 +150,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   // Trait selections
   selectedTraits: {},
+
+  // Screen filter preferences
+  coachesActiveDomain: 'all',
+  challengersActiveFilter: 'all',
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
@@ -984,6 +1000,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ selectedTraits: {} });
   },
 
+  setCoachesActiveDomain: (domain) => {
+    set({ coachesActiveDomain: domain });
+  },
+
+  setChallengersActiveFilter: (filter) => {
+    set({ challengersActiveFilter: filter });
+  },
+
   fetchDailyChallenge: async (personas) => {
     const { dailyChallenge } = get();
 
@@ -1041,4 +1065,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ isLoadingChallenge: false });
     }
   },
-}));
+    }),
+    {
+      name: 'dialectica-preferences',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        globalInteractionMode: state.globalInteractionMode,
+        selectedTraits: state.selectedTraits,
+        coachesActiveDomain: state.coachesActiveDomain,
+        challengersActiveFilter: state.challengersActiveFilter,
+      }),
+    },
+  ),
+);
