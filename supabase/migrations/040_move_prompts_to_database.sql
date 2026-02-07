@@ -12,7 +12,7 @@
 INSERT INTO app_settings (key, value, description)
 VALUES (
   'ai_report_prompt',
-  'You are an expert coach analyzing a dialectical conversation. Generate a comprehensive session report.
+  to_jsonb('You are an expert coach analyzing a dialectical conversation. Generate a comprehensive session report.
 
 IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanations.
 
@@ -51,7 +51,7 @@ Focus on:
 - Openness to new perspectives
 - Quality of questions asked
 - Evidence of intellectual growth during conversation
-- Recognition of complexity and nuance',
+- Recognition of complexity and nuance'::text),
   'System prompt for session report generation'
 )
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
@@ -302,7 +302,7 @@ WHERE persona_type = 'coach';
 INSERT INTO app_settings (key, value, description)
 VALUES (
   'ai_scene_template',
-  'You are a creative scenario writer.
+  to_jsonb('You are a creative scenario writer.
 
 {{scenario_prompt}}
 
@@ -310,7 +310,7 @@ RULES:
 - Output ONLY the scenario text, no quotes or formatting
 - Second person present tense ("You...")
 - Be vivid, specific and immersive
-- Vary locations and details each time',
+- Vary locations and details each time'::text),
   'Global fallback template for wrapping scenario prompts. Use {{scenario_prompt}} placeholder.'
 )
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
