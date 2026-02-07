@@ -459,43 +459,16 @@ export default function HomeScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 16 }}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
             >
-              {highlightedChallengers.map((challenger) => {
-                const imageSource = typeof challenger.avatarUrl === 'string'
-                  ? { uri: challenger.avatarUrl }
-                  : challenger.avatarUrl;
-
-                return (
-                  <Pressable
-                    key={challenger.id}
+              {highlightedChallengers.map((challenger) => (
+                <View key={challenger.id} style={{ width: 200 }}>
+                  <PersonaCard
+                    persona={challenger}
                     onPress={() => setSelectedPersona(challenger)}
-                    style={{ alignItems: 'center', width: 72 }}
-                  >
-                    <View style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 32,
-                      overflow: 'hidden',
-                      borderWidth: 2,
-                      borderColor: 'rgba(139, 92, 246, 0.4)',
-                      marginBottom: 8,
-                    }}>
-                      <Image
-                        source={imageSource as ImageSourcePropType}
-                        style={{ width: '100%', height: '100%' }}
-                        resizeMode="cover"
-                      />
-                    </View>
-                    <Text
-                      style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, textAlign: 'center' }}
-                      numberOfLines={1}
-                    >
-                      {challenger.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+                  />
+                </View>
+              ))}
             </ScrollView>
 
             {/* See All Challengers */}
