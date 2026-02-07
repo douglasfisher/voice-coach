@@ -79,6 +79,21 @@ const COACH_COUNT = 8;
 export function SlideReady({ isActive }: SlideReadyProps) {
   const selectedCoaches = useMemo(() => shuffleArr(ALL_COACHES).slice(0, COACH_COUNT), []);
 
+  // Randomise positions of non-hero circles each mount
+  const randomizedLayout = useMemo(() => {
+    return LAYOUT.map((item, i) => {
+      if (i === 3) return item; // keep hero fixed
+      const offsetX = Math.round((Math.random() - 0.5) * 30);
+      const offsetY = Math.round((Math.random() - 0.5) * 25);
+      const sizeJitter = Math.round((Math.random() - 0.5) * 20);
+      return {
+        left: item.left + offsetX,
+        top: item.top + offsetY,
+        size: Math.max(85, item.size + sizeJitter),
+      };
+    });
+  }, []);
+
   const titleOpacity = useSharedValue(0);
   const titleY = useSharedValue(15);
   const subtitleOpacity = useSharedValue(0);
@@ -195,7 +210,7 @@ export function SlideReady({ isActive }: SlideReadyProps) {
         }}
       >
         {selectedCoaches.map((coach, i) => {
-          const layout = LAYOUT[i];
+          const layout = randomizedLayout[i];
           const size = layout.size;
           const animStyle = useAnimatedStyle(() => ({
             opacity: avatarValues[i].opacity.value,
