@@ -26,7 +26,7 @@ const COACHING_STYLE_DESCRIPTIONS: Record<string, string> = {
 };
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const HERO_HEIGHT = SCREEN_HEIGHT * 0.55;
+const HERO_HEIGHT = SCREEN_HEIGHT * 0.85;
 
 // Challenge style colors and gradients
 const STYLE_THEMES: Record<ChallengeStyle, {
@@ -300,7 +300,7 @@ export function PersonaModal({
               <PersonalityBar label="Formality" value={persona.personality.formality} color={theme.accent} isLast />
             </View>
 
-            </View>
+          </View>
         </ScrollView>
 
         {/* Fixed CTA Button */}
