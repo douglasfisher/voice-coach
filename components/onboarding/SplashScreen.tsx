@@ -167,7 +167,7 @@ export function SplashScreen() {
           style={[
             {
               color: '#FFFFFF',
-              fontSize: 42,
+              fontSize: 56,
               fontWeight: '700',
               letterSpacing: -1,
               textAlign: 'center',
