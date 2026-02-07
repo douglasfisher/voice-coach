@@ -17,36 +17,42 @@ import { ChevronRight, Sparkles } from 'lucide-react-native';
 import { resolvePersonaAvatar } from '../../../lib/personaImages';
 import { SPRING_BOUNCY, SPRING_GENTLE, EASE_ENTER } from '../../../constants/animations';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface SlideReadyProps {
   isActive: boolean;
 }
 
-const ALL_COACHES = [
-  'alex rivera',
-  'priya sharma',
-  'victor reyes',
-  'dr. nina patel',
-  'aisha rahman',
-  'derek thompson',
-  'jordan chen',
-  'sam taylor',
-  'michael santos',
-  'grace williams',
-  'james morrison',
-  'lisa park',
-  'catherine walsh',
-  'omar hassan',
-  'marcus johnson',
-  'emma larsson',
-  'yuki yamamoto',
-  'sophia martinez',
-  'mia chang',
-  'david park',
+interface CoachEntry {
+  name: string;
+  badge: string;
+  badgeColor: string;
+}
+
+const ALL_COACHES: CoachEntry[] = [
+  { name: 'alex rivera', badge: 'Dating Coach', badgeColor: '#f472b6' },
+  { name: 'jordan chen', badge: 'Dating Coach', badgeColor: '#f472b6' },
+  { name: 'sam taylor', badge: 'Dating Coach', badgeColor: '#f472b6' },
+  { name: 'mia chang', badge: 'Dating Coach', badgeColor: '#f472b6' },
+  { name: 'priya sharma', badge: 'Interview Coach', badgeColor: '#60a5fa' },
+  { name: 'michael santos', badge: 'Interview Coach', badgeColor: '#60a5fa' },
+  { name: 'grace williams', badge: 'Interview Coach', badgeColor: '#60a5fa' },
+  { name: 'david park', badge: 'Interview Coach', badgeColor: '#60a5fa' },
+  { name: 'james morrison', badge: 'Presentation Coach', badgeColor: '#4ade80' },
+  { name: 'aisha rahman', badge: 'Presentation Coach', badgeColor: '#4ade80' },
+  { name: 'lisa park', badge: 'Presentation Coach', badgeColor: '#4ade80' },
+  { name: 'victor reyes', badge: 'Negotiation Coach', badgeColor: '#fbbf24' },
+  { name: 'catherine walsh', badge: 'Negotiation Coach', badgeColor: '#fbbf24' },
+  { name: 'omar hassan', badge: 'Negotiation Coach', badgeColor: '#fbbf24' },
+  { name: 'dr. nina patel', badge: 'Difficult Talks', badgeColor: '#c084fc' },
+  { name: 'marcus johnson', badge: 'Difficult Talks', badgeColor: '#c084fc' },
+  { name: 'emma larsson', badge: 'Difficult Talks', badgeColor: '#c084fc' },
+  { name: 'derek thompson', badge: 'Networking Coach', badgeColor: '#2dd4bf' },
+  { name: 'yuki yamamoto', badge: 'Networking Coach', badgeColor: '#2dd4bf' },
+  { name: 'sophia martinez', badge: 'Networking Coach', badgeColor: '#2dd4bf' },
 ];
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffleArr<T>(arr: T[]): T[] {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -55,18 +61,23 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-const AVATAR_SIZE = 88;
-const AVATAR_COLORS = ['#f472b6', '#60a5fa', '#4ade80', '#F59E0B', '#c084fc'];
+// Scattered layout: positions as % of container, plus sizes
+// Designed to feel organic - varied sizes, non-grid placement
+const LAYOUT = [
+  { x: 0.02, y: 0.08, size: 80 },   // top-left, medium
+  { x: 0.52, y: 0.00, size: 72 },   // top-right, smaller
+  { x: 0.22, y: 0.32, size: 100 },  // center-left, large (hero)
+  { x: 0.60, y: 0.25, size: 88 },   // center-right, medium-large
+  { x: 0.08, y: 0.62, size: 68 },   // bottom-left, small
+  { x: 0.48, y: 0.58, size: 76 },   // bottom-center-right, medium
+  { x: 0.78, y: 0.48, size: 64 },   // right edge, smallest
+];
 
-// Wave offsets for visual interest: center high, sides lower
-const WAVE_OFFSETS = [-8, -20, -28, -20, -8];
+const COACH_COUNT = 7;
 
 export function SlideReady({ isActive }: SlideReadyProps) {
-  // Random 5 coaches, stable per mount
-  const selectedCoaches = useMemo(() => shuffle(ALL_COACHES).slice(0, 5), []);
+  const selectedCoaches = useMemo(() => shuffleArr(ALL_COACHES).slice(0, COACH_COUNT), []);
 
-  const eyebrowOpacity = useSharedValue(0);
-  const eyebrowY = useSharedValue(15);
   const titleOpacity = useSharedValue(0);
   const titleY = useSharedValue(15);
   const subtitleOpacity = useSharedValue(0);
@@ -75,7 +86,6 @@ export function SlideReady({ isActive }: SlideReadyProps) {
   const ctaScale = useSharedValue(0.95);
   const glowOpacity = useSharedValue(0.3);
 
-  // Avatar animations
   const avatarValues = selectedCoaches.map(() => ({
     opacity: useSharedValue(0),
     scale: useSharedValue(0.3),
@@ -84,39 +94,33 @@ export function SlideReady({ isActive }: SlideReadyProps) {
 
   useEffect(() => {
     if (isActive) {
-      // Eyebrow
-      eyebrowOpacity.value = withDelay(100, withTiming(1, { duration: 400 }));
-      eyebrowY.value = withDelay(100, withSpring(0, SPRING_GENTLE));
-
-      // Avatars pop in with bounce
+      // Avatars pop in scattered
       avatarValues.forEach((av, i) => {
-        const delay = 200 + i * 120;
+        const delay = 150 + i * 100;
         av.opacity.value = withDelay(delay, withTiming(1, { duration: 350, easing: EASE_ENTER }));
         av.scale.value = withDelay(delay, withSpring(1, SPRING_BOUNCY));
-        // Staggered glow pulse
         av.glowOpacity.value = withDelay(
           delay + 600,
           withRepeat(
-            withTiming(1, { duration: 2000 + i * 200, easing: Easing.inOut(Easing.sin) }),
+            withTiming(1, { duration: 2200 + i * 300, easing: Easing.inOut(Easing.sin) }),
             -1,
             true,
           ),
         );
       });
 
-      // Title & subtitle
-      titleOpacity.value = withDelay(700, withTiming(1, { duration: 400 }));
-      titleY.value = withDelay(700, withSpring(0, SPRING_GENTLE));
-      subtitleOpacity.value = withDelay(850, withTiming(1, { duration: 400 }));
-      subtitleY.value = withDelay(850, withSpring(0, SPRING_GENTLE));
+      // Title
+      titleOpacity.value = withDelay(900, withTiming(1, { duration: 400 }));
+      titleY.value = withDelay(900, withSpring(0, SPRING_GENTLE));
+      subtitleOpacity.value = withDelay(1050, withTiming(1, { duration: 400 }));
+      subtitleY.value = withDelay(1050, withSpring(0, SPRING_GENTLE));
 
-      // CTA button
-      ctaOpacity.value = withDelay(1100, withTiming(1, { duration: 400 }));
-      ctaScale.value = withDelay(1100, withSpring(1, SPRING_GENTLE));
+      // CTA
+      ctaOpacity.value = withDelay(1300, withTiming(1, { duration: 400 }));
+      ctaScale.value = withDelay(1300, withSpring(1, SPRING_GENTLE));
 
-      // Glow pulse
       glowOpacity.value = withDelay(
-        1400,
+        1600,
         withRepeat(
           withSequence(
             withTiming(0.6, { duration: 1500 }),
@@ -127,8 +131,6 @@ export function SlideReady({ isActive }: SlideReadyProps) {
         ),
       );
     } else {
-      eyebrowOpacity.value = 0;
-      eyebrowY.value = 15;
       titleOpacity.value = 0;
       titleY.value = 15;
       subtitleOpacity.value = 0;
@@ -143,11 +145,6 @@ export function SlideReady({ isActive }: SlideReadyProps) {
       });
     }
   }, [isActive]);
-
-  const eyebrowStyle = useAnimatedStyle(() => ({
-    opacity: eyebrowOpacity.value,
-    transform: [{ translateY: eyebrowY.value }],
-  }));
 
   const titleStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,
@@ -178,9 +175,8 @@ export function SlideReady({ isActive }: SlideReadyProps) {
     router.push('/(auth)/login');
   };
 
-  // Total width of the overlapping avatar row
-  const overlap = 16;
-  const totalWidth = AVATAR_SIZE * 5 - overlap * 4;
+  const containerWidth = SCREEN_WIDTH - 64;
+  const containerHeight = SCREEN_HEIGHT * 0.38;
 
   return (
     <View
@@ -188,188 +184,200 @@ export function SlideReady({ isActive }: SlideReadyProps) {
         width: SCREEN_WIDTH,
         flex: 1,
         backgroundColor: '#0F0F12',
-        paddingHorizontal: 32,
-        justifyContent: 'center',
-        alignItems: 'center',
       }}
     >
-      {/* Avatar row - overlapping with wave offsets */}
+      {/* Scattered avatar field - top 55% */}
       <View
         style={{
-          width: totalWidth,
-          height: AVATAR_SIZE + 30,
-          marginBottom: 36,
+          width: containerWidth,
+          height: containerHeight,
+          marginHorizontal: 32,
+          marginTop: SCREEN_HEIGHT * 0.1,
         }}
       >
-        {selectedCoaches.map((name, i) => {
+        {selectedCoaches.map((coach, i) => {
+          const layout = LAYOUT[i];
+          const size = layout.size;
           const animStyle = useAnimatedStyle(() => ({
             opacity: avatarValues[i].opacity.value,
             transform: [{ scale: avatarValues[i].scale.value }],
           }));
           const ringGlow = useAnimatedStyle(() => ({
-            opacity: avatarValues[i].glowOpacity.value * 0.35,
+            opacity: avatarValues[i].glowOpacity.value * 0.3,
           }));
-          const color = AVATAR_COLORS[i];
 
           return (
             <Animated.View
-              key={name}
+              key={coach.name}
               style={[
                 {
                   position: 'absolute',
-                  left: i * (AVATAR_SIZE - overlap),
-                  top: -WAVE_OFFSETS[i],
-                  width: AVATAR_SIZE,
-                  height: AVATAR_SIZE,
+                  left: layout.x * (containerWidth - size),
+                  top: layout.y * (containerHeight - size),
+                  width: size,
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: i === 2 ? 10 : 5 - Math.abs(i - 2),
                 },
                 animStyle,
               ]}
             >
-              {/* Glow ring */}
+              {/* Glow */}
               <Animated.View
                 style={[
                   {
                     position: 'absolute',
-                    width: AVATAR_SIZE + 8,
-                    height: AVATAR_SIZE + 8,
-                    borderRadius: (AVATAR_SIZE + 8) / 2,
-                    backgroundColor: color,
+                    top: -4,
+                    width: size + 8,
+                    height: size + 8,
+                    borderRadius: (size + 8) / 2,
+                    backgroundColor: coach.badgeColor,
                   },
                   ringGlow,
                 ]}
               />
+              {/* Avatar circle */}
               <View
                 style={{
-                  width: AVATAR_SIZE,
-                  height: AVATAR_SIZE,
-                  borderRadius: AVATAR_SIZE / 2,
+                  width: size,
+                  height: size,
+                  borderRadius: size / 2,
                   overflow: 'hidden',
-                  borderWidth: 3,
-                  borderColor: `${color}60`,
+                  borderWidth: 2.5,
+                  borderColor: `${coach.badgeColor}50`,
                 }}
               >
                 <Image
-                  source={resolvePersonaAvatar(name)}
+                  source={resolvePersonaAvatar(coach.name)}
                   style={{ width: '100%', height: '100%' }}
                   resizeMode="cover"
                 />
+              </View>
+              {/* Badge */}
+              <View
+                style={{
+                  marginTop: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 8,
+                  backgroundColor: `${coach.badgeColor}18`,
+                  borderWidth: 1,
+                  borderColor: `${coach.badgeColor}30`,
+                }}
+              >
+                <Animated.Text
+                  style={{
+                    color: coach.badgeColor,
+                    fontSize: size > 85 ? 10 : 9,
+                    fontWeight: '600',
+                  }}
+                  numberOfLines={1}
+                >
+                  {coach.badge}
+                </Animated.Text>
               </View>
             </Animated.View>
           );
         })}
       </View>
 
-      {/* Eyebrow */}
-      <Animated.Text
-        style={[
-          {
-            color: '#F59E0B',
-            fontSize: 12,
-            fontWeight: '700',
-            letterSpacing: 3,
-            textTransform: 'uppercase',
-            textAlign: 'center',
-            marginBottom: 12,
-          },
-          eyebrowStyle,
-        ]}
+      {/* Text + CTA - bottom portion */}
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 32,
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          paddingBottom: 80,
+        }}
       >
-        Your Coaches Await
-      </Animated.Text>
-
-      <Animated.Text
-        style={[
-          {
-            color: '#FFFFFF',
-            fontSize: 30,
-            fontWeight: '700',
-            textAlign: 'center',
-            letterSpacing: -0.5,
-            marginBottom: 12,
-          },
-          titleStyle,
-        ]}
-      >
-        Ready to Begin?
-      </Animated.Text>
-
-      <Animated.Text
-        style={[
-          {
-            color: 'rgba(255,255,255,0.5)',
-            fontSize: 15,
-            textAlign: 'center',
-            marginBottom: 36,
-            lineHeight: 22,
-            paddingHorizontal: 16,
-          },
-          subtitleStyle,
-        ]}
-      >
-        Choose your coaches and start your first conversation
-      </Animated.Text>
-
-      {/* CTA Button with glow */}
-      <Animated.View style={[{ width: '100%' }, ctaStyle]}>
-        {/* Glow behind button */}
-        <Animated.View
+        <Animated.Text
           style={[
             {
-              position: 'absolute',
-              top: -8,
-              left: 20,
-              right: 20,
-              bottom: -8,
-              borderRadius: 24,
-              backgroundColor: 'rgba(245, 158, 11, 0.2)',
+              color: '#FFFFFF',
+              fontSize: 30,
+              fontWeight: '700',
+              textAlign: 'center',
+              letterSpacing: -0.5,
+              marginBottom: 10,
             },
-            buttonGlowStyle,
+            titleStyle,
           ]}
-        />
+        >
+          Ready to Begin?
+        </Animated.Text>
 
-        <Pressable onPress={handleGetStarted}>
-          <LinearGradient
-            colors={['#F59E0B', '#D97706']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingVertical: 18,
-              borderRadius: 16,
-              gap: 8,
-            }}
-          >
-            <Sparkles size={18} color="#0F0F12" />
-            <Animated.Text
+        <Animated.Text
+          style={[
+            {
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: 15,
+              textAlign: 'center',
+              marginBottom: 28,
+              lineHeight: 22,
+              paddingHorizontal: 16,
+            },
+            subtitleStyle,
+          ]}
+        >
+          Choose your coaches and start your first conversation
+        </Animated.Text>
+
+        {/* CTA Button with glow */}
+        <Animated.View style={[{ width: '100%' }, ctaStyle]}>
+          <Animated.View
+            style={[
+              {
+                position: 'absolute',
+                top: -8,
+                left: 20,
+                right: 20,
+                bottom: -8,
+                borderRadius: 24,
+                backgroundColor: 'rgba(245, 158, 11, 0.2)',
+              },
+              buttonGlowStyle,
+            ]}
+          />
+
+          <Pressable onPress={handleGetStarted}>
+            <LinearGradient
+              colors={['#F59E0B', '#D97706']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={{
-                color: '#0F0F12',
-                fontSize: 17,
-                fontWeight: '700',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 18,
+                borderRadius: 16,
+                gap: 8,
               }}
             >
-              Get Started
-            </Animated.Text>
-            <ChevronRight size={20} color="#0F0F12" />
-          </LinearGradient>
-        </Pressable>
+              <Sparkles size={18} color="#0F0F12" />
+              <Animated.Text
+                style={{
+                  color: '#0F0F12',
+                  fontSize: 17,
+                  fontWeight: '700',
+                }}
+              >
+                Get Started
+              </Animated.Text>
+              <ChevronRight size={20} color="#0F0F12" />
+            </LinearGradient>
+          </Pressable>
 
-        {/* Secondary link */}
-        <Pressable onPress={handleLogin} style={{ marginTop: 16, alignItems: 'center' }}>
-          <Animated.Text
-            style={{
-              color: 'rgba(255,255,255,0.4)',
-              fontSize: 15,
-            }}
-          >
-            I have an account
-          </Animated.Text>
-        </Pressable>
-      </Animated.View>
+          <Pressable onPress={handleLogin} style={{ marginTop: 16, alignItems: 'center' }}>
+            <Animated.Text
+              style={{
+                color: 'rgba(255,255,255,0.4)',
+                fontSize: 15,
+              }}
+            >
+              I have an account
+            </Animated.Text>
+          </Pressable>
+        </Animated.View>
+      </View>
     </View>
   );
 }
