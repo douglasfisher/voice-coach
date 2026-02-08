@@ -31,7 +31,7 @@ export const ALL_PERSONA_IMAGES: PersonaImageEntry[] = [
   { key: 'jiro-tanaka', displayName: 'Jiro Tanaka', folder: 'men', source: require('../assets/men/jiro-tanaka.jpg') },
   { key: 'jordan-chen', displayName: 'Jordan Chen', folder: 'men', source: require('../assets/men/jordan-chen.jpg') },
   { key: 'kenji-watanabe', displayName: 'Kenji Watanabe', folder: 'men', source: require('../assets/men/kenji-watanabe.jpg') },
-  { key: 'kofi-asante', displayName: 'Kofi Asante', folder: 'men', source: require('../assets/men/kofi-asante.jpg') },
+  { key: 'henry-tanaka', displayName: 'Henry Tanaka', folder: 'men', source: require('../assets/men/henry-tanaka.jpg') },
   { key: 'logan-pierce', displayName: 'Logan Pierce', folder: 'men', source: require('../assets/men/logan-pierce.jpg') },
   { key: 'lucas-brandt', displayName: 'Lucas Brandt', folder: 'men', source: require('../assets/men/lucas-brandt.jpg') },
   { key: 'marcus-johnson', displayName: 'Marcus Johnson', folder: 'men', source: require('../assets/men/marcus-johnson.jpg') },
@@ -44,8 +44,8 @@ export const ALL_PERSONA_IMAGES: PersonaImageEntry[] = [
   { key: 'raj-patel', displayName: 'Raj Patel', folder: 'men', source: require('../assets/men/raj-patel.jpg') },
   { key: 'ryan-callahan', displayName: 'Ryan Callahan', folder: 'men', source: require('../assets/men/ryan-callahan.jpg') },
   { key: 'sam-taylor', displayName: 'Sam Taylor', folder: 'men', source: require('../assets/men/sam-taylor.jpg') },
-  { key: 'takeshi-yamada', displayName: 'Takeshi Yamada', folder: 'men', source: require('../assets/men/takeshi-yamada.jpg') },
-  { key: 'thomas-obrien', displayName: "Thomas O'Brien", folder: 'men', source: require('../assets/men/thomas-obrien.jpg') },
+  { key: 'grant-lawson', displayName: 'Grant Lawson', folder: 'men', source: require('../assets/men/grant-lawson.jpg') },
+  { key: 'cormac-brennan', displayName: 'Cormac Brennan', folder: 'men', source: require('../assets/men/cormac-brennan.jpg') },
   { key: 'victor-reyes', displayName: 'Victor Reyes', folder: 'men', source: require('../assets/men/victor-reyes.jpg') },
 
   // ===== WOMEN =====

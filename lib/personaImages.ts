@@ -11,11 +11,10 @@ const LOCAL_AVATARS: Record<string, any> = {
   // =========================================================================
   'sarah mitchell': require('../assets/women/sarah-mitchell.jpg'),
   'marcus webb challenger': require('../assets/men/marcus-webb.jpg'),
-  "father thomas o'brien": require('../assets/men/thomas-obrien.jpg'),
-  'thomas o\'brien': require('../assets/men/thomas-obrien.jpg'),
+  'cormac brennan': require('../assets/men/cormac-brennan.jpg'),
   'dr. raj patel': require('../assets/men/raj-patel.jpg'),
   'raj patel': require('../assets/men/raj-patel.jpg'),
-  'kofi asante': require('../assets/men/kofi-asante.jpg'),
+  'henry tanaka': require('../assets/men/henry-tanaka.jpg'),
   'professor elena volkov': require('../assets/women/elena-volkov.jpg'),
   'elena volkov': require('../assets/women/elena-volkov.jpg'),
   'dr. maya chen': require('../assets/women/maya-chen.jpg'),
@@ -132,7 +131,7 @@ const LOCAL_AVATARS: Record<string, any> = {
   'patricia keane': require('../assets/women/patricia-keane.jpg'),
   'julia kovacs': require('../assets/women/julia-kovacs.jpg'),
   'logan pierce': require('../assets/men/logan-pierce.jpg'),
-  'takeshi yamada': require('../assets/men/takeshi-yamada.jpg'),
+  'grant lawson': require('../assets/men/grant-lawson.jpg'),
 };
 
 /** Returns the matched local avatar or null if no match. */
