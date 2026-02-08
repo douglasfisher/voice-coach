@@ -92,7 +92,12 @@ APP_INSTALLED=$(xcrun simctl listapps "$UDID" 2>/dev/null | grep -c "$APP_ID" ||
 
 if [ "$APP_INSTALLED" -eq 0 ]; then
   log "App not installed — building..."
-  npx expo run:ios --device "$UDID" --no-bundler 2>&1 || true
+  npx expo run:ios --device "$UDID" --no-bundler 2>&1 | grep -v "CommandError" || true
+
+  # Verify install succeeded
+  APP_INSTALLED=$(xcrun simctl listapps "$UDID" 2>/dev/null | grep -c "$APP_ID" || true)
+  [ "$APP_INSTALLED" -eq 0 ] && die "Build failed — app not installed on simulator."
+  log "Build complete."
 fi
 
 # ── Set bundler host and launch ────────────────────────────────
