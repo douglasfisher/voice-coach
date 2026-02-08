@@ -72,10 +72,98 @@ Token replacement (`{{character_demeanor}}`, `{{conversation_register}}`, etc.) 
 
 **Rule**: Use the existing `chat` edge function for AI tasks. Store new prompts/config in the database and call the existing endpoint. Do NOT create new edge functions unless absolutely necessary.
 
-### Supabase Client Usage
-- Client-side: `supabase` from `lib/supabase.ts` for direct DB queries
-- Edge function calls: `supabase.functions.invoke('chat', { body })` — NOT direct fetch
-- Auth uses AsyncStorage for token persistence
+### Supabase Access — The Right Way
+
+There are three distinct layers of Supabase access. Using the wrong one causes auth failures, RLS violations, or silent data issues.
+
+#### Layer 1: Mobile Client (`lib/supabase.ts`)
+Uses anon key + RLS. Imported as `supabase` everywhere in `stores/`, `hooks/`, `components/`.
+
+```typescript
+// Direct DB queries (protected by RLS — user can only see own data)
+const { data } = await supabase.from('conversations').select('*').eq('user_id', userId);
+
+// Edge function calls — ALWAYS use .functions.invoke(), NEVER direct fetch
+const { data, error } = await supabase.functions.invoke('chat', {
+  body: { conversationId, userMessage, personaId }
+});
+
+// Auth
+await supabase.auth.signInWithPassword({ email, password });
+await supabase.auth.signOut();
+
+// RPC calls (server-side functions)
+await supabase.rpc('award_xp', { p_user_id: userId, p_amount: 50 });
+```
+
+**Common mistakes**:
+- Using `fetch()` to call edge functions instead of `supabase.functions.invoke()` — breaks auth header passing
+- Forgetting that RLS restricts what the anon key can see — queries return empty, not errors
+- Not checking `error` on function invocations (error is separate from data)
+
+#### Layer 2: Edge Functions (`supabase/functions/`)
+Auto-injected `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` — bypasses RLS.
+
+```typescript
+// Inside edge functions, create client with service role
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+);
+```
+
+**Deploy**: `npx supabase functions deploy chat` (timeout on deploy = Supabase server issue, just retry)
+**Secrets**: `npx supabase secrets set GROQ_API_KEY=xxx`
+**JWT**: `chat/config.toml` currently has `verify_jwt = false`
+
+#### Layer 3: CLI Scripts (`scripts/db.sh`, `scripts/migrate.sh`)
+For direct DB admin. Uses Management API (primary) with psql pooler fallback.
+
+```bash
+# Auth: macOS Keychain or env vars (checked in this order)
+# Management API token:
+export SUPABASE_ACCESS_TOKEN="xxx"          # or Keychain: "Supabase CLI"
+# DB password (psql fallback):
+export DIALECTICA_DB_PASSWORD="xxx"         # or Keychain: "dialectica_db"
+# Service role key (REST API):
+export DIALECTICA_SERVICE_ROLE="xxx"        # or Keychain: "dialectica_service_role"
+
+# Keychain setup (one-time)
+security add-generic-password -U -a "$USER" -s "dialectica_db" -w "your-password"
+security add-generic-password -U -a "$USER" -s "dialectica_service_role" -w "your-key"
+
+# Database queries
+./scripts/db.sh query "SELECT count(*) FROM personas"
+./scripts/db.sh describe personas
+./scripts/db.sh tables
+./scripts/db.sh dump personas 10
+
+# REST API (uses service_role key — PostgREST filter syntax)
+./scripts/db.sh select "personas?persona_type=eq.coach&select=name,domain_id"
+./scripts/db.sh insert personas '{"name":"Test","persona_type":"coach"}'
+./scripts/db.sh update "personas?id=eq.xxx" '{"name":"Updated"}'
+
+# SQL file execution
+./scripts/db.sh file supabase/migrations/040_move_prompts_to_database.sql
+./scripts/db.sh --yes migrate              # run all pending, skip confirmation
+
+# Migrations
+./scripts/migrate.sh status                # show applied vs pending
+./scripts/migrate.sh run                   # run all pending
+./scripts/migrate.sh run 043              # run specific migration
+./scripts/migrate.sh create add_feature   # scaffold next migration (auto-numbered)
+./scripts/migrate.sh --dry-run run        # preview without applying
+./scripts/migrate.sh rollback             # remove last from tracking (does NOT reverse SQL)
+```
+
+**Connection details** (for reference, already in scripts):
+- Project ref: `enatcutnrtuauykqyajc`
+- Region: `eu-west-2`
+- DB host: `aws-1-eu-west-2.pooler.supabase.com`
+- DB user: `postgres.enatcutnrtuauykqyajc`
+
+**Script auth flow**: Management API (needs `SUPABASE_ACCESS_TOKEN`) → psql fallback (needs `DIALECTICA_DB_PASSWORD`). If both fail, you'll see "No DB password found" or silent empty results.
 
 ### Key Domain Concepts
 - **Persona types**: `coach` (24+) and `challenger`
