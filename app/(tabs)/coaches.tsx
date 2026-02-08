@@ -163,7 +163,7 @@ export default function CoachesScreen() {
             <Pressable
               onPress={() => setCoachesActiveDomain('all')}
               style={{
-                paddingHorizontal: 16,
+                paddingHorizontal: 8,
                 paddingVertical: 8,
                 borderRadius: 20,
                 backgroundColor: coachesActiveDomain === 'all' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
@@ -190,7 +190,7 @@ export default function CoachesScreen() {
                   key={domain.id}
                   onPress={() => setCoachesActiveDomain(domain.id)}
                   style={{
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 8,
                     paddingVertical: 8,
                     borderRadius: 20,
                     backgroundColor: isActive ? `${domain.color}20` : 'rgba(255,255,255,0.05)',
@@ -223,7 +223,7 @@ export default function CoachesScreen() {
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: headerHeight,
-            paddingHorizontal: 16,
+            paddingHorizontal: 8,
             paddingBottom: 100,
           }}
           showsVerticalScrollIndicator={false}
@@ -257,7 +257,7 @@ export default function CoachesScreen() {
           {/* Grid of Coaches */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
             {otherCoaches.map((coach) => (
-              <View key={coach.id} style={{ width: '50%', padding: 4 }}>
+              <View key={coach.id} style={{ width: '100%', padding: 4 }}>
                 <PersonaCard
                   persona={coach}
                   onPress={() => setSelectedPersona(coach)}

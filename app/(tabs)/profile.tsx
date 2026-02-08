@@ -167,7 +167,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+        contentContainerStyle={{ padding: 8, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}

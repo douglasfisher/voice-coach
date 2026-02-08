@@ -5,7 +5,7 @@ import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../ty
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2; // 2 columns with padding
-const CARD_HEIGHT = CARD_WIDTH * 1.8; // Taller aspect ratio for impact
+const CARD_HEIGHT = CARD_WIDTH * 2.8; // Taller aspect ratio for impact
 
 interface PersonaCardProps {
   persona: PersonaDisplay;
@@ -67,7 +67,7 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
           marginBottom: 24,
           borderRadius: 24,
           overflow: 'hidden',
-          height: 400,
+          height: 500,
         }}
       >
         {/* Full bleed background image */}

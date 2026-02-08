@@ -286,7 +286,7 @@ function OverviewTab({
   onInsightAction,
 }: OverviewTabProps) {
   return (
-    <View style={{ gap: 20 }}>
+    <View style={{ gap: 16 }}>
       {/* Hero: Potential Score Card */}
       <PotentialScoreCard
         currentScore={scores.overall}

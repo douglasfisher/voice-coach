@@ -150,7 +150,7 @@ export default function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+          contentContainerStyle={{ paddingHorizontal: 8, gap: 8 }}
           style={{ marginBottom: 20 }}
         >
           {/* Streak Card */}
@@ -279,7 +279,7 @@ export default function HomeScreen() {
         </ScrollView>
 
         {/* Daily Challenge */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+        <View style={{ paddingHorizontal: 8, marginBottom: 20 }}>
           <Pressable
             onPress={handleStartChallenge}
             disabled={isLoadingChallenge || isStartingChallenge}
@@ -354,7 +354,7 @@ export default function HomeScreen() {
                         flexDirection: 'row',
                         alignItems: 'center',
                         backgroundColor: '#60a5fa',
-                        paddingHorizontal: 16,
+                        paddingHorizontal: 8,
                         paddingVertical: 10,
                         borderRadius: 14,
                         opacity: isStartingChallenge ? 0.7 : 1,
@@ -391,7 +391,7 @@ export default function HomeScreen() {
 
         {/* Meet the Coaches */}
         {shuffledCoaches.length > 0 && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ paddingHorizontal: 8, marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
               <GraduationCap size={16} color="#10b981" />
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginLeft: 8 }}>
@@ -452,7 +452,7 @@ export default function HomeScreen() {
         {/* Meet the Challengers */}
         {shuffledChallengers.length > 0 && (
           <View style={{ marginBottom: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, marginBottom: 12 }}>
               <Zap size={16} color="#8B5CF6" />
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginLeft: 8 }}>
                 MEET THE CHALLENGERS
@@ -461,7 +461,7 @@ export default function HomeScreen() {
 
             {/* Featured Challenger */}
             {featuredChallenger && (
-              <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+              <View style={{ paddingHorizontal: 8, marginBottom: 12 }}>
                 <PersonaCard
                   persona={featuredChallenger}
                   onPress={() => setSelectedPersona(featuredChallenger)}
@@ -475,7 +475,7 @@ export default function HomeScreen() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+                contentContainerStyle={{ paddingHorizontal: 8, gap: 12 }}
               >
                 {scrollChallengers.map((challenger) => (
                   <View key={challenger.id} style={{ width: 200 }}>
@@ -514,7 +514,7 @@ export default function HomeScreen() {
 
         {/* Active Conversation */}
         {activeConversations.length > 0 && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ paddingHorizontal: 8, marginBottom: 20 }}>
             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
               CONTINUE WHERE YOU LEFT OFF
             </Text>
@@ -571,7 +571,7 @@ export default function HomeScreen() {
 
         {/* Recent Sessions */}
         {recentConversations.length > 0 && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ paddingHorizontal: 8, marginBottom: 20 }}>
             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
               RECENT SESSIONS
             </Text>

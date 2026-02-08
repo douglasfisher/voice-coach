@@ -110,7 +110,7 @@ export default function PersonasScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+            contentContainerStyle={{ paddingHorizontal: 8, gap: 8 }}
           >
             {STYLE_FILTERS.map((filter) => {
               const isActive = challengersActiveFilter === filter.key;
@@ -119,7 +119,7 @@ export default function PersonasScreen() {
                   key={filter.key}
                   onPress={() => setChallengersActiveFilter(filter.key)}
                   style={{
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 8,
                     paddingVertical: 8,
                     borderRadius: 20,
                     backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
@@ -152,7 +152,7 @@ export default function PersonasScreen() {
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: headerHeight,
-            paddingHorizontal: 16,
+            paddingHorizontal: 8,
             paddingBottom: 100,
           }}
           showsVerticalScrollIndicator={false}
@@ -186,7 +186,7 @@ export default function PersonasScreen() {
           {/* Grid of Personas */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
             {otherPersonas.map((persona) => (
-              <View key={persona.id} style={{ width: '50%', padding: 4 }}>
+              <View key={persona.id} style={{ width: '100%', padding: 4 }}>
                 <PersonaCard
                   persona={persona}
                   onPress={() => setSelectedPersona(persona)}
