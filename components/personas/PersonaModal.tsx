@@ -7,6 +7,8 @@ import {
   CHALLENGE_STYLE_LABELS,
   CHALLENGE_STYLE_DESCRIPTIONS,
 } from '../../types/persona';
+import { ModeToggle } from '../chat/ModeToggle';
+import { useChatStore } from '../../stores/chatStore';
 
 // Coaching style labels for coaches
 const COACHING_STYLE_LABELS: Record<string, string> = {
@@ -85,6 +87,7 @@ export function PersonaModal({
 }: PersonaModalProps) {
   if (!persona) return null;
 
+  const { globalInteractionMode, setGlobalInteractionMode } = useChatStore();
   const isCoach = persona.personaType === 'coach';
   const theme = STYLE_THEMES[persona.challengeStyle];
   const StyleIcon = isCoach ? GraduationCap : theme.Icon;
@@ -189,6 +192,17 @@ export function PersonaModal({
 
             {/* Hero text content */}
             <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }}>
+              {/* Mode toggle for coaches */}
+              {isCoach && (
+                <View style={{ marginBottom: 12 }}>
+                  <ModeToggle
+                    mode={globalInteractionMode}
+                    onModeChange={setGlobalInteractionMode}
+                    accentColor="#10b981"
+                  />
+                </View>
+              )}
+
               {/* Style badge */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                 <View
@@ -327,7 +341,7 @@ export function PersonaModal({
           >
             <StyleIcon size={22} color="#0f0f12" />
             <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18, marginLeft: 10 }}>
-              {isCoach ? 'Start Practice' : 'Start Challenge'}
+              {isCoach ? (globalInteractionMode === 'question' ? 'Start Q&A' : 'Start Practice') : 'Start Challenge'}
             </Text>
             <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
           </Pressable>
