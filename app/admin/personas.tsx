@@ -31,11 +31,12 @@ import { resolvePersonaAvatar } from '../../lib/personaImages';
 interface PersonaListItemProps {
   persona: AdminPersonaView;
   onToggleActive: (id: string) => void;
+  onToggleMoodShift: (id: string) => void;
   onEdit: (id: string) => void;
   isSaving: boolean;
 }
 
-function PersonaListItem({ persona, onToggleActive, onEdit, isSaving }: PersonaListItemProps) {
+function PersonaListItem({ persona, onToggleActive, onToggleMoodShift, onEdit, isSaving }: PersonaListItemProps) {
   const avatarSource = resolvePersonaAvatar(persona.name);
 
   return (
@@ -119,19 +120,36 @@ function PersonaListItem({ persona, onToggleActive, onEdit, isSaving }: PersonaL
             </View>
           </View>
 
-          {/* Active Toggle */}
-          <View style={{ alignItems: 'center', marginLeft: 12 }}>
-            <Switch
-              value={persona.is_active}
-              onValueChange={() => onToggleActive(persona.id)}
-              disabled={isSaving}
-              trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(74, 222, 128, 0.5)' }}
-              thumbColor={persona.is_active ? '#4ade80' : 'rgba(255,255,255,0.5)'}
-              ios_backgroundColor="rgba(255,255,255,0.1)"
-            />
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 4 }}>
-              {persona.is_active ? 'Active' : 'Inactive'}
-            </Text>
+          {/* Toggles */}
+          <View style={{ alignItems: 'center', marginLeft: 12, gap: 8 }}>
+            <View style={{ alignItems: 'center' }}>
+              <Switch
+                value={persona.is_active}
+                onValueChange={() => onToggleActive(persona.id)}
+                disabled={isSaving}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(74, 222, 128, 0.5)' }}
+                thumbColor={persona.is_active ? '#4ade80' : 'rgba(255,255,255,0.5)'}
+                ios_backgroundColor="rgba(255,255,255,0.1)"
+                style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, marginTop: 2 }}>
+                Active
+              </Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Switch
+                value={persona.emotional_progression_enabled ?? false}
+                onValueChange={() => onToggleMoodShift(persona.id)}
+                disabled={isSaving}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(168, 85, 247, 0.5)' }}
+                thumbColor={persona.emotional_progression_enabled ? '#a855f7' : 'rgba(255,255,255,0.5)'}
+                ios_backgroundColor="rgba(255,255,255,0.1)"
+                style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, marginTop: 2 }}>
+                Mood
+              </Text>
+            </View>
           </View>
 
           {/* Edit Icon */}
@@ -143,7 +161,7 @@ function PersonaListItem({ persona, onToggleActive, onEdit, isSaving }: PersonaL
 }
 
 export default function AdminPersonasScreen() {
-  const { personas, isLoading, isSaving, fetchPersonas, toggleActive } = useAdminPersonaStore();
+  const { personas, isLoading, isSaving, fetchPersonas, toggleActive, toggleEmotionalProgression } = useAdminPersonaStore();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -158,6 +176,10 @@ export default function AdminPersonasScreen() {
 
   const handleToggleActive = async (id: string) => {
     await toggleActive(id);
+  };
+
+  const handleToggleMoodShift = async (id: string) => {
+    await toggleEmotionalProgression(id);
   };
 
   const handleEdit = (id: string) => {
@@ -233,6 +255,7 @@ export default function AdminPersonasScreen() {
                     key={persona.id}
                     persona={persona}
                     onToggleActive={handleToggleActive}
+                    onToggleMoodShift={handleToggleMoodShift}
                     onEdit={handleEdit}
                     isSaving={isSaving}
                   />
@@ -262,6 +285,7 @@ export default function AdminPersonasScreen() {
                     key={persona.id}
                     persona={persona}
                     onToggleActive={handleToggleActive}
+                    onToggleMoodShift={handleToggleMoodShift}
                     onEdit={handleEdit}
                     isSaving={isSaving}
                   />

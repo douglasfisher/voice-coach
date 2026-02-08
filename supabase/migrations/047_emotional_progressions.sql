@@ -5,7 +5,7 @@
 
 -- 1. Add emotional_progression_enabled flag to personas
 ALTER TABLE personas
-ADD COLUMN IF NOT EXISTS emotional_progression_enabled BOOLEAN DEFAULT false;
+ADD COLUMN IF NOT EXISTS emotional_progression_enabled BOOLEAN DEFAULT true;
 
 -- 2. Add metadata column to messages (for storing emotional state tags)
 ALTER TABLE messages

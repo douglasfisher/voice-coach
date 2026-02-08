@@ -33,6 +33,7 @@ interface AdminPersonaState {
   updatePersona: (id: string, data: Partial<Persona>) => Promise<{ error: Error | null }>;
   deletePersona: (id: string) => Promise<{ error: Error | null }>;
   toggleActive: (id: string) => Promise<{ error: Error | null }>;
+  toggleEmotionalProgression: (id: string) => Promise<{ error: Error | null }>;
   reorderPersonas: (ids: string[]) => Promise<{ error: Error | null }>;
   clearSelectedPersona: () => void;
   fetchPersonaTraitDefaults: (personaId: string) => Promise<void>;
@@ -239,6 +240,16 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
     if (!persona) return { error: new Error('Persona not found') };
 
     return get().updatePersona(id, { is_active: !persona.is_active });
+  },
+
+  toggleEmotionalProgression: async (id: string) => {
+    const { personas } = get();
+    const persona = personas.find((p) => p.id === id);
+    if (!persona) return { error: new Error('Persona not found') };
+
+    return get().updatePersona(id, {
+      emotional_progression_enabled: !persona.emotional_progression_enabled,
+    });
   },
 
   reorderPersonas: async (ids: string[]) => {
