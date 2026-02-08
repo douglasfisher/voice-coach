@@ -168,7 +168,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
 
     // Transform the data to include achievement details
-    const achievements: UserAchievement[] = (data ?? []).map((ua: any) => ({
+    const achievements: UserAchievement[] = (data ?? []).map((ua) => ({
       id: ua.id,
       user_id: ua.user_id,
       achievement_id: ua.achievement_id,

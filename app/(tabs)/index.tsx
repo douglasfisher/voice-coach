@@ -12,8 +12,6 @@ import {
   TrendingUp,
   Award,
   Brain,
-  Sparkles,
-  Users,
   RefreshCw,
   GraduationCap,
 } from 'lucide-react-native';

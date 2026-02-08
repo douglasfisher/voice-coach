@@ -33,7 +33,6 @@ import {
   Save,
   Percent,
   ArrowRight,
-  Check,
   Info,
   DollarSign,
 } from 'lucide-react-native';
@@ -529,7 +528,7 @@ export default function AdminPricingScreen() {
       setIsLoading(false);
     };
     init();
-  }, []);
+  }, [fetchSettings]);
 
   useEffect(() => {
     const currentMarkup = typeof settings.cost_markup_percent === 'number'

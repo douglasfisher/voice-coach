@@ -29,10 +29,10 @@ export function useTraits(personaType?: 'coach' | 'challenger', userVisibleOnly?
 
       // Filter by persona type if specified
       const filtered = personaType
-        ? cats.filter((c: any) => c.applies_to?.includes(personaType))
+        ? cats.filter((c) => c.applies_to?.includes(personaType))
         : cats;
 
-      const mapped: TraitCategory[] = filtered.map((c: any) => ({
+      const mapped: TraitCategory[] = filtered.map((c) => ({
         id: c.id,
         slug: c.slug,
         name: c.name,
@@ -54,8 +54,8 @@ export function useTraits(personaType?: 'coach' | 'challenger', userVisibleOnly?
       const grouped: Record<string, TraitOption[]> = {};
       for (const cat of mapped) {
         grouped[cat.slug] = (opts || [])
-          .filter((o: any) => o.category_id === cat.id)
-          .map((o: any) => ({
+          .filter((o) => o.category_id === cat.id)
+          .map((o) => ({
             id: o.id,
             categoryId: o.category_id,
             slug: o.slug,

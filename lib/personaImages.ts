@@ -5,7 +5,7 @@
 
 const DEFAULT_AVATAR = require('../assets/images-1.jpg');
 
-const LOCAL_AVATARS: Record<string, any> = {
+const LOCAL_AVATARS: Record<string, number> = {
   // =========================================================================
   // CHALLENGERS
   // =========================================================================
@@ -135,12 +135,12 @@ const LOCAL_AVATARS: Record<string, any> = {
 };
 
 /** Returns the matched local avatar or null if no match. */
-export function getLocalAvatar(name: string): any | null {
+export function getLocalAvatar(name: string): number | null {
   const normalizedName = name.toLowerCase().trim();
   return LOCAL_AVATARS[normalizedName] ?? null;
 }
 
 /** Always returns a local require() reference — matched image or default fallback. */
-export function resolvePersonaAvatar(name: string): any {
+export function resolvePersonaAvatar(name: string): number {
   return getLocalAvatar(name) ?? DEFAULT_AVATAR;
 }

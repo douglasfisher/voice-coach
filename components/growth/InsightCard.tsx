@@ -20,7 +20,7 @@ interface InsightCardProps {
 const INSIGHT_CONFIG: Record<
   InsightType,
   {
-    icon: React.ComponentType<any>;
+    icon: typeof Sparkles;
     color: string;
     bgColor: string;
     label: string;

@@ -1,4 +1,4 @@
-import { View, Text, Pressable, Image, ImageSourcePropType, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, Pressable, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap, HelpCircle } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
@@ -14,8 +14,6 @@ const COACHING_STYLE_LABELS: Record<string, string> = {
   'expert_advisor': 'Expert Advisor',
   'supportive_guide': 'Supportive Guide',
 };
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Short fallback scene descriptions for Q&A mode based on domain/specialty
 function getQAModeScene(specialtyAreas: string[]): string {

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type DimensionValue } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -32,7 +32,7 @@ function ParticleDot({ particle }: { particle: Particle }) {
         false,
       ),
     );
-  }, []);
+  }, [particle.delay, particle.duration, translateY]);
 
   const style = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -44,8 +44,8 @@ function ParticleDot({ particle }: { particle: Particle }) {
       style={[
         {
           position: 'absolute',
-          left: `${particle.x}%` as any,
-          top: `${particle.startY}%` as any,
+          left: `${particle.x}%` as DimensionValue,
+          top: `${particle.startY}%` as DimensionValue,
           width: particle.size,
           height: particle.size,
           borderRadius: particle.size / 2,

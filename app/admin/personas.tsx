@@ -21,7 +21,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   Plus,
   ChevronRight,
-  Edit3,
   User,
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
@@ -166,7 +165,7 @@ export default function AdminPersonasScreen() {
 
   useEffect(() => {
     fetchPersonas();
-  }, []);
+  }, [fetchPersonas]);
 
   const onRefresh = async () => {
     setRefreshing(true);

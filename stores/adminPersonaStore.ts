@@ -64,7 +64,7 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
       if (error) throw error;
 
       // Transform to include stats
-      const personasWithStats: AdminPersonaView[] = (personas || []).map((p: any) => ({
+      const personasWithStats: AdminPersonaView[] = (personas || []).map((p) => ({
         ...p,
         conversation_count: p.conversations?.[0]?.count || 0,
         // messages count needs to be aggregated differently
@@ -302,14 +302,20 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
 
       if (error) throw error;
 
-      const defaults: PersonaTraitDefault[] = (data || []).map((row: any) => ({
-        categoryId: row.trait_options?.trait_categories?.id,
-        categorySlug: row.trait_options?.trait_categories?.slug,
-        categoryName: row.trait_options?.trait_categories?.name,
-        optionId: row.trait_options?.id,
-        optionSlug: row.trait_options?.slug,
-        optionName: row.trait_options?.name,
-      }));
+      const defaults: PersonaTraitDefault[] = (data || []).map((row) => {
+        const opts = row.trait_options;
+        const opt = Array.isArray(opts) ? opts[0] : opts;
+        const cats = opt?.trait_categories;
+        const cat = Array.isArray(cats) ? cats[0] : cats;
+        return {
+          categoryId: cat?.id,
+          categorySlug: cat?.slug,
+          categoryName: cat?.name,
+          optionId: opt?.id,
+          optionSlug: opt?.slug,
+          optionName: opt?.name,
+        };
+      });
 
       set({ personaTraitDefaults: defaults });
     } catch (error) {

@@ -21,7 +21,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
 import {
   Save,
-  Settings,
   Zap,
   AlertTriangle,
   Bot,
@@ -251,7 +250,7 @@ export default function AdminSettingsScreen() {
     fetchSettings();
     fetchPersonas();
     fetchModels();
-  }, []);
+  }, [fetchSettings, fetchPersonas]);
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -284,7 +283,7 @@ export default function AdminSettingsScreen() {
     for (const key of updates) {
       const { error } = await updateSetting(
         key as keyof AppSettingsMap,
-        localSettings[key as keyof AppSettingsMap] as any
+        localSettings[key as keyof AppSettingsMap] as AppSettingsMap[keyof AppSettingsMap]
       );
       if (error) {
         Alert.alert('Error', `Failed to update ${key}: ${error.message}`);

@@ -8,11 +8,10 @@ import type {
   Milestone,
   UserAchievement,
 } from '../types/gamification';
-import { getLevelForXP, getXPForNextLevel, LEVELS } from '../lib/gamification';
+import { getLevelForXP, getXPForNextLevel } from '../lib/gamification';
 import {
   calculateGrowthVelocity,
   identifyFocusAreas,
-  calculateConsistencyFactor,
 } from '../lib/projections';
 import { calculateOverallTrend } from '../lib/analysis';
 

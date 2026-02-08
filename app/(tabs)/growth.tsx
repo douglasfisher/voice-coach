@@ -7,9 +7,7 @@ import { router } from 'expo-router';
 import { useGrowthMetrics } from '../../hooks/useGrowthMetrics';
 import { SegmentControl } from '../../components/ui/SegmentControl';
 import {
-  ScoreCard,
   TrendGraph,
-  PatternList,
   PotentialScoreCard,
   LevelProgressBar,
   MomentumStats,
@@ -22,6 +20,8 @@ import {
   FocusAreaList,
 } from '../../components/growth';
 import { useChatStore, usePersonaStore } from '../../stores';
+import { Achievement, DimensionProjections, UserAchievement, UserInsight, FocusArea, Milestone } from '../../types/gamification';
+import { PersonaDisplay } from '../../types/persona';
 
 // Dimension colors matching the BiasRadar
 const DIMENSION_COLORS = {
@@ -50,12 +50,12 @@ export default function GrowthScreen() {
     velocity,
     projectedScore,
     optimalPotential,
-    trend,
+    trend: _trend,
     history,
     achievements,
     allAchievements,
     recentAchievements,
-    nextMilestone,
+    nextMilestone: _nextMilestone,
     focusAreas,
     currentInsight,
     insights,
@@ -256,12 +256,12 @@ interface OverviewTabProps {
   velocity: { overall: number; trend: 'accelerating' | 'stable' | 'decelerating' } | null;
   projectedScore: number | null;
   optimalPotential: number | null;
-  dimensionProjections: any;
+  dimensionProjections: DimensionProjections | null;
   sessionsThisWeek: number;
   percentileRank: number;
-  currentInsight: any;
-  recentAchievements: any[];
-  allAchievements: any[];
+  currentInsight: UserInsight | null;
+  recentAchievements: UserAchievement[];
+  allAchievements: Achievement[];
   unlockedIds: Set<string>;
   onInsightDismiss?: () => void;
   onInsightAction?: () => void;
@@ -281,7 +281,7 @@ function OverviewTab({
   currentInsight,
   recentAchievements,
   allAchievements,
-  unlockedIds,
+  unlockedIds: _unlockedIds,
   onInsightDismiss,
   onInsightAction,
 }: OverviewTabProps) {
@@ -392,12 +392,12 @@ interface JourneyTabProps {
   history: { date: string; score: number | null }[];
   calendarSessions: { date: string; score: number | null; count: number }[];
   currentStreak: number;
-  milestones: any[];
-  allAchievements: any[];
+  milestones: Milestone[];
+  allAchievements: Achievement[];
   unlockedIds: Set<string>;
   unlockedDates: Map<string, string>;
-  completedConversations: any[];
-  getPersonaById: (id: string) => any;
+  completedConversations: { id: string; persona_id: string; overall_score: number | null; ended_at: string | null; created_at: string }[];
+  getPersonaById: (id: string) => PersonaDisplay | undefined;
   getScoreColor: (score: number | null) => string;
   formatDate: (dateStr: string | null) => string;
 }
@@ -556,10 +556,10 @@ function JourneyTab({
 // =============================================================================
 
 interface InsightsTabProps {
-  currentInsight: any;
-  insights: any[];
-  focusAreas: any[];
-  patterns: any[];
+  currentInsight: UserInsight | null;
+  insights: UserInsight[];
+  focusAreas: FocusArea[];
+  patterns: string[];
   scores: {
     overall: number | null;
     logical: number | null;
@@ -568,14 +568,14 @@ interface InsightsTabProps {
     emotional: number | null;
   };
   onInsightDismiss: (id: string) => void;
-  onInsightAction: (insight: any) => void;
+  onInsightAction: (insight: UserInsight) => void;
 }
 
 function InsightsTab({
   currentInsight,
   insights,
   focusAreas,
-  patterns,
+  patterns: _patterns,
   scores,
   onInsightDismiss,
   onInsightAction,

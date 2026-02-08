@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native';
-import { Calendar, Flame, BarChart2, Users } from 'lucide-react-native';
-import { getStreakEmoji, formatStreak } from '../../lib/gamification';
+import { Calendar, Flame, BarChart2 } from 'lucide-react-native';
+import { getStreakEmoji } from '../../lib/gamification';
 
 interface MomentumStatsProps {
   sessionsThisWeek: number;

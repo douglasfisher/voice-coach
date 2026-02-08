@@ -20,7 +20,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import Slider from '@react-native-community/slider';
 import {
   Save,
@@ -31,11 +31,11 @@ import {
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
 import { useTraits } from '../../../hooks/useTraits';
-import { Persona } from '../../../types/database';
+
 import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
 import { resolvePersonaAvatar } from '../../../lib/personaImages';
-import { ALL_PERSONA_IMAGES, PersonaImageEntry } from '../../../lib/allPersonaImages';
+import { ALL_PERSONA_IMAGES } from '../../../lib/allPersonaImages';
 
 interface AIModelOption {
   id: string;
@@ -329,7 +329,7 @@ export default function AdminPersonaEditScreen() {
     selectedPersona,
     isLoading,
     isSaving,
-    error,
+    error: _error,
     fetchPersona,
     createPersona,
     updatePersona,
@@ -403,7 +403,7 @@ export default function AdminPersonaEditScreen() {
       fetchPersonaTraitDefaults(id);
     }
     return () => clearSelectedPersona();
-  }, [id, isNew]);
+  }, [id, isNew, clearSelectedPersona, fetchPersona, fetchPersonaTraitDefaults]);
 
   useEffect(() => {
     if (selectedPersona && !isNew) {

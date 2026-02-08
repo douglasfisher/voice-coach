@@ -55,7 +55,7 @@ export function SlideHero({ isActive }: SlideHeroProps) {
       subtitleOpacity.value = 0;
       subtitleY.value = 15;
     }
-  }, [isActive]);
+  }, [isActive, bgScale, eyebrowOpacity, eyebrowY, subtitleOpacity, subtitleY, titleOpacity, titleY]);
 
   const bgStyle = useAnimatedStyle(() => ({
     transform: [{ scale: bgScale.value }],

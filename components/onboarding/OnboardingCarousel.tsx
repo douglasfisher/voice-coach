@@ -55,7 +55,7 @@ export function OnboardingCarousel() {
   });
 
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: any) => {
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
       if (viewableItems.length > 0) {
         setActiveIndex(viewableItems[0].index ?? 0);
       }
@@ -69,7 +69,7 @@ export function OnboardingCarousel() {
   };
 
   const getItemLayout = useCallback(
-    (_: any, index: number) => ({
+    (_: unknown, index: number) => ({
       length: SCREEN_WIDTH,
       offset: SCREEN_WIDTH * index,
       index,

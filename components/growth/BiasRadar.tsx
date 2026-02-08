@@ -188,7 +188,7 @@ export function BiasRadar({
             marginTop: 16,
           }}
         >
-          {DIMENSIONS.map((dim, i) => {
+          {DIMENSIONS.map((dim, _i) => {
             const DimIcon = dim.Icon;
             return (
               <View

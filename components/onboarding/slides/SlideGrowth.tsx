@@ -80,7 +80,7 @@ function StatCard({
       translateY.value = 30;
       scale.value = 0.85;
     }
-  }, [isActive]);
+  }, [isActive, index, opacity, scale, translateY]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -151,7 +151,7 @@ function BadgePill({
       opacity.value = 0;
       scale.value = 0.8;
     }
-  }, [isActive]);
+  }, [isActive, index, opacity, scale]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -235,7 +235,7 @@ export function SlideGrowth({ isActive }: SlideGrowthProps) {
       levelScale.value = 0.5;
       levelOpacity.value = 0;
     }
-  }, [isActive]);
+  }, [isActive, eyebrowOpacity, eyebrowY, levelOpacity, levelScale, ringGlow, ringProgress, subtitleOpacity, subtitleY, titleOpacity, titleY]);
 
   const eyebrowStyle = useAnimatedStyle(() => ({
     opacity: eyebrowOpacity.value,

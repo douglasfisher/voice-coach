@@ -213,7 +213,7 @@ export const useChatStore = create<ChatState>()(
 
       if (savedTraits && savedTraits.length > 0) {
         const restoredTraits: TraitSelection = {};
-        for (const row of savedTraits as any[]) {
+        for (const row of savedTraits as unknown as { trait_option_id: string; trait_options: { category_id: string; slug: string; prompt_modifier: string; trait_categories: { slug: string } } }[]) {
           const opt = row.trait_options;
           const catSlug = opt.trait_categories.slug;
           restoredTraits[catSlug] = {
@@ -500,7 +500,7 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = promptTokens;
       }
 
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { error } = await supabase.functions.invoke('chat', {
         body: requestBody,
       });
 

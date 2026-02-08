@@ -91,6 +91,7 @@ export default function ReportScreen() {
 
   useEffect(() => {
     loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadReport = async () => {

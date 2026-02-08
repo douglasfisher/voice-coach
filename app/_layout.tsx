@@ -7,7 +7,7 @@ import { usePersonaStore } from '../stores/personaStore';
 import '../global.css';
 
 export default function RootLayout() {
-  const { initialize, isLoading, isInitialized } = useAuthStore();
+  const { initialize, isLoading: _isLoading, isInitialized } = useAuthStore();
   const { fetchPersonas } = usePersonaStore();
 
   useEffect(() => {

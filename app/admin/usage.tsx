@@ -98,7 +98,7 @@ export default function AdminUsageScreen() {
 
   useEffect(() => {
     fetchUsageSummary();
-  }, []);
+  }, [fetchUsageSummary]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -294,7 +294,7 @@ export default function AdminUsageScreen() {
                     colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
                     style={{ padding: 16 }}
                   >
-                    {summary.byModel.map((model, index) => (
+                    {summary.byModel.map((model, _index) => (
                       <StatRow
                         key={model.model}
                         label={model.model}

@@ -18,7 +18,7 @@ export default function AdminTraitsScreen() {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   if (isLoading && categories.length === 0) {
     return (

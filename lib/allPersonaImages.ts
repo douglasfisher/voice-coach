@@ -7,7 +7,7 @@ export interface PersonaImageEntry {
   key: string;
   displayName: string;
   folder: 'men' | 'women';
-  source: any;
+  source: number;
 }
 
 export const ALL_PERSONA_IMAGES: PersonaImageEntry[] = [

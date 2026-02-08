@@ -30,7 +30,7 @@ export default function PersonasScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
 
-  const { personas, isLoading, refresh } = usePersonas();
+  const { personas, isLoading, refresh: _refresh } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation, challengersActiveFilter, setChallengersActiveFilter } = useChatStore();
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);

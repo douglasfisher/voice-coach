@@ -89,7 +89,7 @@ export function MessageBubble({
   content,
   role,
   persona,
-  audioUrl,
+  audioUrl: _audioUrl,
   onPlayAudio,
   isPlaying,
   timestamp,

@@ -169,7 +169,7 @@ export default function AdminUsersScreen() {
     pageSize,
     fetchUsers,
     toggleAdmin,
-    setSearchQuery,
+    setSearchQuery: _setSearchQuery,
     setPage,
   } = useAdminUserStore();
 
@@ -178,7 +178,7 @@ export default function AdminUsersScreen() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -189,7 +189,7 @@ export default function AdminUsersScreen() {
   const handleSearch = useCallback(() => {
     setPage(0);
     fetchUsers({ search: localSearch, page: 0 });
-  }, [localSearch]);
+  }, [localSearch, fetchUsers, setPage]);
 
   const handleToggleAdmin = async (id: string) => {
     await toggleAdmin(id);

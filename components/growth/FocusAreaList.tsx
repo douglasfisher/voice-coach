@@ -9,7 +9,7 @@ interface FocusAreaListProps {
   onAreaPress?: (area: FocusArea) => void;
 }
 
-const DIMENSION_ICONS: Record<GrowthDimension, React.ComponentType<any>> = {
+const DIMENSION_ICONS: Record<GrowthDimension, typeof Brain> = {
   logical: Brain,
   biasAwareness: Eye,
   perspective: Lightbulb,
@@ -106,7 +106,7 @@ export function FocusAreaList({ focusAreas, onAreaPress }: FocusAreaListProps) {
 
         {/* Focus areas list */}
         <View style={{ gap: 12 }}>
-          {focusAreas.map((area, index) => {
+          {focusAreas.map((area, _index) => {
             const config = DIMENSION_CONFIG[area.dimension];
             const Icon = DIMENSION_ICONS[area.dimension];
             const priorityColor =

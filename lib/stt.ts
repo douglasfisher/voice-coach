@@ -8,12 +8,12 @@ let ExpoSpeechRecognitionModule: {
   getSupportedLocales: (options: Record<string, unknown>) => Promise<{ locales: string[] }>;
 } | null = null;
 
-let useSpeechRecognitionEventInternal: (<T>(event: string, callback: (event: T) => void) => void) | null = null;
+let speechRecognitionEventHook: (<T>(event: string, callback: (event: T) => void) => void) | null = null;
 
 try {
   const speechRecognition = require('expo-speech-recognition');
   ExpoSpeechRecognitionModule = speechRecognition.ExpoSpeechRecognitionModule;
-  useSpeechRecognitionEventInternal = speechRecognition.useSpeechRecognitionEvent;
+  speechRecognitionEventHook = speechRecognition.useSpeechRecognitionEvent;
 } catch {
   console.warn('expo-speech-recognition not available - voice input disabled');
 }
@@ -93,7 +93,7 @@ export async function abortSTT(): Promise<void> {
 
 // Export a wrapper that's safe to call even if module not available
 export function useSpeechRecognitionEvent<T>(event: string, callback: (event: T) => void): void {
-  if (useSpeechRecognitionEventInternal) {
-    useSpeechRecognitionEventInternal(event, callback);
+  if (speechRecognitionEventHook) {
+    speechRecognitionEventHook(event, callback);
   }
 }

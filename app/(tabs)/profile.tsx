@@ -18,7 +18,6 @@ import {
   ChevronRight,
   Award,
   MessageSquare,
-  Flame,
   Heart,
   LayoutDashboard,
   Maximize2,
@@ -27,7 +26,7 @@ import { requestSTTPermission, getSTTPermissionStatus, checkSTTAvailability, isS
 import { useAuthStore } from '../../stores/authStore';
 
 export default function ProfileScreen() {
-  const { profile, preferences, user, signOut, updatePreferences, updateProfile } =
+  const { profile, preferences, user, signOut, updatePreferences, updateProfile: _updateProfile } =
     useAuthStore();
 
   const [intensity, setIntensity] = useState(
@@ -90,7 +89,7 @@ export default function ProfileScreen() {
     };
 
     checkVoiceInputStatus();
-  }, [preferences?.voice_input_enabled]);
+  }, [preferences?.voice_input_enabled, updatePreferences]);
 
   const handleSignOut = () => {
     Alert.alert(

@@ -23,7 +23,7 @@ import {
 } from 'lucide-react-native';
 import { SPRING_STANDARD, STAGGER_GAP, EASE_ENTER } from '../../../constants/animations';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface SlideDomainsProps {
   isActive: boolean;
@@ -79,7 +79,7 @@ function DomainCard({
       scale.value = 0.85;
       glowOpacity.value = 0;
     }
-  }, [isActive]);
+  }, [isActive, glowOpacity, index, opacity, scale, translateY]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -172,7 +172,7 @@ function ComingSoonCard({ isActive }: { isActive: boolean }) {
       translateY.value = 40;
       shimmer.value = 0;
     }
-  }, [isActive]);
+  }, [isActive, opacity, shimmer, translateY]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -246,7 +246,7 @@ export function SlideDomains({ isActive }: SlideDomainsProps) {
       subtitleOpacity.value = 0;
       subtitleY.value = 15;
     }
-  }, [isActive]);
+  }, [isActive, eyebrowOpacity, eyebrowY, subtitleOpacity, subtitleY, titleOpacity, titleY]);
 
   const eyebrowStyle = useAnimatedStyle(() => ({
     opacity: eyebrowOpacity.value,

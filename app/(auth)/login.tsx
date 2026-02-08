@@ -42,7 +42,7 @@ export default function LoginScreen() {
   const handleAppleLogin = async () => {
     setError('');
     try {
-      const credential = await AppleAuthentication.signInAsync({
+      const _credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,

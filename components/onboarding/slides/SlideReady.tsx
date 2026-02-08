@@ -82,6 +82,118 @@ const LAYOUT = [
 
 const COACH_COUNT = 8;
 
+interface AvatarCircleProps {
+  coach: CoachEntry;
+  layout: { left: number; top: number; size: number };
+  isActive: boolean;
+  index: number;
+  delay: number;
+}
+
+function AvatarCircle({ coach, layout, isActive, index, delay }: AvatarCircleProps) {
+  const size = layout.size;
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.3);
+  const glowOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    if (isActive) {
+      opacity.value = withDelay(delay, withTiming(1, { duration: 350, easing: EASE_ENTER }));
+      scale.value = withDelay(delay, withSpring(1, SPRING_BOUNCY));
+      glowOpacity.value = withDelay(
+        delay + 600,
+        withRepeat(
+          withTiming(1, { duration: 2200 + index * 300, easing: Easing.inOut(Easing.sin) }),
+          -1,
+          true,
+        ),
+      );
+    } else {
+      opacity.value = 0;
+      scale.value = 0.3;
+      glowOpacity.value = 0;
+    }
+  }, [isActive, delay, index, opacity, scale, glowOpacity]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  const ringGlow = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value * 0.3,
+  }));
+
+  return (
+    <Animated.View
+      key={coach.name}
+      style={[
+        {
+          position: 'absolute',
+          left: layout.left,
+          top: layout.top,
+          width: size,
+          alignItems: 'center',
+          zIndex: index === 3 ? 10 : 1,
+        },
+        animStyle,
+      ]}
+    >
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top: -4,
+            width: size + 8,
+            height: size + 8,
+            borderRadius: (size + 8) / 2,
+            backgroundColor: coach.badgeColor,
+          },
+          ringGlow,
+        ]}
+      />
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          overflow: 'hidden',
+          borderWidth: 2.5,
+          borderColor: `${coach.badgeColor}50`,
+        }}
+      >
+        <Image
+          source={resolvePersonaAvatar(coach.name)}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+        />
+      </View>
+      <View
+        style={{
+          marginTop: 6,
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          borderRadius: 8,
+          backgroundColor: `${coach.badgeColor}18`,
+          borderWidth: 1,
+          borderColor: `${coach.badgeColor}30`,
+        }}
+      >
+        <Animated.Text
+          style={{
+            color: coach.badgeColor,
+            fontSize: size > 85 ? 10 : 9,
+            fontWeight: '600',
+          }}
+          numberOfLines={1}
+        >
+          {coach.badge}
+        </Animated.Text>
+      </View>
+    </Animated.View>
+  );
+}
+
 export function SlideReady({ isActive }: SlideReadyProps) {
   const selectedCoaches = useMemo(() => shuffleArr(ALL_COACHES).slice(0, COACH_COUNT), []);
 
@@ -108,29 +220,8 @@ export function SlideReady({ isActive }: SlideReadyProps) {
   const ctaScale = useSharedValue(0.95);
   const glowOpacity = useSharedValue(0.3);
 
-  const avatarValues = selectedCoaches.map(() => ({
-    opacity: useSharedValue(0),
-    scale: useSharedValue(0.3),
-    glowOpacity: useSharedValue(0),
-  }));
-
   useEffect(() => {
     if (isActive) {
-      // Avatars pop in scattered
-      avatarValues.forEach((av, i) => {
-        const delay = 150 + i * 100;
-        av.opacity.value = withDelay(delay, withTiming(1, { duration: 350, easing: EASE_ENTER }));
-        av.scale.value = withDelay(delay, withSpring(1, SPRING_BOUNCY));
-        av.glowOpacity.value = withDelay(
-          delay + 600,
-          withRepeat(
-            withTiming(1, { duration: 2200 + i * 300, easing: Easing.inOut(Easing.sin) }),
-            -1,
-            true,
-          ),
-        );
-      });
-
       // Title
       titleOpacity.value = withDelay(900, withTiming(1, { duration: 400 }));
       titleY.value = withDelay(900, withSpring(0, SPRING_GENTLE));
@@ -160,13 +251,8 @@ export function SlideReady({ isActive }: SlideReadyProps) {
       ctaOpacity.value = 0;
       ctaScale.value = 0.95;
       glowOpacity.value = 0.3;
-      avatarValues.forEach((av) => {
-        av.opacity.value = 0;
-        av.scale.value = 0.3;
-        av.glowOpacity.value = 0;
-      });
     }
-  }, [isActive]);
+  }, [isActive, titleOpacity, titleY, subtitleOpacity, subtitleY, ctaOpacity, ctaScale, glowOpacity]);
 
   const titleStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,
@@ -215,89 +301,16 @@ export function SlideReady({ isActive }: SlideReadyProps) {
           marginTop: SCREEN_HEIGHT * 0.08,
         }}
       >
-        {selectedCoaches.map((coach, i) => {
-          const layout = randomizedLayout[i];
-          const size = layout.size;
-          const animStyle = useAnimatedStyle(() => ({
-            opacity: avatarValues[i].opacity.value,
-            transform: [{ scale: avatarValues[i].scale.value }],
-          }));
-          const ringGlow = useAnimatedStyle(() => ({
-            opacity: avatarValues[i].glowOpacity.value * 0.3,
-          }));
-
-          return (
-            <Animated.View
-              key={coach.name}
-              style={[
-                {
-                  position: 'absolute',
-                  left: layout.left,
-                  top: layout.top,
-                  width: size,
-                  alignItems: 'center',
-                  zIndex: i === 3 ? 10 : 1,
-                },
-                animStyle,
-              ]}
-            >
-              {/* Glow */}
-              <Animated.View
-                style={[
-                  {
-                    position: 'absolute',
-                    top: -4,
-                    width: size + 8,
-                    height: size + 8,
-                    borderRadius: (size + 8) / 2,
-                    backgroundColor: coach.badgeColor,
-                  },
-                  ringGlow,
-                ]}
-              />
-              {/* Avatar circle */}
-              <View
-                style={{
-                  width: size,
-                  height: size,
-                  borderRadius: size / 2,
-                  overflow: 'hidden',
-                  borderWidth: 2.5,
-                  borderColor: `${coach.badgeColor}50`,
-                }}
-              >
-                <Image
-                  source={resolvePersonaAvatar(coach.name)}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
-              </View>
-              {/* Badge */}
-              <View
-                style={{
-                  marginTop: 6,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 8,
-                  backgroundColor: `${coach.badgeColor}18`,
-                  borderWidth: 1,
-                  borderColor: `${coach.badgeColor}30`,
-                }}
-              >
-                <Animated.Text
-                  style={{
-                    color: coach.badgeColor,
-                    fontSize: size > 85 ? 10 : 9,
-                    fontWeight: '600',
-                  }}
-                  numberOfLines={1}
-                >
-                  {coach.badge}
-                </Animated.Text>
-              </View>
-            </Animated.View>
-          );
-        })}
+        {selectedCoaches.map((coach, i) => (
+          <AvatarCircle
+            key={coach.name}
+            coach={coach}
+            layout={randomizedLayout[i]}
+            isActive={isActive}
+            index={i}
+            delay={150 + i * 100}
+          />
+        ))}
       </View>
 
       {/* Text + CTA - bottom portion */}

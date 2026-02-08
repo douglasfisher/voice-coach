@@ -1,7 +1,7 @@
 import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
-import { Sparkles, Target, TrendingUp } from 'lucide-react-native';
+import { Target, TrendingUp } from 'lucide-react-native';
 
 interface PotentialScoreCardProps {
   currentScore: number | null;
@@ -30,7 +30,7 @@ export function PotentialScoreCard({
   // Calculate circumference and dash offsets
   const circumference = 2 * Math.PI * RADIUS;
   const currentDash = (current / 100) * circumference;
-  const projectedDash = (projected / 100) * circumference;
+  const _projectedDash = (projected / 100) * circumference;
   const optimalDash = (optimal / 100) * circumference;
 
   const velocityColor =

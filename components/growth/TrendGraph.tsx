@@ -124,8 +124,6 @@ export function TrendGraph({ data, title = 'Progress Over Time' }: TrendGraphPro
   // Create area fill path
   const createAreaPath = () => {
     const linePath = createSmoothPath();
-    const lastPoint = validData[validData.length - 1];
-    const firstPoint = validData[0];
     return `${linePath} L ${xScale(validData.length - 1)} ${PADDING.top + chartHeight} L ${PADDING.left} ${PADDING.top + chartHeight} Z`;
   };
 

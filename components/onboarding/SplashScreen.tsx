@@ -78,7 +78,7 @@ export function SplashScreen() {
     }, DURATION_SPLASH);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [photoOpacity, photoScale, screenOpacity, taglineOpacity, taglineTranslateY, titleOpacity, titleTranslateY, underlineScaleX]);
 
   const screenStyle = useAnimatedStyle(() => ({
     opacity: screenOpacity.value,

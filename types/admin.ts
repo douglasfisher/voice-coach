@@ -5,7 +5,7 @@
  * usage tracking, and app settings.
  */
 
-import { UserProfile, Persona, AIUsage, AppSettings } from './database';
+import { UserProfile, Persona } from './database';
 
 // =============================================================================
 // MODEL COSTS (Configured in database per-persona ai_config)

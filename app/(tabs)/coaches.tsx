@@ -32,7 +32,7 @@ export default function CoachesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
 
-  const { personas, isLoading: personasLoading, refresh } = usePersonas();
+  const { personas, isLoading: personasLoading, refresh: _refresh } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation, globalInteractionMode, setGlobalInteractionMode, coachesActiveDomain, setCoachesActiveDomain } = useChatStore();
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
@@ -81,7 +81,7 @@ export default function CoachesScreen() {
     return domain?.name || 'Coaches';
   };
 
-  const getDomainColor = (domainId: string): string => {
+  const _getDomainColor = (domainId: string): string => {
     const domain = domains.find(d => d.id === domainId);
     return domain?.color || '#F59E0B';
   };

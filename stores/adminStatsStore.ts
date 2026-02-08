@@ -141,7 +141,7 @@ export const useAdminStatsStore = create<AdminStatsState>((set, get) => ({
           .gte('created_at', monthStart.toISOString()),
       ]);
 
-      const sumUsage = (data: any[] | null) => ({
+      const sumUsage = (data: { total_tokens: number; estimated_cost_cents: number }[] | null) => ({
         tokens: (data || []).reduce((sum, u) => sum + u.total_tokens, 0),
         cost: (data || []).reduce((sum, u) => sum + u.estimated_cost_cents, 0),
       });
@@ -238,7 +238,7 @@ export const useAdminStatsStore = create<AdminStatsState>((set, get) => ({
         if (!u.persona_id) return;
         const existing = personaMap.get(u.persona_id) || {
           personaId: u.persona_id,
-          personaName: (u.persona as any)?.name || 'Unknown',
+          personaName: (u.persona as unknown as { name: string } | null)?.name || 'Unknown',
           tokens: 0,
           costCents: 0,
           requestCount: 0,
@@ -344,11 +344,11 @@ export const useAdminStatsStore = create<AdminStatsState>((set, get) => ({
 
       settingsRaw.forEach((s) => {
         try {
-          (settings as any)[s.key] = typeof s.value === 'string'
+          (settings as Record<string, unknown>)[s.key] = typeof s.value === 'string'
             ? JSON.parse(s.value)
             : s.value;
         } catch {
-          (settings as any)[s.key] = s.value;
+          (settings as Record<string, unknown>)[s.key] = s.value;
         }
       });
 

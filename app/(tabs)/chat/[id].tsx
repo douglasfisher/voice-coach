@@ -99,7 +99,7 @@ export default function ChatScreen() {
     end,
   } = useConversation(id);
 
-  const { play, stop, isPlaying, generateAndPlay, isLoading: ttsLoading } = useTTS();
+  const { play, stop, isPlaying, generateAndPlay, isLoading: _ttsLoading } = useTTS();
 
   // Voice input
   const voiceInputEnabled = preferences?.voice_input_enabled ?? false;
@@ -112,7 +112,7 @@ export default function ChatScreen() {
     hasPermission: hasVoicePermission,
   } = useVoiceInput(voiceInputEnabled);
 
-  const isRecording = voiceState === 'recording';
+  const _isRecording = voiceState === 'recording';
 
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -120,7 +120,7 @@ export default function ChatScreen() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const {
-    fetchMessages,
+    fetchMessages: _fetchMessages,
     clearMessages,
     startChat,
     generatePreview,
@@ -271,6 +271,7 @@ export default function ChatScreen() {
     if (conversation && !chatStarted && !hasPreview && !isGeneratingPreview) {
       generatePreview();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.id, chatStarted, hasPreview]);
 
   // Clear preview when leaving the screen
@@ -278,7 +279,7 @@ export default function ChatScreen() {
     return () => {
       clearPreview();
     };
-  }, []);
+  }, [clearPreview]);
 
   // Track session start time when first message appears
   useEffect(() => {
@@ -291,6 +292,7 @@ export default function ChatScreen() {
         setSessionStartTime(new Date());
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, sessionStartTime]);
 
   useEffect(() => {
