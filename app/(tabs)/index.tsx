@@ -57,10 +57,10 @@ export default function HomeScreen() {
 
   // Fetch daily challenge when personas are available
   useEffect(() => {
-    if (personas.length > 0) {
+    if (user?.id && personas.length > 0) {
       fetchDailyChallenge(personas);
     }
-  }, [personas, fetchDailyChallenge]);
+  }, [user?.id, personas, fetchDailyChallenge]);
 
   // Shuffle coaches and challengers once per mount
   const shuffledCoaches = useMemo(

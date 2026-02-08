@@ -85,9 +85,9 @@ export function PersonaModal({
   onPlayVoice,
   isPlayingVoice = false,
 }: PersonaModalProps) {
-  if (!persona) return null;
-
   const { globalInteractionMode, setGlobalInteractionMode } = useChatStore();
+
+  if (!persona) return null;
   const isCoach = persona.personaType === 'coach';
   const theme = STYLE_THEMES[persona.challengeStyle];
   const StyleIcon = isCoach ? GraduationCap : theme.Icon;
