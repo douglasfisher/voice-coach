@@ -237,6 +237,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
 
+    // If profile exists but preferences row is missing, create it
+    if (profileResult.data && !preferencesResult.data) {
+      await supabase.from('user_preferences').insert({ user_id: user.id });
+      const { data: newPrefs } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      set({ profile: profileResult.data, preferences: newPrefs });
+      return;
+    }
+
     set({
       profile: profileResult.data,
       preferences: preferencesResult.data,
@@ -265,8 +277,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const { error } = await supabase
       .from('user_preferences')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id);
+      .upsert(
+        { user_id: user.id, ...updates, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
 
     if (!error) {
       await get().fetchProfile();

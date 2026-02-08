@@ -51,6 +51,19 @@ export default function ProfileScreen() {
     preferences?.interested_in ?? null
   );
 
+  // Sync local state when preferences load/change from the store
+  useEffect(() => {
+    if (preferences) {
+      setIntensity(preferences.preferred_challenge_intensity ?? 5);
+      setTtsEnabled(preferences.tts_enabled ?? true);
+      setVoiceInputEnabled(preferences.voice_input_enabled ?? false);
+      setNotifications(preferences.notification_daily_challenge ?? true);
+      setImmersiveChatEnabled(preferences.immersive_chat_enabled ?? true);
+      setUserGender(preferences.user_gender ?? null);
+      setInterestedIn(preferences.interested_in ?? null);
+    }
+  }, [preferences]);
+
   // Check if voice input is available and has permission on mount
   useEffect(() => {
     const checkVoiceInputStatus = async () => {
