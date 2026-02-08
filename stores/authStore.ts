@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { UserProfile, UserPreferences } from '../types/database';
@@ -67,7 +69,9 @@ interface AuthState {
   updatePreferences: (updates: Partial<UserPreferences>) => Promise<{ error: Error | null }>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
   session: null,
   user: null,
   profile: null,
@@ -264,7 +268,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', user.id);
 
-    if (!error) {
+    if (error) {
+      console.error('[authStore] updateProfile failed:', error);
+    } else {
       await get().fetchProfile();
     }
 
@@ -272,8 +278,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   updatePreferences: async (updates) => {
-    const { user } = get();
+    const { user, preferences } = get();
     if (!user) return { error: new Error('Not authenticated') };
+
+    // Optimistic update: apply changes to store immediately
+    // so the UI reflects the change without waiting for DB
+    if (preferences) {
+      set({
+        preferences: { ...preferences, ...updates, updated_at: new Date().toISOString() },
+      });
+    }
 
     const { error } = await supabase
       .from('user_preferences')
@@ -282,10 +296,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         { onConflict: 'user_id' }
       );
 
-    if (!error) {
+    if (error) {
+      console.error('[authStore] updatePreferences failed:', error);
+      // Revert optimistic update on failure by re-fetching from DB
       await get().fetchProfile();
     }
 
     return { error: error as Error | null };
   },
-}));
+    }),
+    {
+      name: 'dialectica-auth',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        // Persist profile and preferences locally so they survive app restarts
+        // even before the DB fetch completes
+        profile: state.profile,
+        preferences: state.preferences,
+      }),
+    },
+  ),
+);
