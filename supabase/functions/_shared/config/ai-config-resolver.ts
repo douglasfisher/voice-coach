@@ -149,6 +149,7 @@ export async function resolveAIConfig(
       'ai_coaching_prompts',
       'ai_report_prompt',
       'ai_scene_template',
+      'ai_emotional_progressions',
     ]);
 
   if (settingsError) {
@@ -171,6 +172,10 @@ export async function resolveAIConfig(
   const dbCoachingPrompts = settingsMap.get('ai_coaching_prompts') as DBCoachingPrompts | undefined;
   const dbReportPrompt = settingsMap.get('ai_report_prompt') as string | undefined;
   const dbSceneTemplate = settingsMap.get('ai_scene_template') as string | undefined;
+  const dbEmotionalProgressions = settingsMap.get('ai_emotional_progressions') as {
+    template?: string;
+    demeanors?: Record<string, { starting_stage: string; stages: string }>;
+  } | undefined;
 
   // 3. Fetch persona config if specified
   let personaConfig: Record<string, unknown> = {};
@@ -179,11 +184,13 @@ export async function resolveAIConfig(
   let personaCoachingStyle: CoachingStyle | null = null;
   let personaFeedbackStyle: FeedbackStyle = 'sandwich';
   let personaInteractionMode: InteractionMode = 'coach_leads';
+  let personaEmotionalProgressionEnabled = false;
+  let resolvedDemeanorSlug: string | null = null;
 
   if (personaId) {
     const { data: persona, error: personaError } = await supabase
       .from('personas')
-      .select('ai_config, system_prompt, persona_type, coaching_style, feedback_style, default_interaction_mode')
+      .select('ai_config, system_prompt, persona_type, coaching_style, feedback_style, default_interaction_mode, emotional_progression_enabled')
       .eq('id', personaId)
       .single();
 
@@ -195,9 +202,10 @@ export async function resolveAIConfig(
 
       // Load persona trait defaults for any categories not overridden by user
       const mergedTokens: Record<string, string> = {};
+      const traitSlugs: Record<string, string> = {}; // category slug → option slug
       const { data: personaDefaults } = await supabase
         .from('persona_trait_defaults')
-        .select('trait_options(prompt_modifier, trait_categories(slug))')
+        .select('trait_options(slug, prompt_modifier, trait_categories(slug))')
         .eq('persona_id', personaId);
 
       if (personaDefaults) {
@@ -205,6 +213,7 @@ export async function resolveAIConfig(
           const catSlug = row.trait_options?.trait_categories?.slug;
           if (catSlug) {
             mergedTokens[catSlug] = row.trait_options.prompt_modifier || '';
+            traitSlugs[catSlug] = row.trait_options.slug || '';
           }
         }
       }
@@ -215,6 +224,24 @@ export async function resolveAIConfig(
           mergedTokens[key] = value;
         }
       }
+
+      // Resolve the character_demeanor slug for emotional progression
+      // If user selected a trait via promptTokens, we need to find that option's slug
+      if (options.promptTokens?.character_demeanor) {
+        // User selected a custom demeanor — look up its slug from the prompt_modifier text
+        const { data: demeanorOption } = await supabase
+          .from('trait_options')
+          .select('slug, trait_categories!inner(slug)')
+          .eq('trait_categories.slug', 'character_demeanor')
+          .eq('prompt_modifier', options.promptTokens.character_demeanor)
+          .maybeSingle();
+        resolvedDemeanorSlug = demeanorOption?.slug || null;
+      } else {
+        // Use persona default demeanor slug
+        resolvedDemeanorSlug = traitSlugs['character_demeanor'] || null;
+      }
+
+      personaEmotionalProgressionEnabled = !!persona.emotional_progression_enabled;
 
       // Replace prompt tokens (e.g., {{character_demeanor}} → trait text)
       for (const [key, value] of Object.entries(mergedTokens)) {
@@ -283,15 +310,33 @@ export async function resolveAIConfig(
   const { coaching } = options;
 
   if (isCoachingTask && coaching && personaCoachingStyle) {
+    // Resolve emotional progression if applicable
+    const effectivePhase = (coaching.currentPhase as SessionPhase) || 'roleplay';
+    let emotionalProgression: string | undefined;
+
+    if (
+      personaEmotionalProgressionEnabled &&
+      effectivePhase === 'roleplay' &&
+      resolvedDemeanorSlug &&
+      dbEmotionalProgressions?.template &&
+      dbEmotionalProgressions?.demeanors?.[resolvedDemeanorSlug]
+    ) {
+      const demeanor = dbEmotionalProgressions.demeanors[resolvedDemeanorSlug];
+      emotionalProgression = dbEmotionalProgressions.template
+        .replace('{{starting_stage}}', demeanor.starting_stage)
+        .replace('{{stages}}', demeanor.stages);
+    }
+
     // Build coaching-specific prompt
     fullSystemPrompt = buildCoachingPrompt(personaPrompt, {
       coachingStyle: (coaching.coachingStyle as CoachingStyle) || personaCoachingStyle,
       interactionMode: (coaching.interactionMode as InteractionMode) || personaInteractionMode,
       feedbackStyle: (coaching.feedbackStyle as FeedbackStyle) || personaFeedbackStyle,
-      currentPhase: (coaching.currentPhase as SessionPhase) || 'roleplay',
+      currentPhase: effectivePhase,
       scenarioContext: coaching.scenarioContext || '',
       scenarioVariant: coaching.scenarioVariant,
       userGoal: coaching.userGoal,
+      emotionalProgression,
     }, dbCoachingPrompts);
   } else {
     // Standard prompt building for challengers

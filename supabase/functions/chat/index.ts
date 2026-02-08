@@ -894,18 +894,32 @@ Generate a comprehensive session report.`;
       { role: 'user', content: userMessage! },
     ]);
 
-    const assistantMessage = groqResponse.choices[0]?.message?.content || '';
+    let assistantMessage = groqResponse.choices[0]?.message?.content || '';
+
+    // Parse and strip emotional state tag from AI response (e.g., [STATE:2:CAUTIOUSLY_CURIOUS])
+    let messageMetadata: Record<string, unknown> | null = null;
+    const stateTagMatch = assistantMessage.match(/\[STATE:(\d+):([A-Z_]+)\]\s*$/);
+    if (stateTagMatch) {
+      assistantMessage = assistantMessage.replace(/\[STATE:\d+:[A-Z_]+\]\s*$/, '').trimEnd();
+      messageMetadata = {
+        emotional_stage: {
+          number: parseInt(stateTagMatch[1], 10),
+          name: stateTagMatch[2],
+        },
+      };
+    }
 
     // Calculate assistant response time (time since user message was saved)
     const assistantResponseTimeMs = Date.now() - new Date(userMessageCreatedAt).getTime();
 
-    // Save assistant message with response time
+    // Save assistant message with response time and optional metadata
     await supabase.from('messages').insert({
       conversation_id: conversationId,
       role: 'assistant',
       content: assistantMessage,
       sequence: nextSequence + 1,
       response_time_ms: assistantResponseTimeMs,
+      ...(messageMetadata ? { metadata: messageMetadata } : {}),
     });
 
     // Log usage

@@ -1,6 +1,6 @@
 import { View, Text, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Play, Pause, Volume2, Sparkles, Zap, Brain, Heart, Scale, Eye, Clock, MessageSquare, Clapperboard } from 'lucide-react-native';
+import { Play, Pause, Volume2, Sparkles, Zap, Brain, Heart, Scale, Eye, Clock, MessageSquare, Clapperboard, Activity } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle } from '../../types/persona';
 
 /**
@@ -61,6 +61,15 @@ const STYLE_THEMES: Record<ChallengeStyle, {
   },
 };
 
+// Stage number to color mapping for emotional state badges
+const STAGE_COLORS: Record<number, string> = {
+  1: '#ef4444', // red - guarded/closed
+  2: '#f97316', // orange - cautious
+  3: '#eab308', // yellow - warming
+  4: '#22c55e', // green - open
+  5: '#3b82f6', // blue - connected
+};
+
 interface MessageBubbleProps {
   content: string;
   role: 'user' | 'assistant';
@@ -72,6 +81,8 @@ interface MessageBubbleProps {
   responseTimeMs?: number | null;
   showMetrics?: boolean;
   immersiveMode?: boolean;
+  metadata?: Record<string, unknown> | null;
+  isAdmin?: boolean;
 }
 
 export function MessageBubble({
@@ -85,6 +96,8 @@ export function MessageBubble({
   responseTimeMs,
   showMetrics = true,
   immersiveMode = false,
+  metadata,
+  isAdmin = false,
 }: MessageBubbleProps) {
   const isSceneContext = content.startsWith('[SCENE CONTEXT]');
   const displayContent = isSceneContext ? content.replace('[SCENE CONTEXT]\n', '').replace('[SCENE CONTEXT]', '') : content;
@@ -95,6 +108,15 @@ export function MessageBubble({
       ? { uri: persona.avatarUrl }
       : persona.avatarUrl
     : null;
+
+  // Emotional state (admin-only)
+  const emotionalStage = (isAdmin && !isUser && metadata?.emotional_stage)
+    ? metadata.emotional_stage as { number: number; name: string }
+    : null;
+  const stageColor = emotionalStage ? (STAGE_COLORS[emotionalStage.number] || '#9ca3af') : '';
+  const stageName = emotionalStage
+    ? emotionalStage.name.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase())
+    : '';
 
   // Immersive mode styles - more transparent backgrounds
   const immersiveAssistantGradient: [string, string] = ['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.4)'];
@@ -322,6 +344,28 @@ export function MessageBubble({
                     }}
                   >
                     {formatResponseTime(responseTimeMs)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Admin-only emotional state badge */}
+              {emotionalStage && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: `${stageColor}20`,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: `${stageColor}50`,
+                  }}
+                >
+                  <Activity size={10} color={stageColor} />
+                  <Text style={{ fontSize: 10, color: stageColor, fontWeight: '600' }}>
+                    {emotionalStage.number}: {stageName}
                   </Text>
                 </View>
               )}

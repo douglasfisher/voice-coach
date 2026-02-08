@@ -379,6 +379,7 @@ export default function AdminPersonaEditScreen() {
     coaching_style: null,
     default_interaction_mode: 'coach_leads',
     feedback_style: 'sandwich',
+    emotional_progression_enabled: false,
   });
 
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
@@ -441,6 +442,7 @@ export default function AdminPersonaEditScreen() {
         coaching_style: selectedPersona.coaching_style,
         default_interaction_mode: selectedPersona.default_interaction_mode || 'coach_leads',
         feedback_style: selectedPersona.feedback_style || 'sandwich',
+        emotional_progression_enabled: selectedPersona.emotional_progression_enabled ?? false,
       });
     }
   }, [selectedPersona, isNew]);
@@ -610,7 +612,7 @@ export default function AdminPersonaEditScreen() {
           />
 
           {/* Toggles */}
-          <View style={{ flexDirection: 'row', gap: 20, marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20, marginBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginRight: 12 }}>
                 Active
@@ -631,6 +633,17 @@ export default function AdminPersonaEditScreen() {
                 onValueChange={(value) => updateForm('is_premium', value)}
                 trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(251, 191, 36, 0.5)' }}
                 thumbColor={form.is_premium ? '#fbbf24' : 'rgba(255,255,255,0.5)'}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginRight: 12 }}>
+                Mood Shift
+              </Text>
+              <Switch
+                value={form.emotional_progression_enabled ?? false}
+                onValueChange={(value) => updateForm('emotional_progression_enabled', value)}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(168, 85, 247, 0.5)' }}
+                thumbColor={form.emotional_progression_enabled ? '#a855f7' : 'rgba(255,255,255,0.5)'}
               />
             </View>
           </View>

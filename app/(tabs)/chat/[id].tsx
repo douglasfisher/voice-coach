@@ -85,7 +85,7 @@ const STYLE_THEMES: Record<ChallengeStyle, {
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const flatListRef = useRef<FlatList>(null);
-  const { preferences } = useAuthStore();
+  const { preferences, profile } = useAuthStore();
   const insets = useSafeAreaInsets();
 
   const {
@@ -458,6 +458,8 @@ export default function ChatScreen() {
                 timestamp={item.created_at}
                 responseTimeMs={item.response_time_ms}
                 immersiveMode={showImmersiveLayout}
+                metadata={item.metadata}
+                isAdmin={!!profile?.is_admin}
               />
             )}
             ListFooterComponent={

@@ -40,6 +40,7 @@ export interface CoachingPromptContext {
   scenarioContext: string;
   scenarioVariant?: { name: string; context: string };
   userGoal?: string;
+  emotionalProgression?: string;
 }
 
 // =============================================================================
@@ -225,31 +226,36 @@ export function buildCoachingPrompt(
     ?? PHASE_PROMPTS[context.currentPhase];
   parts.push(phasePrompt);
 
-  // 5. Feedback style (only relevant in feedback phase, but include for context)
+  // 5. Emotional progression (only during roleplay, when enabled)
+  if (context.emotionalProgression) {
+    parts.push(context.emotionalProgression);
+  }
+
+  // 6. Feedback style (only relevant in feedback phase, but include for context)
   if (context.currentPhase === 'feedback') {
     const feedbackPrompt = dbPrompts?.feedback_styles?.[context.feedbackStyle]
       ?? FEEDBACK_STYLE_PROMPTS[context.feedbackStyle];
     parts.push(feedbackPrompt);
   }
 
-  // 6. Scenario context
+  // 7. Scenario context
   parts.push(`---
 SCENARIO CONTEXT:
 ${context.scenarioContext}`);
 
-  // 7. Scenario variant (if selected)
+  // 8. Scenario variant (if selected)
   if (context.scenarioVariant) {
     parts.push(`SPECIFIC SITUATION: ${context.scenarioVariant.name}
 ${context.scenarioVariant.context}`);
   }
 
-  // 8. User goal (what they're practicing)
+  // 9. User goal (what they're practicing)
   if (context.userGoal) {
     parts.push(`USER'S PRACTICE GOAL:
 ${context.userGoal}`);
   }
 
-  // 9. Final reminders based on mode
+  // 10. Final reminders based on mode
   if (context.interactionMode === 'user_leads' && context.currentPhase === 'roleplay') {
     parts.push(`---
 CRITICAL REMINDERS:

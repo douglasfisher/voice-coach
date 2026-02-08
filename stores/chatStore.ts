@@ -24,7 +24,9 @@ interface CompletedConversation {
   created_at: string;
 }
 
-interface ChatMessage extends Omit<Message, 'analysis'> {}
+interface ChatMessage extends Omit<Message, 'analysis' | 'metadata'> {
+  metadata?: Record<string, unknown> | null;
+}
 
 interface DailyChallenge {
   question: string;
@@ -253,6 +255,7 @@ export const useChatStore = create<ChatState>()(
       audio_duration_ms: msg.audio_duration_ms as number | null,
       sequence: msg.sequence as number,
       response_time_ms: msg.response_time_ms as number | null,
+      metadata: msg.metadata as Record<string, unknown> | null,
       created_at: msg.created_at as string,
     }));
 

@@ -230,6 +230,7 @@ export interface Database {
           coaching_style: string | null;
           default_interaction_mode: string;
           feedback_style: string;
+          emotional_progression_enabled: boolean;
         };
         Insert: {
           id?: string;
@@ -272,6 +273,7 @@ export interface Database {
           coaching_style?: string | null;
           default_interaction_mode?: string;
           feedback_style?: string;
+          emotional_progression_enabled?: boolean;
         };
         Update: {
           id?: string;
@@ -314,6 +316,7 @@ export interface Database {
           coaching_style?: string | null;
           default_interaction_mode?: string;
           feedback_style?: string;
+          emotional_progression_enabled?: boolean;
         };
       };
       conversations: {
@@ -410,6 +413,7 @@ export interface Database {
           analysis: Json | null;
           sequence: number;
           response_time_ms: number | null;
+          metadata: Json | null;
           created_at: string;
         };
         Insert: {
@@ -422,6 +426,7 @@ export interface Database {
           analysis?: Json | null;
           sequence: number;
           response_time_ms?: number | null;
+          metadata?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -434,6 +439,7 @@ export interface Database {
           analysis?: Json | null;
           sequence?: number;
           response_time_ms?: number | null;
+          metadata?: Json | null;
           created_at?: string;
         };
       };
