@@ -100,9 +100,28 @@ if [ "$APP_INSTALLED" -eq 0 ]; then
   log "Build complete."
 fi
 
-# ── Set bundler host and launch ────────────────────────────────
-log "Configuring bundler host and launching app..."
+# ── Configure app to point at localhost bundler ──────────────────
 xcrun simctl spawn "$UDID" defaults write "$APP_ID" RCT_jsLocation localhost
-xcrun simctl launch "$UDID" "$APP_ID"
+
+# ── Start Metro in background, wait for it, then launch app ─────
 log "Starting Metro on port $PORT..."
-exec npx expo start --dev-client --port "$PORT" --clear
+npx expo start --dev-client --port "$PORT" --clear &
+METRO_PID=$!
+
+# Wait for Metro to be ready
+log "Waiting for Metro bundler..."
+for i in $(seq 1 30); do
+  if curl -s "http://localhost:$PORT/status" >/dev/null 2>&1; then
+    log "Metro is ready."
+    break
+  fi
+  [ "$i" -eq 30 ] && die "Metro failed to start within 30s."
+  sleep 1
+done
+
+# Now launch the app (Metro is serving)
+log "Launching app..."
+xcrun simctl launch "$UDID" "$APP_ID"
+
+# Bring Metro back to foreground
+wait $METRO_PID
