@@ -237,8 +237,8 @@ export async function resolveAIConfig(
           .maybeSingle();
         resolvedDemeanorSlug = demeanorOption?.slug || null;
       } else {
-        // Use persona default demeanor slug
-        resolvedDemeanorSlug = traitSlugs['character_demeanor'] || null;
+        // Use persona default demeanor slug, fall back to 'neutral'
+        resolvedDemeanorSlug = traitSlugs['character_demeanor'] || 'neutral';
       }
 
       personaEmotionalProgressionEnabled = !!persona.emotional_progression_enabled;
