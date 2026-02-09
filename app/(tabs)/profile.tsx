@@ -21,13 +21,16 @@ import {
   Heart,
   LayoutDashboard,
   Maximize2,
+  MessageSquareText,
 } from 'lucide-react-native';
 import { requestSTTPermission, getSTTPermissionStatus, checkSTTAvailability, isSTTModuleAvailable } from '../../lib/stt';
 import { useAuthStore } from '../../stores/authStore';
+import { useFeedbackStore } from '../../stores/feedbackStore';
 
 export default function ProfileScreen() {
   const { profile, preferences, user, signOut, updatePreferences, updateProfile: _updateProfile } =
     useAuthStore();
+  const { openModalManual } = useFeedbackStore();
 
   const [intensity, setIntensity] = useState(
     preferences?.preferred_challenge_intensity ?? 5
@@ -647,6 +650,8 @@ export default function ProfileScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
+            <SettingLink icon={MessageSquareText} iconColor="#F59E0B" title="Send Feedback" onPress={openModalManual} />
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 18 }} />
             <SettingLink icon={Info} iconColor="#4ade80" title="About Dialectica" />
             <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 18 }} />
             <SettingLink icon={Shield} iconColor="#c084fc" title="Privacy Policy" />
