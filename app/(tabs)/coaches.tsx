@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GraduationCap } from 'lucide-react-native';
@@ -31,6 +31,7 @@ interface CoachingDomain {
 export default function CoachesScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
+  const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
   const { personas, isLoading: personasLoading, refresh: _refresh } = usePersonas();
   const { user } = useAuthStore();
@@ -66,6 +67,14 @@ export default function CoachesScreen() {
 
   // Filter to only show coaches
   const coaches = personas.filter(p => p.personaType === 'coach');
+
+  // Auto-open persona modal when navigated with openPersonaId param
+  useEffect(() => {
+    if (openPersonaId && coaches.length > 0) {
+      const match = coaches.find(c => c.id === openPersonaId);
+      if (match) setSelectedPersona(match);
+    }
+  }, [openPersonaId, coaches.length]);
 
   const filteredCoaches = coachesActiveDomain === 'all'
     ? coaches

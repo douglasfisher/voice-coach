@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
@@ -29,6 +29,7 @@ const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string
 export default function PersonasScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
+  const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
   const { personas, isLoading, refresh: _refresh } = usePersonas();
   const { user } = useAuthStore();
@@ -40,6 +41,14 @@ export default function PersonasScreen() {
 
   // Filter to only show challengers (not coaches)
   const challengers = personas.filter(p => p.personaType === 'challenger');
+
+  // Auto-open persona modal when navigated with openPersonaId param
+  useEffect(() => {
+    if (openPersonaId && challengers.length > 0) {
+      const match = challengers.find(c => c.id === openPersonaId);
+      if (match) setSelectedPersona(match);
+    }
+  }, [openPersonaId, challengers.length]);
 
   const filteredPersonas = challengersActiveFilter === 'all'
     ? challengers

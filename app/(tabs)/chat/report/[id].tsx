@@ -44,7 +44,7 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 import { supabase } from '../../../../lib/supabase';
-import { usePersonaStore, useAuthStore, useChatStore } from '../../../../stores';
+import { usePersonaStore, useAuthStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
 import { SessionStats, PerformanceAnalysis, AIStats, EmotionalJourney } from '../../../../components/report';
 
@@ -113,8 +113,7 @@ interface TimingMetrics {
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getPersonaById } = usePersonaStore();
-  const { profile, user } = useAuthStore();
-  const { createConversation } = useChatStore();
+  const { profile } = useAuthStore();
 
   const [report, setReport] = useState<SessionReport | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -124,7 +123,6 @@ export default function ReportScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     loadReport();
@@ -737,21 +735,13 @@ export default function ReportScreen() {
         }}
       >
         <Pressable
-          onPress={async () => {
-            if (!user?.id || !persona) return;
-            setIsCreating(true);
-            try {
-              const conversationId = await createConversation(user.id, persona.id);
-              if (conversationId) {
-                router.push(`/(tabs)/chat/${conversationId}`);
-              }
-            } catch (error) {
-              console.error('Error creating conversation:', error);
-            } finally {
-              setIsCreating(false);
-            }
+          onPress={() => {
+            if (!persona) return;
+            const route = persona.personaType === 'coach'
+              ? `/(tabs)/coaches?openPersonaId=${persona.id}`
+              : `/(tabs)/personas?openPersonaId=${persona.id}`;
+            router.navigate(route);
           }}
-          disabled={isCreating}
         >
           <LinearGradient
             colors={['#F59E0B', '#D97706']}
@@ -763,14 +753,9 @@ export default function ReportScreen() {
               justifyContent: 'center',
               paddingVertical: 18,
               borderRadius: 14,
-              opacity: isCreating ? 0.6 : 1,
             }}
           >
-            {isCreating ? (
-              <ActivityIndicator size="small" color="#0f0f12" />
-            ) : (
-              <MessageSquare size={20} color="#0f0f12" />
-            )}
+            <MessageSquare size={20} color="#0f0f12" />
             <Text
               style={{
                 color: '#0f0f12',
@@ -779,11 +764,9 @@ export default function ReportScreen() {
                 marginLeft: 8,
               }}
             >
-              {isCreating
-                ? 'Starting session...'
-                : persona?.personaType === 'coach'
-                  ? 'Start New Session'
-                  : 'Start New Challenge'}
+              {persona?.personaType === 'coach'
+                ? 'Start New Session'
+                : 'Start New Challenge'}
             </Text>
           </LinearGradient>
         </Pressable>
