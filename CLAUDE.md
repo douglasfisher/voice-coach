@@ -72,7 +72,11 @@ Token replacement (`{{character_demeanor}}`, `{{conversation_register}}`, etc.) 
 
 **Rule**: Use the existing `chat` edge function for AI tasks. Store new prompts/config in the database and call the existing endpoint. Do NOT create new edge functions unless absolutely necessary.
 
-**CRITICAL — JWT verification on `chat` function**: `supabase/functions/chat/config.toml` MUST have `verify_jwt = false`. This is required for the app to work. NEVER change this setting. After ANY edit to the chat edge function or its config, verify this file still contains `verify_jwt = false`. Deployments, migrations, and code changes must NOT alter this value.
+**CRITICAL — JWT verification on `chat` function**: The chat function MUST be deployed with JWT verification disabled. The `config.toml` setting alone is NOT reliable — Supabase's gateway ignores it. You MUST always deploy with the explicit CLI flag:
+```bash
+supabase functions deploy chat --no-verify-jwt
+```
+NEVER deploy without `--no-verify-jwt`. If you see `401 Invalid JWT` errors from the function, this is why. Redeploy with the flag.
 
 ### Supabase Access — The Right Way
 
@@ -115,9 +119,9 @@ const supabase = createClient(
 );
 ```
 
-**Deploy**: `npx supabase functions deploy chat` (timeout on deploy = Supabase server issue, just retry)
+**Deploy**: `supabase functions deploy chat --no-verify-jwt` (ALWAYS use `--no-verify-jwt` flag — config.toml alone is NOT enough). Timeout on deploy = Supabase server issue, just retry.
 **Secrets**: `npx supabase secrets set GROQ_API_KEY=xxx`
-**JWT**: `chat/config.toml` MUST have `verify_jwt = false` — DO NOT CHANGE THIS. The app breaks without it. Always verify after any edge function changes or deployments.
+**JWT**: The `--no-verify-jwt` deploy flag is REQUIRED. Without it, Supabase gateway returns `401 Invalid JWT` and the function code never executes (no logs appear). This is because the project uses the new `sb_publishable_` key format which is not a valid JWT.
 
 #### Layer 3: CLI Scripts (`scripts/db.sh`, `scripts/migrate.sh`)
 For direct DB admin. Uses Management API (primary) with psql pooler fallback.
