@@ -9,6 +9,7 @@ import {
 } from '../../types/persona';
 import { ModeToggle } from '../chat/ModeToggle';
 import { useChatStore } from '../../stores/chatStore';
+import { useAppSetting } from '../../hooks';
 
 // Coaching style labels for coaches
 const COACHING_STYLE_LABELS: Record<string, string> = {
@@ -29,6 +30,8 @@ const COACHING_STYLE_DESCRIPTIONS: Record<string, string> = {
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HERO_HEIGHT = SCREEN_HEIGHT * 0.85;
+
+const UNIFIED_GRADIENT: [string, string, string] = ['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.9)'];
 
 // Challenge style colors and gradients
 const STYLE_THEMES: Record<ChallengeStyle, {
@@ -86,6 +89,7 @@ export function PersonaModal({
   isPlayingVoice = false,
 }: PersonaModalProps) {
   const { globalInteractionMode, setGlobalInteractionMode } = useChatStore();
+  const { value: unifiedGradient } = useAppSetting('unified_card_gradient');
 
   if (!persona) return null;
   const isCoach = persona.personaType === 'coach';
@@ -132,8 +136,8 @@ export function PersonaModal({
 
             {/* Gradient overlay */}
             <LinearGradient
-              colors={theme.gradient}
-              locations={[0, 0.8, 1]}
+              colors={unifiedGradient ? UNIFIED_GRADIENT : theme.gradient}
+              locations={unifiedGradient ? [0, 0.5, 1] : [0, 0.8, 1]}
               style={{
                 position: 'absolute',
                 width: '100%',

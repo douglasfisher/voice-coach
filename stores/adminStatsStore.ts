@@ -6,6 +6,7 @@
 
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { invalidateAppSetting } from '../hooks/useAppSetting';
 import { AppSettings } from '../types/database';
 import {
   DashboardStats,
@@ -377,6 +378,9 @@ export const useAdminStatsStore = create<AdminStatsState>((set, get) => ({
       set((state) => ({
         settings: { ...state.settings, [key]: value },
       }));
+
+      // Bust the useAppSetting cache so other screens see the new value immediately
+      invalidateAppSetting(key);
 
       return { error: null };
     } catch (error) {

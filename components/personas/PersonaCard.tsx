@@ -88,7 +88,8 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
 
         {/* Gradient overlay */}
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.9)']}
+          colors={unifiedGradient ? UNIFIED_GRADIENT : theme.gradient}
+          locations={unifiedGradient ? [0, 0.5, 1] : [0, 0.8, 1]}
           style={{
             position: 'absolute',
             width: '100%',

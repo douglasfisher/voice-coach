@@ -9,6 +9,15 @@ const CACHE_TTL = 60_000; // 1 minute
 // Track in-flight promises to avoid duplicate fetches
 const pending: Record<string, Promise<unknown>> = {};
 
+// Listeners for cache invalidation (re-fetch on demand)
+const listeners: Record<string, Set<() => void>> = {};
+
+/** Clear cached value for a key so the next read fetches fresh data */
+export function invalidateAppSetting(key: string) {
+  delete cache[key];
+  listeners[key]?.forEach((cb) => cb());
+}
+
 async function fetchSetting<K extends keyof AppSettingsMap>(key: K): Promise<AppSettingsMap[K] | undefined> {
   const now = Date.now();
   const cached = cache[key];
@@ -70,7 +79,19 @@ export function useAppSetting<K extends keyof AppSettingsMap>(key: K) {
       }
     });
 
-    return () => { cancelled = true; };
+    // Subscribe to invalidation events so admin saves propagate instantly
+    const refetch = () => {
+      fetchSetting(key).then((result) => {
+        if (!cancelled) setValue(result);
+      });
+    };
+    if (!listeners[key]) listeners[key] = new Set();
+    listeners[key].add(refetch);
+
+    return () => {
+      cancelled = true;
+      listeners[key]?.delete(refetch);
+    };
   }, [key]);
 
   return { value, isLoading };

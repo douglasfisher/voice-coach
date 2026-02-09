@@ -6,4 +6,4 @@ export { useVoiceInput } from './useVoiceInput';
 export { useAnalysis, useGrowthScores } from './useAnalysis';
 export { useTraits } from './useTraits';
 export { useScrollHideAnimation, ScrollHideContext, useScrollHideContext } from './useScrollHideAnimation';
-export { useAppSetting } from './useAppSetting';
+export { useAppSetting, invalidateAppSetting } from './useAppSetting';
