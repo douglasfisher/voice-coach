@@ -27,6 +27,7 @@ import {
   ChevronDown,
   RefreshCw,
   RotateCcw,
+  Palette,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -608,6 +609,35 @@ export default function AdminSettingsScreen() {
                   onValueChange={(value) => updateLocal('featured_persona_id', value === 'null' ? null : value)}
                   icon={<Bot size={16} color="#c084fc" />}
                 />
+
+                {/* Unified Card Gradient */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(255,255,255,0.05)',
+                    marginTop: 8,
+                  }}
+                >
+                  <Palette size={18} color="#c084fc" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                      Unified Card Gradient
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                      Black gradient on all persona cards
+                    </Text>
+                  </View>
+                  <Switch
+                    value={localSettings.unified_card_gradient || false}
+                    onValueChange={(value) => updateLocal('unified_card_gradient', value)}
+                    trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(192, 132, 252, 0.5)' }}
+                    thumbColor={localSettings.unified_card_gradient ? '#c084fc' : 'rgba(255,255,255,0.5)'}
+                    ios_backgroundColor="rgba(255,255,255,0.1)"
+                  />
+                </View>
 
                 {/* Maintenance Mode */}
                 <View

@@ -2,6 +2,7 @@ import { View, Text, Image, Pressable, ImageSourcePropType, Dimensions } from 'r
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Zap, Brain, Heart, Scale, Eye } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+import { useAppSetting } from '../../hooks';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2; // 2 columns with padding
@@ -53,9 +54,12 @@ const STYLE_THEMES: Record<ChallengeStyle, {
   },
 };
 
+const UNIFIED_GRADIENT: [string, string, string] = ['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.9)'];
+
 export function PersonaCard({ persona, onPress, selected = false, variant = 'default', height }: PersonaCardProps) {
   const theme = STYLE_THEMES[persona.challengeStyle];
   const StyleIcon = theme.Icon;
+  const { value: unifiedGradient } = useAppSetting('unified_card_gradient');
   const imageSource = typeof persona.avatarUrl === 'string'
     ? { uri: persona.avatarUrl }
     : persona.avatarUrl;
@@ -214,8 +218,8 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
 
       {/* Gradient overlay */}
       <LinearGradient
-        colors={theme.gradient}
-        locations={[0, 0.95, 1]}
+        colors={unifiedGradient ? UNIFIED_GRADIENT : theme.gradient}
+        locations={unifiedGradient ? [0, 0.5, 1] : [0, 0.95, 1]}
         style={{
           position: 'absolute',
           width: '100%',

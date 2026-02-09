@@ -115,7 +115,8 @@ export type AppSettingKey =
   | 'daily_token_limit_premium'
   | 'maintenance_mode'
   | 'featured_persona_id'
-  | 'cost_markup_percent';
+  | 'cost_markup_percent'
+  | 'unified_card_gradient';
 
 export interface AppSettingsMap {
   default_model: string;
@@ -125,6 +126,7 @@ export interface AppSettingsMap {
   maintenance_mode: boolean;
   featured_persona_id: string | null;
   cost_markup_percent: number;
+  unified_card_gradient: boolean;
 }
 
 // =============================================================================
