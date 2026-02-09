@@ -297,6 +297,14 @@ serve(async (req) => {
       // Clean up unreplaced tokens
       scenarioPrompt = scenarioPrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
+      // Append pseudo-tokens (keys starting with _) as additional context
+      const pseudoInstructions = Object.entries(mergedTokens)
+        .filter(([key, value]) => key.startsWith('_') && value)
+        .map(([, value]) => value);
+      if (pseudoInstructions.length > 0) {
+        scenarioPrompt += '\nADDITIONAL CONTEXT:\n' + pseudoInstructions.join('\n');
+      }
+
       const scenarioConfig = await resolveAIConfig(supabase, {
         task: 'scenario',
         personaId,
