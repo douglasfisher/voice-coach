@@ -20,7 +20,7 @@ export default function PreferencesScreen() {
   const { updatePreferences, updateProfile, isLoading } = useAuthStore();
 
   const [intensity, setIntensity] = useState(5);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [ttsEnabled, setTtsEnabled] = useState(false);
   const [dailyNotifications, setDailyNotifications] = useState(true);
 
   const intensityLabels = ['Gentle', 'Moderate', 'Challenging', 'Intense'];

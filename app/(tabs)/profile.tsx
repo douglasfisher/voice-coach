@@ -35,7 +35,7 @@ export default function ProfileScreen() {
   const [intensity, setIntensity] = useState(
     preferences?.preferred_challenge_intensity ?? 5
   );
-  const [ttsEnabled, setTtsEnabled] = useState(preferences?.tts_enabled ?? true);
+  const [ttsEnabled, setTtsEnabled] = useState(preferences?.tts_enabled ?? false);
   const [voiceInputEnabled, setVoiceInputEnabled] = useState(
     preferences?.voice_input_enabled ?? false
   );
@@ -57,7 +57,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (preferences) {
       setIntensity(preferences.preferred_challenge_intensity ?? 5);
-      setTtsEnabled(preferences.tts_enabled ?? true);
+      setTtsEnabled(preferences.tts_enabled ?? false);
       setVoiceInputEnabled(preferences.voice_input_enabled ?? false);
       setNotifications(preferences.notification_daily_challenge ?? true);
       setImmersiveChatEnabled(preferences.immersive_chat_enabled ?? true);
