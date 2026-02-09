@@ -420,6 +420,7 @@ export default function HomeScreen() {
                     <PersonaCard
                       persona={coach}
                       onPress={() => setSelectedPersona(coach)}
+                      height={300}
                     />
                   </View>
                 ))}
@@ -482,6 +483,7 @@ export default function HomeScreen() {
                     <PersonaCard
                       persona={challenger}
                       onPress={() => setSelectedPersona(challenger)}
+                      height={300}
                     />
                   </View>
                 ))}

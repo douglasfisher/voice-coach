@@ -12,6 +12,7 @@ interface PersonaCardProps {
   onPress: () => void;
   selected?: boolean;
   variant?: 'default' | 'featured';
+  height?: number;
 }
 
 // Challenge style colors and gradients
@@ -52,7 +53,7 @@ const STYLE_THEMES: Record<ChallengeStyle, {
   },
 };
 
-export function PersonaCard({ persona, onPress, selected = false, variant = 'default' }: PersonaCardProps) {
+export function PersonaCard({ persona, onPress, selected = false, variant = 'default', height }: PersonaCardProps) {
   const theme = STYLE_THEMES[persona.challengeStyle];
   const StyleIcon = theme.Icon;
   const imageSource = typeof persona.avatarUrl === 'string'
@@ -195,7 +196,7 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
       style={{
         borderRadius: 20,
         overflow: 'hidden',
-        height: CARD_HEIGHT,
+        height: height ?? CARD_HEIGHT,
         borderWidth: selected ? 2 : 0,
         borderColor: selected ? '#F59E0B' : 'transparent',
       }}
