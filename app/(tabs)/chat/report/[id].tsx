@@ -44,7 +44,7 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 import { supabase } from '../../../../lib/supabase';
-import { usePersonaStore, useAuthStore } from '../../../../stores';
+import { usePersonaStore, useAuthStore, useChatStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
 import { SessionStats, PerformanceAnalysis, AIStats, EmotionalJourney } from '../../../../components/report';
 
@@ -113,7 +113,8 @@ interface TimingMetrics {
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getPersonaById } = usePersonaStore();
-  const { profile } = useAuthStore();
+  const { profile, user } = useAuthStore();
+  const { createConversation } = useChatStore();
 
   const [report, setReport] = useState<SessionReport | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -123,6 +124,7 @@ export default function ReportScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     loadReport();
@@ -258,7 +260,7 @@ export default function ReportScreen() {
           borderBottomColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.navigate('/(tabs)/chat/sessions')} style={{ padding: 4 }}>
           <ChevronLeft size={24} color="#F59E0B" />
         </Pressable>
         <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 }}>
@@ -734,7 +736,23 @@ export default function ReportScreen() {
           borderTopColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <Pressable onPress={() => router.navigate(persona?.personaType === 'coach' ? '/(tabs)/coaches' : '/(tabs)/personas')}>
+        <Pressable
+          onPress={async () => {
+            if (!user?.id || !persona) return;
+            setIsCreating(true);
+            try {
+              const conversationId = await createConversation(user.id, persona.id);
+              if (conversationId) {
+                router.push(`/(tabs)/chat/${conversationId}`);
+              }
+            } catch (error) {
+              console.error('Error creating conversation:', error);
+            } finally {
+              setIsCreating(false);
+            }
+          }}
+          disabled={isCreating}
+        >
           <LinearGradient
             colors={['#F59E0B', '#D97706']}
             start={{ x: 0, y: 0 }}
@@ -745,9 +763,14 @@ export default function ReportScreen() {
               justifyContent: 'center',
               paddingVertical: 18,
               borderRadius: 14,
+              opacity: isCreating ? 0.6 : 1,
             }}
           >
-            <MessageSquare size={20} color="#0f0f12" />
+            {isCreating ? (
+              <ActivityIndicator size="small" color="#0f0f12" />
+            ) : (
+              <MessageSquare size={20} color="#0f0f12" />
+            )}
             <Text
               style={{
                 color: '#0f0f12',
@@ -756,7 +779,11 @@ export default function ReportScreen() {
                 marginLeft: 8,
               }}
             >
-              {persona?.personaType === 'coach' ? 'Start New Session' : 'Start New Challenge'}
+              {isCreating
+                ? 'Starting session...'
+                : persona?.personaType === 'coach'
+                  ? 'Start New Session'
+                  : 'Start New Challenge'}
             </Text>
           </LinearGradient>
         </Pressable>
