@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,7 +19,7 @@ import {
   InsightChip,
   FocusAreaList,
 } from '../../components/growth';
-import { useChatStore, usePersonaStore } from '../../stores';
+import { useAuthStore, useChatStore, usePersonaStore } from '../../stores';
 import { Achievement, DimensionProjections, UserAchievement, UserInsight, FocusArea, Milestone } from '../../types/gamification';
 import { PersonaDisplay } from '../../types/persona';
 
@@ -67,8 +67,15 @@ export default function GrowthScreen() {
     dismissInsight,
   } = useGrowthMetrics();
 
-  const { completedConversations } = useChatStore();
+  const { completedConversations, fetchCompletedConversations } = useChatStore();
   const { getPersonaById } = usePersonaStore();
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchCompletedConversations(user.id);
+    }
+  }, [user?.id, fetchCompletedConversations]);
 
   // Build session data for streak calendar
   const calendarSessions = useMemo(() => {
@@ -148,7 +155,14 @@ export default function GrowthScreen() {
         contentContainerStyle={{ padding: 20 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor="#F59E0B" />
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={() => {
+              refresh();
+              if (user?.id) fetchCompletedConversations(user.id);
+            }}
+            tintColor="#F59E0B"
+          />
         }
       >
         {/* Header */}
