@@ -12,6 +12,10 @@ export default function ChatLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="[id]" />
       <Stack.Screen
+        name="sessions"
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
         name="report/[id]"
         options={{ animation: 'slide_from_right' }}
       />

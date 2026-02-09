@@ -451,18 +451,23 @@ function JourneyTab({
       {/* Past Sessions */}
       {completedConversations.length > 0 && (
         <View>
-          <Text
-            style={{
-              color: 'rgba(255,255,255,0.5)',
-              fontSize: 12,
-              fontWeight: '600',
-              letterSpacing: 1,
-              marginBottom: 12,
-              marginLeft: 4,
-            }}
-          >
-            PAST SESSIONS
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginLeft: 4 }}>
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+              }}
+            >
+              PAST SESSIONS
+            </Text>
+            <Pressable onPress={() => router.push('/(tabs)/chat/sessions')}>
+              <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600' }}>
+                View All
+              </Text>
+            </Pressable>
+          </View>
 
           <View
             style={{
