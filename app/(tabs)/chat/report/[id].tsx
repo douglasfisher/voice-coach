@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Activity,
 } from 'lucide-react-native';
 
 /**
@@ -45,7 +46,39 @@ function countWords(text: string): number {
 import { supabase } from '../../../../lib/supabase';
 import { usePersonaStore, useAuthStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
-import { SessionStats, PerformanceAnalysis, AIStats } from '../../../../components/report';
+import { SessionStats, PerformanceAnalysis, AIStats, EmotionalJourney } from '../../../../components/report';
+
+const STAGE_COLORS: Record<number, string> = {
+  1: '#ef4444',
+  2: '#f97316',
+  3: '#eab308',
+  4: '#22c55e',
+  5: '#3b82f6',
+};
+
+function EmotionalStageBadge({ metadata }: { metadata: Record<string, unknown> }) {
+  const stage = metadata.emotional_stage as { number: number; name: string };
+  const color = STAGE_COLORS[stage.number] || '#666';
+  const label = stage.name.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: `${color}20`,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+      }}
+    >
+      <Activity size={10} color={color} />
+      <Text style={{ color, fontSize: 10, fontWeight: '600' }}>
+        {stage.number}: {label}
+      </Text>
+    </View>
+  );
+}
 
 interface SessionReport {
   tldr: string;
@@ -407,6 +440,9 @@ export default function ReportScreen() {
         {/* Performance Analysis */}
         {messages.length > 2 && <PerformanceAnalysis messages={messages} />}
 
+        {/* Emotional Journey (Admin only) */}
+        {profile?.is_admin && <EmotionalJourney messages={messages} />}
+
         {/* Strengths */}
         <View
           style={{
@@ -662,6 +698,11 @@ export default function ReportScreen() {
                             {responseTime}
                           </Text>
                         </View>
+                      )}
+
+                      {/* Emotional stage badge (admin only, assistant messages) */}
+                      {profile?.is_admin && msg.role === 'assistant' && !!(msg.metadata as Record<string, unknown> | null)?.emotional_stage && (
+                        <EmotionalStageBadge metadata={msg.metadata as Record<string, unknown>} />
                       )}
                     </View>
                   </View>

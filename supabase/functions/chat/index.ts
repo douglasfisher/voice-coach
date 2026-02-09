@@ -79,6 +79,7 @@ interface MessageWithTiming {
   sequence: number;
   created_at: string;
   response_time_ms: number | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface DimensionScores {
@@ -382,7 +383,7 @@ serve(async (req) => {
 
       const { data: reportMessages, error: msgError } = await supabase
         .from('messages')
-        .select('role, content, sequence, created_at, response_time_ms')
+        .select('role, content, sequence, created_at, response_time_ms, metadata')
         .eq('conversation_id', conversationId)
         .order('sequence', { ascending: true });
 
@@ -399,7 +400,13 @@ serve(async (req) => {
       );
 
       const transcript = reportMessages
-        .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+        .map(m => {
+          const emotionalStage = (m as MessageWithTiming).metadata?.emotional_stage as { number: number; name: string } | undefined;
+          if (m.role === 'assistant' && emotionalStage) {
+            return `ASSISTANT [Emotional State: Stage ${emotionalStage.number} - ${emotionalStage.name}]: ${m.content}`;
+          }
+          return `${m.role.toUpperCase()}: ${m.content}`;
+        })
         .join('\n\n');
 
       const personaInfo = conversation.personas;
@@ -482,10 +489,41 @@ Generate a comprehensive session report.`;
 
       report.overall_score = Math.max(0, Math.min(100, report.overall_score || 50));
 
+      // Compute emotional progression from message metadata
+      let emotionalProgression = null;
+      const emotionalStages: { number: number; name: string }[] = [];
+      for (const m of (reportMessages as MessageWithTiming[])) {
+        if (m.role === 'assistant' && m.metadata?.emotional_stage) {
+          const stage = m.metadata.emotional_stage as { number: number; name: string };
+          emotionalStages.push(stage);
+        }
+      }
+      if (emotionalStages.length > 0) {
+        const startStage = emotionalStages[0];
+        const endStage = emotionalStages[emotionalStages.length - 1];
+        const delta = endStage.number - startStage.number;
+        const stageCounts: Record<number, number> = {};
+        for (const s of emotionalStages) {
+          stageCounts[s.number] = (stageCounts[s.number] || 0) + 1;
+        }
+        emotionalProgression = {
+          start: startStage,
+          end: endStage,
+          delta,
+          trend: delta > 0 ? 'warmed_up' : delta < 0 ? 'cooled_down' : 'stayed_flat',
+          stage_counts: stageCounts,
+          journey: emotionalStages.map(s => s.number),
+        };
+      }
+
+      const analysisSummary = emotionalProgression
+        ? { ...report, emotional_progression: emotionalProgression }
+        : report;
+
       const { error: updateError } = await supabase
         .from('conversations')
         .update({
-          analysis_summary: report,
+          analysis_summary: analysisSummary,
           overall_score: report.overall_score,
           timing_metrics: timingMetrics,
           status: 'completed',
