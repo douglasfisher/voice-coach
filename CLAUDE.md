@@ -72,6 +72,8 @@ Token replacement (`{{character_demeanor}}`, `{{conversation_register}}`, etc.) 
 
 **Rule**: Use the existing `chat` edge function for AI tasks. Store new prompts/config in the database and call the existing endpoint. Do NOT create new edge functions unless absolutely necessary.
 
+**CRITICAL — JWT verification on `chat` function**: `supabase/functions/chat/config.toml` MUST have `verify_jwt = false`. This is required for the app to work. NEVER change this setting. After ANY edit to the chat edge function or its config, verify this file still contains `verify_jwt = false`. Deployments, migrations, and code changes must NOT alter this value.
+
 ### Supabase Access — The Right Way
 
 There are three distinct layers of Supabase access. Using the wrong one causes auth failures, RLS violations, or silent data issues.
@@ -115,7 +117,7 @@ const supabase = createClient(
 
 **Deploy**: `npx supabase functions deploy chat` (timeout on deploy = Supabase server issue, just retry)
 **Secrets**: `npx supabase secrets set GROQ_API_KEY=xxx`
-**JWT**: `chat/config.toml` currently has `verify_jwt = false`
+**JWT**: `chat/config.toml` MUST have `verify_jwt = false` — DO NOT CHANGE THIS. The app breaks without it. Always verify after any edge function changes or deployments.
 
 #### Layer 3: CLI Scripts (`scripts/db.sh`, `scripts/migrate.sh`)
 For direct DB admin. Uses Management API (primary) with psql pooler fallback.
