@@ -627,9 +627,25 @@ Generate a comprehensive session report.`;
 
     // If we have question_mode set on conversation but no scenario, create a coaching context for it
     if (!coachingContext && effectiveInteractionMode === 'question_mode') {
+      // Fetch scenario from first system message (saved by client in Q&A mode)
+      let scenarioText = '';
+      if (conversationId) {
+        const { data: sceneMsg } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('conversation_id', conversationId)
+          .eq('role', 'system')
+          .order('sequence', { ascending: true })
+          .limit(1)
+          .single();
+        if (sceneMsg?.content) {
+          scenarioText = sceneMsg.content.replace(/^\[SCENE CONTEXT\]\n?/, '');
+        }
+      }
       coachingContext = {
         interactionMode: 'question_mode',
-        currentPhase: 'roleplay', // Q&A mode doesn't use phases but we need a value
+        currentPhase: 'roleplay',
+        scenarioContext: scenarioText,
       };
     }
 

@@ -118,15 +118,14 @@ const INTERACTION_MODE_PROMPTS: Record<InteractionMode, string> = {
 - Allow negotiation, compromise, and pushback
 - Keep it realistic - don't be a pushover`,
 
-  question_mode: `INTERACTION MODE: Q&A Expert Mode
-- The user is asking YOU questions - you are the expert
-- Provide clear, actionable, expert-level answers
-- Share domain knowledge, strategies, and insights
-- DO NOT turn questions back on them or use Socratic method
-- Be direct and informative, giving practical advice
-- Structure longer answers with bullet points when helpful
-- Give concrete examples to clarify concepts
-- Draw on your coaching expertise to give authoritative answers`,
+  question_mode: `INTERACTION MODE: Q&A Roleplay Mode
+- The user starts and drives the conversation
+- You ARE the character described in the scenario — respond as them, not as a coach
+- Stay fully in character — do NOT give coaching advice or commentary
+- React naturally as the scenario character would
+- Show personality, emotions, and realistic reactions
+- Let the user practice — don't make it easy or break character
+- If they say something awkward, respond as a real person would`,
 };
 
 // =============================================================================
@@ -264,6 +263,17 @@ CRITICAL REMINDERS:
 - React realistically - show emotions, hesitation, interest as appropriate
 - Do NOT break character to give coaching tips
 - If they ask "how am I doing?" in character, respond in character
+- Only switch to coaching mode when explicitly requested`);
+  }
+
+  if (context.interactionMode === 'question_mode' && context.currentPhase === 'roleplay') {
+    parts.push(`---
+CRITICAL REMINDERS:
+- The user will send the first message - wait for them
+- You ARE the person in the scenario - respond as THEM, not as a coach
+- Stay in character throughout - never break to give tips or commentary
+- React realistically - show emotions, hesitation, interest as appropriate
+- Do NOT refer to the scenario character in third person
 - Only switch to coaching mode when explicitly requested`);
   }
 
