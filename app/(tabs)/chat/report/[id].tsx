@@ -43,9 +43,9 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 import { supabase } from '../../../../lib/supabase';
-import { usePersonaStore } from '../../../../stores';
+import { usePersonaStore, useAuthStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
-import { SessionStats, PerformanceAnalysis } from '../../../../components/report';
+import { SessionStats, PerformanceAnalysis, AIStats } from '../../../../components/report';
 
 interface SessionReport {
   tldr: string;
@@ -62,6 +62,7 @@ interface Message {
   sequence: number;
   created_at: string;
   response_time_ms: number | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface TimingMetrics {
@@ -79,6 +80,7 @@ interface TimingMetrics {
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getPersonaById } = usePersonaStore();
+  const { profile } = useAuthStore();
 
   const [report, setReport] = useState<SessionReport | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -143,10 +145,10 @@ export default function ReportScreen() {
         setPersona(personaData);
       }
 
-      // Fetch messages for transcript with timing data
+      // Fetch messages for transcript with timing data and metadata
       const { data: msgs, error: msgError } = await supabase
         .from('messages')
-        .select('role, content, sequence, created_at, response_time_ms')
+        .select('role, content, sequence, created_at, response_time_ms, metadata')
         .eq('conversation_id', id)
         .order('sequence', { ascending: true });
 
@@ -157,6 +159,7 @@ export default function ReportScreen() {
           sequence: m.sequence,
           created_at: m.created_at,
           response_time_ms: m.response_time_ms ?? null,
+          metadata: m.metadata ?? null,
         })));
       }
     } catch (error) {
@@ -667,6 +670,9 @@ export default function ReportScreen() {
             </View>
           )}
         </Pressable>
+
+        {/* Admin AI Stats */}
+        {profile?.is_admin && <AIStats messages={messages} />}
 
         {/* Bottom spacer for fixed button */}
         <View style={{ height: 80 }} />

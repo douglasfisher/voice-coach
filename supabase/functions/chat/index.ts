@@ -9,7 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-resolver.ts';
 import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
-import { recordAIUsage } from '../_shared/cost-calculator.ts';
+import { recordAIUsage, calculateAICost } from '../_shared/cost-calculator.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -42,6 +42,23 @@ interface ChatRequest {
 interface GroqMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+}
+
+interface GroqUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+function buildAIUsageMetadata(usage: GroqUsage, model: string, taskType: string, costCents: number) {
+  return {
+    prompt_tokens: usage.prompt_tokens,
+    completion_tokens: usage.completion_tokens,
+    total_tokens: usage.total_tokens,
+    cost_cents: costCents,
+    model,
+    task_type: taskType,
+  };
 }
 
 // --- Report types & helpers (merged from report function) ---
@@ -687,11 +704,19 @@ Generate a comprehensive session report.`;
       const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
+      const greetingTaskType = isCoachingTask ? 'coaching' : 'greeting';
+      let greetingMetadata: Record<string, unknown> | undefined;
+      if (questionResponse.usage) {
+        const greetingCost = await calculateAICost(supabase, config.model, questionResponse.usage.prompt_tokens, questionResponse.usage.completion_tokens);
+        greetingMetadata = { ai_usage: buildAIUsageMetadata(questionResponse.usage, config.model, greetingTaskType, greetingCost) };
+      }
+
       await supabase.from('messages').insert({
         conversation_id: conversationId,
         role: 'assistant',
         content: questionContent,
         sequence: 1,
+        ...(greetingMetadata ? { metadata: greetingMetadata } : {}),
       });
 
       if (questionResponse.usage) {
@@ -703,7 +728,7 @@ Generate a comprehensive session report.`;
           promptTokens: questionResponse.usage.prompt_tokens,
           completionTokens: questionResponse.usage.completion_tokens,
           totalTokens: questionResponse.usage.total_tokens,
-          taskType: isCoachingTask ? 'coaching' : 'greeting',
+          taskType: greetingTaskType,
         });
       }
 
@@ -751,11 +776,18 @@ Generate a comprehensive session report.`;
         const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
         const nextSequence = (messages?.length || 0) + 1;
 
+        let switchFeedbackMetadata: Record<string, unknown> | undefined;
+        if (feedbackResponse.usage) {
+          const switchFeedbackCost = await calculateAICost(supabase, feedbackConfig.model, feedbackResponse.usage.prompt_tokens, feedbackResponse.usage.completion_tokens);
+          switchFeedbackMetadata = { ai_usage: buildAIUsageMetadata(feedbackResponse.usage, feedbackConfig.model, 'feedback', switchFeedbackCost) };
+        }
+
         await supabase.from('messages').insert({
           conversation_id: conversationId,
           role: 'assistant',
           content: feedbackMessage,
           sequence: nextSequence,
+          ...(switchFeedbackMetadata ? { metadata: switchFeedbackMetadata } : {}),
         });
 
         // Track feedback AI usage
@@ -823,11 +855,18 @@ Generate a comprehensive session report.`;
 
       const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
 
+      let quickFeedbackMetadata: Record<string, unknown> | undefined;
+      if (feedbackResponse.usage) {
+        const quickFeedbackCost = await calculateAICost(supabase, config.model, feedbackResponse.usage.prompt_tokens, feedbackResponse.usage.completion_tokens);
+        quickFeedbackMetadata = { ai_usage: buildAIUsageMetadata(feedbackResponse.usage, config.model, 'feedback', quickFeedbackCost) };
+      }
+
       await supabase.from('messages').insert({
         conversation_id: conversationId,
         role: 'assistant',
         content: feedbackMessage,
         sequence: nextSequence,
+        ...(quickFeedbackMetadata ? { metadata: quickFeedbackMetadata } : {}),
       });
 
       // Track quick feedback AI usage
@@ -909,6 +948,16 @@ Generate a comprehensive session report.`;
       };
     }
 
+    // Add AI usage metadata to the message
+    const chatTaskType = isCoachingTask ? 'coaching' : 'chat';
+    if (groqResponse.usage) {
+      const chatCost = await calculateAICost(supabase, config.model, groqResponse.usage.prompt_tokens, groqResponse.usage.completion_tokens);
+      messageMetadata = {
+        ...messageMetadata,
+        ai_usage: buildAIUsageMetadata(groqResponse.usage, config.model, chatTaskType, chatCost),
+      };
+    }
+
     // Calculate assistant response time (time since user message was saved)
     const assistantResponseTimeMs = Date.now() - new Date(userMessageCreatedAt).getTime();
 
@@ -938,7 +987,7 @@ Generate a comprehensive session report.`;
         promptTokens: groqResponse.usage.prompt_tokens,
         completionTokens: groqResponse.usage.completion_tokens,
         totalTokens: groqResponse.usage.total_tokens,
-        taskType: isCoachingTask ? 'coaching' : 'chat',
+        taskType: chatTaskType,
       });
     }
 
