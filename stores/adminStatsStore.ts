@@ -369,7 +369,7 @@ export const useAdminStatsStore = create<AdminStatsState>((set, get) => ({
     try {
       const { error } = await supabase
         .from('app_settings')
-        .update({ value: JSON.stringify(value) })
+        .update({ value })
         .eq('key', key);
 
       if (error) throw error;

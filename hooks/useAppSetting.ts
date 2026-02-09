@@ -38,7 +38,11 @@ async function fetchSetting<K extends keyof AppSettingsMap>(key: K): Promise<App
         .eq('key', key)
         .single();
 
-      if (error || !data) return undefined;
+      if (error || !data) {
+        // Cache failures with short 5s TTL to prevent re-render spam
+        cache[key] = { value: undefined, fetchedAt: Date.now() - (CACHE_TTL - 5_000) };
+        return undefined;
+      }
 
       // Parse the value — app_settings stores values as text
       let parsed: unknown = data.value;

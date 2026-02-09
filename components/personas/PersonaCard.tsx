@@ -59,7 +59,7 @@ const UNIFIED_GRADIENT: [string, string, string] = ['transparent', 'rgba(0,0,0,0
 export function PersonaCard({ persona, onPress, selected = false, variant = 'default', height }: PersonaCardProps) {
   const theme = STYLE_THEMES[persona.challengeStyle];
   const StyleIcon = theme.Icon;
-  const { value: unifiedGradient } = useAppSetting('unified_card_gradient');
+  const { value: unifiedGradient, isLoading: isGradientLoading } = useAppSetting('unified_card_gradient');
   const imageSource = typeof persona.avatarUrl === 'string'
     ? { uri: persona.avatarUrl }
     : persona.avatarUrl;
@@ -88,8 +88,8 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
 
         {/* Gradient overlay */}
         <LinearGradient
-          colors={unifiedGradient ? UNIFIED_GRADIENT : theme.gradient}
-          locations={unifiedGradient ? [0, 0.5, 1] : [0, 0.8, 1]}
+          colors={(unifiedGradient || isGradientLoading) ? UNIFIED_GRADIENT : theme.gradient}
+          locations={(unifiedGradient || isGradientLoading) ? [0, 0.5, 1] : [0, 0.8, 1]}
           style={{
             position: 'absolute',
             width: '100%',
@@ -219,8 +219,8 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
 
       {/* Gradient overlay */}
       <LinearGradient
-        colors={unifiedGradient ? UNIFIED_GRADIENT : theme.gradient}
-        locations={unifiedGradient ? [0, 0.5, 1] : [0, 0.95, 1]}
+        colors={(unifiedGradient || isGradientLoading) ? UNIFIED_GRADIENT : theme.gradient}
+        locations={(unifiedGradient || isGradientLoading) ? [0, 0.5, 1] : [0, 0.95, 1]}
         style={{
           position: 'absolute',
           width: '100%',

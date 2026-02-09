@@ -89,7 +89,7 @@ export function PersonaModal({
   isPlayingVoice = false,
 }: PersonaModalProps) {
   const { globalInteractionMode, setGlobalInteractionMode } = useChatStore();
-  const { value: unifiedGradient } = useAppSetting('unified_card_gradient');
+  const { value: unifiedGradient, isLoading: isGradientLoading } = useAppSetting('unified_card_gradient');
 
   if (!persona) return null;
   const isCoach = persona.personaType === 'coach';
@@ -136,8 +136,8 @@ export function PersonaModal({
 
             {/* Gradient overlay */}
             <LinearGradient
-              colors={unifiedGradient ? UNIFIED_GRADIENT : theme.gradient}
-              locations={unifiedGradient ? [0, 0.5, 1] : [0, 0.8, 1]}
+              colors={(unifiedGradient || isGradientLoading) ? UNIFIED_GRADIENT : theme.gradient}
+              locations={(unifiedGradient || isGradientLoading) ? [0, 0.5, 1] : [0, 0.8, 1]}
               style={{
                 position: 'absolute',
                 width: '100%',
