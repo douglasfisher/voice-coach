@@ -160,138 +160,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Stats Row */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 8, gap: 8 }}
-          style={{ marginBottom: 20 }}
-        >
-          {/* Streak Card */}
-          <LinearGradient
-            colors={['#F59E0B', '#D97706']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 120,
-              padding: 16,
-              borderRadius: 20,
-            }}
-          >
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 12,
-            }}>
-              <Flame size={20} color="#fff" />
-            </View>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
-              Streak
-            </Text>
-            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
-              {profile?.streak_days ?? 0}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>days</Text>
-          </LinearGradient>
-
-          {/* Sessions Card */}
-          <LinearGradient
-            colors={['#8B5CF6', '#7C3AED']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 120,
-              padding: 16,
-              borderRadius: 20,
-            }}
-          >
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 12,
-            }}>
-              <MessageCircle size={20} color="#fff" />
-            </View>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
-              Sessions
-            </Text>
-            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
-              {profile?.total_sessions ?? 0}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>completed</Text>
-          </LinearGradient>
-
-          {/* Level Card */}
-          <LinearGradient
-            colors={['#10B981', '#059669']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 120,
-              padding: 16,
-              borderRadius: 20,
-            }}
-          >
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 12,
-            }}>
-              <Award size={20} color="#fff" />
-            </View>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
-              Level
-            </Text>
-            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
-              {profile?.current_level ?? 1}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>thinker</Text>
-          </LinearGradient>
-
-          {/* Growth Card */}
-          <LinearGradient
-            colors={['#EC4899', '#DB2777']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 120,
-              padding: 16,
-              borderRadius: 20,
-            }}
-          >
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 12,
-            }}>
-              <TrendingUp size={20} color="#fff" />
-            </View>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
-              Growth
-            </Text>
-            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
-              +12
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>this week</Text>
-          </LinearGradient>
-        </ScrollView>
-
         {/* Daily Challenges Carousel */}
         <View style={{ marginBottom: 20 }}>
           {/* Header */}
@@ -507,6 +375,138 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
+
+        {/* Stats Row */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 8, gap: 8 }}
+          style={{ marginBottom: 20 }}
+        >
+          {/* Streak Card */}
+          <LinearGradient
+            colors={['#F59E0B', '#D97706']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 120,
+              padding: 16,
+              borderRadius: 20,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <Flame size={20} color="#fff" />
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+              Streak
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
+              {profile?.streak_days ?? 0}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>days</Text>
+          </LinearGradient>
+
+          {/* Sessions Card */}
+          <LinearGradient
+            colors={['#8B5CF6', '#7C3AED']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 120,
+              padding: 16,
+              borderRadius: 20,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <MessageCircle size={20} color="#fff" />
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+              Sessions
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
+              {profile?.total_sessions ?? 0}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>completed</Text>
+          </LinearGradient>
+
+          {/* Level Card */}
+          <LinearGradient
+            colors={['#10B981', '#059669']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 120,
+              padding: 16,
+              borderRadius: 20,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <Award size={20} color="#fff" />
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+              Level
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
+              {profile?.current_level ?? 1}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>thinker</Text>
+          </LinearGradient>
+
+          {/* Growth Card */}
+          <LinearGradient
+            colors={['#EC4899', '#DB2777']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: 120,
+              padding: 16,
+              borderRadius: 20,
+            }}
+          >
+            <View style={{
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+            }}>
+              <TrendingUp size={20} color="#fff" />
+            </View>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+              Growth
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
+              +12
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>this week</Text>
+          </LinearGradient>
+        </ScrollView>
 
         {/* Meet the Coaches */}
         {shuffledCoaches.length > 0 && (
