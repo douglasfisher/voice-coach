@@ -226,7 +226,7 @@ export default function HomeScreen() {
                       <View style={{
                         borderRadius: 24,
                         overflow: 'hidden',
-                        height: hasImage ? 480 : undefined,
+                        height: hasImage ? 552 : undefined,
                         borderWidth: 1,
                         borderColor: 'rgba(96, 165, 250, 0.3)',
                       }}>
