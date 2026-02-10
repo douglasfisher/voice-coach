@@ -1,6 +1,6 @@
 // Gamification Constants and Utilities
 
-import type { Level, AchievementRarity, GrowthDimension } from '../types/gamification';
+import type { Level, LevelBadgeConfig, AchievementRarity, GrowthDimension } from '../types/gamification';
 
 // =============================================================================
 // LEVEL SYSTEM
@@ -18,6 +18,28 @@ export const LEVELS: Level[] = [
   { level: 9, title: 'Wisdom Keeper', minXP: 50000, maxXP: 74999, perks: ['All coaches unlocked'] },
   { level: 10, title: 'Master of Reason', minXP: 75000, maxXP: Infinity, perks: ['Legendary status'] },
 ];
+
+// =============================================================================
+// LEVEL BADGES
+// =============================================================================
+
+export const LEVEL_BADGES: LevelBadgeConfig[] = [
+  { level: 1, icon: 'Sprout', color: '#9CA3AF', glowOpacity: 0 },
+  { level: 2, icon: 'Search', color: '#60a5fa', glowOpacity: 0 },
+  { level: 3, icon: 'Puzzle', color: '#34d399', glowOpacity: 0 },
+  { level: 4, icon: 'BookOpen', color: '#a78bfa', glowOpacity: 0.15 },
+  { level: 5, icon: 'Crosshair', color: '#f472b6', glowOpacity: 0.15 },
+  { level: 6, icon: 'Eye', color: '#fb923c', glowOpacity: 0.25 },
+  { level: 7, icon: 'Heart', color: '#f43f5e', glowOpacity: 0.25 },
+  { level: 8, icon: 'Scale', color: '#c084fc', glowOpacity: 0.4 },
+  { level: 9, icon: 'Crown', color: '#fbbf24', glowOpacity: 0.4 },
+  { level: 10, icon: 'Gem', color: '#fbbf24', glowOpacity: 0.6 },
+];
+
+export function getBadgeForLevel(level: number): LevelBadgeConfig {
+  const clamped = Math.max(1, Math.min(10, level));
+  return LEVEL_BADGES[clamped - 1];
+}
 
 export function getLevelForXP(xp: number): Level {
   for (let i = LEVELS.length - 1; i >= 0; i--) {

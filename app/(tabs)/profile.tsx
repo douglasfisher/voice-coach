@@ -17,7 +17,6 @@ import {
   FileText,
   LogOut,
   ChevronRight,
-  Award,
   MessageSquare,
   Heart,
   LayoutDashboard,
@@ -27,6 +26,7 @@ import {
 import { requestSTTPermission, getSTTPermissionStatus, checkSTTAvailability, isSTTModuleAvailable } from '../../lib/stt';
 import { useAuthStore } from '../../stores/authStore';
 import { useFeedbackStore } from '../../stores/feedbackStore';
+import { LevelBadge } from '../../components/growth/LevelBadge';
 
 export default function ProfileScreen() {
   const { profile, preferences, user, signOut, updatePreferences, updateProfile: _updateProfile } =
@@ -258,10 +258,7 @@ export default function ProfileScreen() {
                       borderColor: 'rgba(192, 132, 252, 0.3)',
                     }}
                   >
-                    <Award size={14} color="#c084fc" />
-                    <Text style={{ color: '#c084fc', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>
-                      Level {profile?.current_level ?? 1}
-                    </Text>
+                    <LevelBadge level={profile?.current_level ?? 1} size="sm" showTitle />
                   </View>
                   <View
                     style={{

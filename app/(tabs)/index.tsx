@@ -11,7 +11,6 @@ import {
   MessageCircle,
   Zap,
   TrendingUp,
-  Award,
   Brain,
   RefreshCw,
   GraduationCap,
@@ -24,6 +23,8 @@ import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay } from '../../types/persona';
 import { resolvePersonaAvatar } from '../../lib/personaImages';
 import { useAppSetting } from '../../hooks/useAppSetting';
+import { LevelBadge } from '../../components/growth/LevelBadge';
+import { getBadgeForLevel, LEVELS } from '../../lib/gamification';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH - 16;
@@ -155,9 +156,12 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 12 }}>
           <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>{greeting}</Text>
-          <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 4 }}>
-            {displayName}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <LevelBadge level={profile?.current_level ?? 1} size="md" />
+            <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginLeft: 8 }}>
+              {displayName}
+            </Text>
+          </View>
         </View>
 
         {/* Daily Challenges Carousel */}
@@ -446,35 +450,44 @@ export default function HomeScreen() {
           </LinearGradient>
 
           {/* Level Card */}
-          <LinearGradient
-            colors={['#10B981', '#059669']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 120,
-              padding: 16,
-              borderRadius: 20,
-            }}
-          >
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 12,
-            }}>
-              <Award size={20} color="#fff" />
-            </View>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
-              Level
-            </Text>
-            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
-              {profile?.current_level ?? 1}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>thinker</Text>
-          </LinearGradient>
+          {(() => {
+            const lvl = profile?.current_level ?? 1;
+            const badge = getBadgeForLevel(lvl);
+            const levelTitle = LEVELS[Math.max(0, Math.min(9, lvl - 1))]?.title ?? 'Novice Thinker';
+            return (
+              <LinearGradient
+                colors={[badge.color, `${badge.color}CC`]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  width: 120,
+                  padding: 16,
+                  borderRadius: 20,
+                }}
+              >
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                }}>
+                  <LevelBadge level={lvl} size="sm" />
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+                  Level
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
+                  {lvl}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }} numberOfLines={1}>
+                  {levelTitle}
+                </Text>
+              </LinearGradient>
+            );
+          })()}
 
           {/* Growth Card */}
           <LinearGradient

@@ -12,6 +12,13 @@ export interface Level {
   perks?: string[];
 }
 
+export interface LevelBadgeConfig {
+  level: number;
+  icon: string;
+  color: string;
+  glowOpacity: number;
+}
+
 export interface XPTransaction {
   id: string;
   user_id: string;
