@@ -314,7 +314,7 @@ export default function HomeScreen() {
                                   <ActivityIndicator size="small" color="#0f0f12" />
                                 ) : (
                                   <>
-                                    <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14 }}>Start</Text>
+                                    <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14, paddingLeft: 12 }}>Start</Text>
                                     <ChevronRight size={18} color="#0f0f12" style={{ marginLeft: 4 }} />
                                   </>
                                 )}
