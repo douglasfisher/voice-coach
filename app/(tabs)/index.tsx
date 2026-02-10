@@ -371,14 +371,14 @@ export default function HomeScreen() {
                           />
                         )}
 
-                        {/* Gradient overlay */}
+                        {/* Gradient overlay — bottom half only when image shown */}
                         <LinearGradient
                           colors={hasImage
-                            ? ['rgba(10,10,15,0.15)', 'rgba(10,10,15,0.6)', 'rgba(10,10,15,0.95)']
+                            ? ['transparent', 'rgba(10,10,15,0.7)', 'rgba(10,10,15,0.97)']
                             : ['#1e3a5f', '#1a1a2e', '#0a0a0f']}
-                          locations={hasImage ? [0, 0.45, 1] : undefined}
-                          start={{ x: 0, y: 0 }}
-                          end={hasImage ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+                          locations={hasImage ? [0, 0.35, 1] : undefined}
+                          start={hasImage ? { x: 0, y: 0.5 } : { x: 0, y: 0 }}
+                          end={{ x: hasImage ? 0 : 1, y: 1 }}
                           style={hasImage
                             ? { position: 'absolute', width: '100%', height: '100%' }
                             : { flex: 1 }}
