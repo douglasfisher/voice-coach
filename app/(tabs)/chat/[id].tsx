@@ -435,7 +435,7 @@ export default function ChatScreen() {
 
         {/* Fade gradient — fixed below status bar for immersive mode */}
         {showImmersiveLayout && (
-          <View style={{ position: 'absolute', top: insets.top, left: 0, right: 0, zIndex: 9 }} pointerEvents="none">
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 }} pointerEvents="none">
             <HeaderFade />
           </View>
         )}

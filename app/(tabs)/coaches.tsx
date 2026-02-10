@@ -229,7 +229,7 @@ export default function CoachesScreen() {
       <View
         style={{
           position: 'absolute',
-          top: insets.top,
+          top: 0,
           left: 0,
           right: 0,
           zIndex: 9,
