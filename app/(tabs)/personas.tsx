@@ -14,7 +14,7 @@ import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 
 // Height of header content (title + subtitle + filter pills) without safe area
-const HEADER_CONTENT_HEIGHT = 127;
+const HEADER_CONTENT_HEIGHT = 119;
 
 const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: '#F59E0B' },
@@ -98,7 +98,7 @@ export default function PersonasScreen() {
         ]}
       >
         {/* Header */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>

@@ -16,7 +16,7 @@ import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
 
 // Height of header content (title + subtitle + filter pills) without safe area
-const HEADER_CONTENT_HEIGHT = 127;
+const HEADER_CONTENT_HEIGHT = 119;
 
 interface CoachingDomain {
   id: string;
@@ -138,7 +138,7 @@ export default function CoachesScreen() {
         ]}
       >
         {/* Header */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>

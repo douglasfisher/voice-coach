@@ -139,7 +139,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 12 }}>
           <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>{greeting}</Text>
           <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 4 }}>
             {displayName}
