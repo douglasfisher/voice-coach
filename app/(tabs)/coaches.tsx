@@ -223,6 +223,23 @@ export default function CoachesScreen() {
             })}
           </ScrollView>
         </View>
+      </Animated.View>
+
+      {/* Fade gradient — absolutely positioned to avoid affecting header layout */}
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9,
+            paddingTop: headerHeight,
+          },
+          headerAnimatedStyle,
+        ]}
+        pointerEvents="none"
+      >
         <HeaderFade />
       </Animated.View>
 

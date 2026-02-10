@@ -433,8 +433,12 @@ export default function ChatScreen() {
           {!chatStarted && <View style={{ flex: 1 }} />}
         </View>
 
-        {/* Fade gradient below header for immersive mode */}
-        {showImmersiveLayout && <HeaderFade />}
+        {/* Fade gradient below header for immersive mode — absolute to avoid pushing FlatList */}
+        {showImmersiveLayout && (
+          <View style={{ position: 'absolute', top: insets.top + 50, left: 0, right: 0, zIndex: 9 }} pointerEvents="none">
+            <HeaderFade />
+          </View>
+        )}
 
         {/* Messages or Full-screen Hero */}
         {chatStarted ? (
