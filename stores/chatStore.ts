@@ -32,6 +32,7 @@ interface DailyChallenge {
   question: string;
   topic: string;
   personaId: string;
+  personaName: string;
   generatedAt: string;
 }
 
@@ -59,8 +60,9 @@ interface ChatState {
   scenarioRefreshCount: number;  // For Q&A mode
   isGeneratingPreview: boolean;
 
-  // Daily challenge
-  dailyChallenge: DailyChallenge | null;
+  // Daily challenges (batch of 10)
+  dailyChallenges: DailyChallenge[];
+  activeChallengeIndex: number;
   isLoadingChallenge: boolean;
 
   // Coaching state
@@ -104,7 +106,8 @@ interface ChatState {
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
-  fetchDailyChallenge: (personas: { id: string }[]) => Promise<void>;
+  fetchDailyChallenges: () => Promise<void>;
+  setActiveChallengeIndex: (index: number) => void;
   // Coaching-specific actions
   switchPhase: (phase: SessionPhase) => Promise<{ response: string } | null>;
   requestQuickFeedback: () => Promise<{ response: string } | null>;
@@ -157,8 +160,9 @@ export const useChatStore = create<ChatState>()(
   scenarioRefreshCount: 0,
   isGeneratingPreview: false,
 
-  // Daily challenge
-  dailyChallenge: null,
+  // Daily challenges (batch of 10)
+  dailyChallenges: [],
+  activeChallengeIndex: 0,
   isLoadingChallenge: false,
 
   // Coaching state
@@ -916,63 +920,69 @@ export const useChatStore = create<ChatState>()(
     set({ challengersActiveFilter: filter });
   },
 
-  fetchDailyChallenge: async (personas) => {
-    const { dailyChallenge } = get();
+  setActiveChallengeIndex: (index) => {
+    set({ activeChallengeIndex: index });
+  },
 
-    // Check if we have a valid challenge for today
-    if (dailyChallenge) {
-      const generatedDate = new Date(dailyChallenge.generatedAt).toDateString();
+  fetchDailyChallenges: async () => {
+    const { dailyChallenges } = get();
+
+    // Check if we already have today's challenges
+    if (dailyChallenges.length > 0) {
+      const generatedDate = new Date(dailyChallenges[0].generatedAt).toDateString();
       const today = new Date().toDateString();
       if (generatedDate === today) {
-        return; // Already have today's challenge
+        return; // Already have today's challenges
       }
     }
 
-    if (personas.length === 0) return;
-
     set({ isLoadingChallenge: true });
     try {
-      const randomPersona = personas[Math.floor(Math.random() * personas.length)];
-
       // Retry logic for edge function cold starts
-      let data: { question: string; topic: string } | null = null;
+      let data: {
+        challenges: { question: string; topic: string; personaId: string; personaName: string }[];
+        generatedAt: string;
+      } | null = null;
+
       for (let attempt = 0; attempt < 2; attempt++) {
         const result = await supabase.functions.invoke('chat', {
-          body: {
-            personaId: randomPersona.id,
-            generateChallenge: true,
-          },
+          body: { generateChallengeBatch: true },
         });
 
-        if (!result.error) {
+        if (!result.error && result.data?.challenges?.length > 0) {
           data = result.data;
           break;
         }
         if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
       }
 
-      if (!data) {
-        throw new Error('Challenge generation failed');
+      if (!data || !data.challenges?.length) {
+        throw new Error('Challenge batch generation failed');
       }
 
+      const now = new Date().toISOString();
       set({
-        dailyChallenge: {
-          question: data.question,
-          topic: data.topic,
-          personaId: randomPersona.id,
-          generatedAt: new Date().toISOString(),
-        },
+        dailyChallenges: data.challenges.map((c) => ({
+          question: c.question,
+          topic: c.topic,
+          personaId: c.personaId,
+          personaName: c.personaName,
+          generatedAt: data!.generatedAt || now,
+        })),
+        activeChallengeIndex: 0,
       });
     } catch (error) {
-      console.error('Failed to fetch daily challenge:', error);
+      console.error('Failed to fetch daily challenges:', error);
       // Client-side fallback so the home screen still shows a challenge
       set({
-        dailyChallenge: {
+        dailyChallenges: [{
           question: "What belief do you hold that you've never seriously questioned?",
           topic: 'Self-Reflection',
-          personaId: personas[0]?.id || '',
+          personaId: '',
+          personaName: '',
           generatedAt: new Date().toISOString(),
-        },
+        }],
+        activeChallengeIndex: 0,
       });
     } finally {
       set({ isLoadingChallenge: false });

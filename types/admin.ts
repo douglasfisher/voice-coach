@@ -116,7 +116,22 @@ export type AppSettingKey =
   | 'maintenance_mode'
   | 'featured_persona_id'
   | 'cost_markup_percent'
-  | 'unified_card_gradient';
+  | 'unified_card_gradient'
+  | 'challenge_show_persona_image'
+  | 'daily_challenges_batch';
+
+export interface DailyChallengeItem {
+  question: string;
+  topic: string;
+  personaId: string;
+  personaName: string;
+}
+
+export interface DailyChallengesBatch {
+  challenges: DailyChallengeItem[];
+  generatedAt: string | null;
+  generatedDate: string | null;
+}
 
 export interface AppSettingsMap {
   default_model: string;
@@ -127,6 +142,8 @@ export interface AppSettingsMap {
   featured_persona_id: string | null;
   cost_markup_percent: number;
   unified_card_gradient: boolean;
+  challenge_show_persona_image: boolean;
+  daily_challenges_batch: DailyChallengesBatch | null;
 }
 
 // =============================================================================

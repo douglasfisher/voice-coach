@@ -27,6 +27,8 @@ interface ChatRequest {
   previewGreeting?: boolean;
   regenerateQuestion?: boolean;
   generateChallenge?: boolean;
+  generateChallengeBatch?: boolean;
+  refreshChallengeBatch?: boolean;
   generateScenario?: boolean;
   generateReport?: boolean;
   // Coaching-specific fields
@@ -175,6 +177,8 @@ serve(async (req) => {
       previewGreeting,
       regenerateQuestion,
       generateChallenge,
+      generateChallengeBatch,
+      refreshChallengeBatch,
       generateScenario,
       generateReport,
       // Coaching fields
@@ -247,6 +251,165 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify(result),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle batch challenge generation (10 challenges per day)
+    if (generateChallengeBatch) {
+      // Check if we already have today's batch (unless admin is forcing refresh)
+      if (!refreshChallengeBatch) {
+        const { data: existingBatch } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'daily_challenges_batch')
+          .single();
+
+        if (existingBatch?.value) {
+          const batch = typeof existingBatch.value === 'string'
+            ? JSON.parse(existingBatch.value)
+            : existingBatch.value;
+          const today = new Date().toISOString().split('T')[0];
+          if (batch.generatedDate === today && batch.challenges?.length > 0) {
+            return new Response(
+              JSON.stringify(batch),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      }
+
+      // Fetch 10 personas spread across domains (round-robin)
+      const { data: allCoaches } = await supabase
+        .from('personas')
+        .select('id, name, domain_id')
+        .eq('persona_type', 'coach')
+        .eq('is_active', true);
+
+      if (!allCoaches || allCoaches.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'No active coaches found' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Group by domain and round-robin pick 10
+      const byDomain: Record<string, typeof allCoaches> = {};
+      for (const coach of allCoaches) {
+        const domain = coach.domain_id || 'unknown';
+        if (!byDomain[domain]) byDomain[domain] = [];
+        byDomain[domain].push(coach);
+      }
+
+      // Shuffle each domain's coaches
+      for (const domain of Object.keys(byDomain)) {
+        const arr = byDomain[domain];
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+
+      const domainKeys = Object.keys(byDomain);
+      const selectedPersonas: { id: string; name: string }[] = [];
+      let domainIdx = 0;
+      const domainPointers: Record<string, number> = {};
+      for (const d of domainKeys) domainPointers[d] = 0;
+
+      while (selectedPersonas.length < 10 && selectedPersonas.length < allCoaches.length) {
+        const domain = domainKeys[domainIdx % domainKeys.length];
+        const pointer = domainPointers[domain];
+        if (pointer < byDomain[domain].length) {
+          selectedPersonas.push({
+            id: byDomain[domain][pointer].id,
+            name: byDomain[domain][pointer].name,
+          });
+          domainPointers[domain]++;
+        }
+        domainIdx++;
+        // Safety: if we've gone through all domains without adding, break
+        if (domainIdx > domainKeys.length * allCoaches.length) break;
+      }
+
+      // Fetch challenge prompt
+      const { data: challengeSettings } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'ai_challenge_prompt')
+        .single();
+
+      if (!challengeSettings?.value) {
+        return new Response(
+          JSON.stringify({ error: 'Challenge prompt not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const challengePrompt = challengeSettings.value;
+
+      const config = await resolveAIConfig(supabase, {
+        task: 'challenge',
+      });
+
+      const challengeResponse = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: 'system', content: challengePrompt },
+            { role: 'user', content: 'Generate 10 unique, thought-provoking questions for today. Each should cover a different topic area.' },
+          ],
+          temperature: 0.9,
+          max_tokens: 1500,
+        }),
+      });
+
+      if (!challengeResponse.ok) {
+        throw new Error(`Groq API error: ${challengeResponse.status}`);
+      }
+
+      const challengeData = await challengeResponse.json();
+      const content = challengeData.choices[0]?.message?.content || '';
+
+      let challenges: { question: string; topic: string }[] = [];
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+        challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
+      } catch {
+        // Fallback: single challenge
+        challenges = [{
+          question: "What belief do you hold that you've never seriously questioned?",
+          topic: 'Self-Reflection',
+        }];
+      }
+
+      // Attach persona info to each challenge (round-robin assignment)
+      const enrichedChallenges = challenges.map((c, i) => ({
+        ...c,
+        personaId: selectedPersonas[i % selectedPersonas.length].id,
+        personaName: selectedPersonas[i % selectedPersonas.length].name,
+      }));
+
+      const now = new Date();
+      const batch = {
+        challenges: enrichedChallenges,
+        generatedAt: now.toISOString(),
+        generatedDate: now.toISOString().split('T')[0],
+      };
+
+      // Upsert into app_settings
+      await supabase
+        .from('app_settings')
+        .update({ value: batch })
+        .eq('key', 'daily_challenges_batch');
+
+      return new Response(
+        JSON.stringify(batch),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

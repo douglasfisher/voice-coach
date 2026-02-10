@@ -28,6 +28,8 @@ import {
   RefreshCw,
   RotateCcw,
   Palette,
+  ImageIcon,
+  Target,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -130,6 +132,56 @@ function SelectInput({ label, value, options, onValueChange, icon }: SelectInput
         </View>
       )}
     </View>
+  );
+}
+
+function RefreshChallengesButton() {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const { error } = await supabase.functions.invoke('chat', {
+        body: { generateChallengeBatch: true, refreshChallengeBatch: true },
+      });
+      if (error) throw error;
+      Alert.alert('Success', 'Daily challenges have been refreshed.');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to refresh challenges. Please try again.');
+      console.error('Refresh challenges error:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  return (
+    <Pressable
+      onPress={handleRefresh}
+      disabled={isRefreshing}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.05)',
+        marginTop: 8,
+      }}
+    >
+      <Target size={18} color="#60a5fa" />
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+          Refresh Today's Challenges
+        </Text>
+        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+          Regenerate all 10 daily challenges
+        </Text>
+      </View>
+      {isRefreshing ? (
+        <ActivityIndicator size="small" color="#60a5fa" />
+      ) : (
+        <RefreshCw size={18} color="#60a5fa" />
+      )}
+    </Pressable>
   );
 }
 
@@ -667,6 +719,38 @@ export default function AdminSettingsScreen() {
                     ios_backgroundColor="rgba(255,255,255,0.1)"
                   />
                 </View>
+
+                {/* Show Expert Photo on Challenges */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(255,255,255,0.05)',
+                    marginTop: 8,
+                  }}
+                >
+                  <ImageIcon size={18} color="#60a5fa" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                      Show Expert Photo on Challenges
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                      Display persona avatar on challenge cards
+                    </Text>
+                  </View>
+                  <Switch
+                    value={localSettings.challenge_show_persona_image || false}
+                    onValueChange={(value) => updateLocal('challenge_show_persona_image', value)}
+                    trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(96, 165, 250, 0.5)' }}
+                    thumbColor={localSettings.challenge_show_persona_image ? '#60a5fa' : 'rgba(255,255,255,0.5)'}
+                    ios_backgroundColor="rgba(255,255,255,0.1)"
+                  />
+                </View>
+
+                {/* Refresh Daily Challenges */}
+                <RefreshChallengesButton />
               </LinearGradient>
             </View>
 
