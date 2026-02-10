@@ -14,6 +14,7 @@ import { PersonaModal } from '../../components/personas/PersonaModal';
 import { ModeToggle } from '../../components/chat/ModeToggle';
 import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
+import { HEADER_TOP_PADDING } from '../../constants/layout';
 
 // Height of header content (title + subtitle + filter pills) without safe area
 const HEADER_CONTENT_HEIGHT = 119;
@@ -138,7 +139,7 @@ export default function CoachesScreen() {
         ]}
       >
         {/* Header */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>

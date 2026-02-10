@@ -12,6 +12,7 @@ import { useScrollHideAnimation } from '../../hooks/useScrollHideAnimation';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+import { HEADER_TOP_PADDING } from '../../constants/layout';
 
 // Height of header content (title + subtitle + filter pills) without safe area
 const HEADER_CONTENT_HEIGHT = 119;
@@ -98,7 +99,7 @@ export default function PersonasScreen() {
         ]}
       >
         {/* Header */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>

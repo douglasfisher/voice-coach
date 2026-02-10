@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, Switch, Pressable, Alert, Image } from 'react-native';
+import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
@@ -170,7 +171,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 8, paddingBottom: 60 }}
+        contentContainerStyle={{ paddingHorizontal: 8, paddingTop: HEADER_TOP_PADDING, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
