@@ -154,23 +154,19 @@ export default function PersonasScreen() {
         </View>
       </Animated.View>
 
-      {/* Fade gradient — absolutely positioned to avoid affecting header layout */}
-      <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 9,
-            paddingTop: headerHeight,
-          },
-          headerAnimatedStyle,
-        ]}
+      {/* Fade gradient — fixed below status bar, always visible */}
+      <View
+        style={{
+          position: 'absolute',
+          top: insets.top,
+          left: 0,
+          right: 0,
+          zIndex: 9,
+        }}
         pointerEvents="none"
       >
         <HeaderFade />
-      </Animated.View>
+      </View>
 
       {isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
