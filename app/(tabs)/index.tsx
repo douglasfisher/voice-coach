@@ -344,7 +344,8 @@ export default function HomeScreen() {
                 viewabilityConfig={viewabilityConfig}
                 keyExtractor={(_, i) => `challenge-${i}`}
                 renderItem={({ item: challenge, index }) => {
-                  const avatarSource = showPersonaImage !== false && challenge.personaName
+                  const hasImage = showPersonaImage !== false && !!challenge.personaName;
+                  const avatarSource = hasImage
                     ? resolvePersonaAvatar(challenge.personaName)
                     : null;
 
@@ -354,92 +355,106 @@ export default function HomeScreen() {
                       disabled={isStartingChallenge}
                       style={{ width: CARD_WIDTH, marginRight: 8 }}
                     >
-                      <LinearGradient
-                        colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={{
-                          borderRadius: 24,
-                          overflow: 'hidden',
-                          borderWidth: 1,
-                          borderColor: 'rgba(96, 165, 250, 0.3)',
-                        }}
-                      >
-                        <View style={{ padding: 20 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                              {avatarSource ? (
-                                <Image
-                                  source={avatarSource}
-                                  style={{ width: 40, height: 40, borderRadius: 20, marginRight: 12 }}
-                                  resizeMode="cover"
-                                />
-                              ) : (
+                      <View style={{
+                        borderRadius: 24,
+                        overflow: 'hidden',
+                        height: hasImage ? 480 : undefined,
+                        borderWidth: 1,
+                        borderColor: 'rgba(96, 165, 250, 0.3)',
+                      }}>
+                        {/* Full-bleed background image */}
+                        {avatarSource && (
+                          <Image
+                            source={avatarSource}
+                            style={{ position: 'absolute', width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                        )}
+
+                        {/* Gradient overlay */}
+                        <LinearGradient
+                          colors={hasImage
+                            ? ['rgba(10,10,15,0.15)', 'rgba(10,10,15,0.6)', 'rgba(10,10,15,0.95)']
+                            : ['#1e3a5f', '#1a1a2e', '#0a0a0f']}
+                          locations={hasImage ? [0, 0.45, 1] : undefined}
+                          start={{ x: 0, y: 0 }}
+                          end={hasImage ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+                          style={hasImage
+                            ? { position: 'absolute', width: '100%', height: '100%' }
+                            : { flex: 1 }}
+                        />
+
+                        {/* Content */}
+                        <View style={{ flex: 1, justifyContent: 'space-between', padding: 20 }}>
+                          {/* Top row: label + NEW badge */}
+                          <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: hasImage ? 0 : 16,
+                          }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              {!hasImage && (
                                 <View style={{
-                                  width: 40,
-                                  height: 40,
-                                  borderRadius: 20,
+                                  width: 40, height: 40, borderRadius: 20,
                                   backgroundColor: '#60a5fa',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
+                                  alignItems: 'center', justifyContent: 'center',
                                   marginRight: 12,
                                 }}>
                                   <Target size={20} color="#0f0f12" />
                                 </View>
                               )}
-                              <View style={{ flex: 1 }}>
-                                <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '600', letterSpacing: 1 }}>
-                                  CHALLENGE
-                                </Text>
-                                {challenge.personaName ? (
-                                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2 }} numberOfLines={1}>
-                                    with {challenge.personaName}
-                                  </Text>
-                                ) : null}
-                              </View>
+                              <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '600', letterSpacing: 1 }}>
+                                CHALLENGE
+                              </Text>
                             </View>
                             <View style={{
                               backgroundColor: 'rgba(96, 165, 250, 0.2)',
-                              paddingHorizontal: 10,
-                              paddingVertical: 4,
-                              borderRadius: 12,
+                              paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
                             }}>
                               <Text style={{ color: '#60a5fa', fontSize: 11, fontWeight: '600' }}>NEW</Text>
                             </View>
                           </View>
 
-                          <Text style={{ color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 28, marginBottom: 16 }}>
-                            "{challenge.question}"
-                          </Text>
-
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                              <Brain size={16} color="rgba(255,255,255,0.5)" />
-                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginLeft: 6 }}>
-                                {challenge.topic}
+                          {/* Bottom content — pushed to bottom by flex space-between when image shown */}
+                          <View>
+                            {challenge.personaName ? (
+                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 6 }} numberOfLines={1}>
+                                with {challenge.personaName}
                               </Text>
-                            </View>
-                            <View style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              backgroundColor: '#60a5fa',
-                              paddingHorizontal: 8,
-                              paddingVertical: 10,
-                              borderRadius: 14,
-                              opacity: isStartingChallenge ? 0.7 : 1,
-                            }}>
-                              {isStartingChallenge ? (
-                                <ActivityIndicator size="small" color="#0f0f12" />
-                              ) : (
-                                <>
-                                  <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14 }}>Start</Text>
-                                  <ChevronRight size={18} color="#0f0f12" style={{ marginLeft: 4 }} />
-                                </>
-                              )}
+                            ) : null}
+
+                            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 28, marginBottom: 16 }}>
+                              "{challenge.question}"
+                            </Text>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                <Brain size={16} color="rgba(255,255,255,0.5)" />
+                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginLeft: 6 }}>
+                                  {challenge.topic}
+                                </Text>
+                              </View>
+                              <View style={{
+                                flexDirection: 'row', alignItems: 'center',
+                                backgroundColor: '#60a5fa',
+                                paddingHorizontal: 8, paddingVertical: 10,
+                                borderRadius: 14,
+                                opacity: isStartingChallenge ? 0.7 : 1,
+                              }}>
+                                {isStartingChallenge ? (
+                                  <ActivityIndicator size="small" color="#0f0f12" />
+                                ) : (
+                                  <>
+                                    <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14 }}>Start</Text>
+                                    <ChevronRight size={18} color="#0f0f12" style={{ marginLeft: 4 }} />
+                                  </>
+                                )}
+                              </View>
                             </View>
                           </View>
                         </View>
-                      </LinearGradient>
+                      </View>
                     </Pressable>
                   );
                 }}
