@@ -13,6 +13,7 @@ import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 import { HEADER_TOP_PADDING } from '../../constants/layout';
+import { HeaderFade } from '../../components/ui/HeaderFade';
 
 // Height of header content (title + subtitle + filter pills) without safe area
 const HEADER_CONTENT_HEIGHT = 119;
@@ -151,6 +152,7 @@ export default function PersonasScreen() {
             })}
           </ScrollView>
         </View>
+        <HeaderFade />
       </Animated.View>
 
       {isLoading ? (

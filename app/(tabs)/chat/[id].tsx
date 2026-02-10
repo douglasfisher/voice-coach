@@ -42,6 +42,7 @@ import {
   SessionTimer,
   ResetConfirmationModal,
 } from '../../../components/chat';
+import { HeaderFade } from '../../../components/ui/HeaderFade';
 import { ChallengeStyle } from '../../../types/persona';
 
 // Challenge style themes
@@ -431,6 +432,9 @@ export default function ChatScreen() {
           )}
           {!chatStarted && <View style={{ flex: 1 }} />}
         </View>
+
+        {/* Fade gradient below header for immersive mode */}
+        {showImmersiveLayout && <HeaderFade />}
 
         {/* Messages or Full-screen Hero */}
         {chatStarted ? (

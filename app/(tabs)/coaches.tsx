@@ -15,6 +15,7 @@ import { ModeToggle } from '../../components/chat/ModeToggle';
 import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
 import { HEADER_TOP_PADDING } from '../../constants/layout';
+import { HeaderFade } from '../../components/ui/HeaderFade';
 
 // Height of header content (title + subtitle + filter pills) without safe area
 const HEADER_CONTENT_HEIGHT = 119;
@@ -222,6 +223,7 @@ export default function CoachesScreen() {
             })}
           </ScrollView>
         </View>
+        <HeaderFade />
       </Animated.View>
 
       {isLoading ? (
