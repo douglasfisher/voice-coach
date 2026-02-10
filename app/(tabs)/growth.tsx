@@ -152,7 +152,7 @@ export default function GrowthScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
