@@ -70,8 +70,10 @@ export default function PersonasScreen() {
     ? challengers
     : challengers.filter(p => p.challengeStyle === challengersActiveFilter);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- shuffleKey intentionally triggers re-shuffle
-  const shuffledPersonas = useMemo(() => shuffleArray(filteredPersonas), [filteredPersonas, shuffleKey]);
+  // Stable key based on actual content so shuffle doesn't re-run on every render
+  const filteredKey = filteredPersonas.map(c => c.id).join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredKey tracks content; shuffleKey triggers explicit re-shuffle
+  const shuffledPersonas = useMemo(() => shuffleArray(filteredPersonas), [filteredKey, shuffleKey]);
   const featuredPersona = shuffledPersonas[0];
   const otherPersonas = shuffledPersonas.slice(1);
 

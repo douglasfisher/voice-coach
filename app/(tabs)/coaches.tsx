@@ -96,8 +96,10 @@ export default function CoachesScreen() {
     ? coaches
     : coaches.filter(p => p.domainId === coachesActiveDomain);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- shuffleKey intentionally triggers re-shuffle
-  const shuffledCoaches = useMemo(() => shuffleArray(filteredCoaches), [filteredCoaches, shuffleKey]);
+  // Stable key based on actual content so shuffle doesn't re-run on every render
+  const filteredKey = filteredCoaches.map(c => c.id).join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredKey tracks content; shuffleKey triggers explicit re-shuffle
+  const shuffledCoaches = useMemo(() => shuffleArray(filteredCoaches), [filteredKey, shuffleKey]);
   const featuredCoach = shuffledCoaches[0];
   const otherCoaches = shuffledCoaches.slice(1);
 
