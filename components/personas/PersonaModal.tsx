@@ -204,11 +204,6 @@ export function PersonaModal({
                     onModeChange={setGlobalInteractionMode}
                     accentColor="#10b981"
                   />
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 8 }}>
-                    {globalInteractionMode === 'question'
-                      ? 'You ask the questions — get direct, expert answers from your coach.'
-                      : 'Your coach sets the scene and guides you through a realistic roleplay scenario.'}
-                  </Text>
                 </View>
               )}
 
@@ -337,6 +332,13 @@ export function PersonaModal({
             borderTopColor: 'rgba(255,255,255,0.15)',
           }}
         >
+          {isCoach && (
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, textAlign: 'center', marginBottom: 12 }}>
+              {globalInteractionMode === 'question'
+                ? 'You ask the questions — get direct, expert answers from your coach.'
+                : 'Your coach sets the scene and guides you through a realistic roleplay scenario.'}
+            </Text>
+          )}
           <Pressable
             onPress={() => onChallenge(persona)}
             style={{
