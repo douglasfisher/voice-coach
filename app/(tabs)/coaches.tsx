@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GraduationCap } from 'lucide-react-native';
-import Animated from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import Animated, { Layout } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -16,6 +17,7 @@ import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
 import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { HeaderFade } from '../../components/ui/HeaderFade';
+import { shuffleArray } from '../../lib/shuffle';
 
 // Height of header content (title + subtitle + filter pills) without safe area
 const HEADER_CONTENT_HEIGHT = 119;
@@ -35,7 +37,7 @@ export default function CoachesScreen() {
   const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
   const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
-  const { personas, isLoading: personasLoading, refresh: _refresh } = usePersonas();
+  const { personas, isLoading: personasLoading } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation, globalInteractionMode, setGlobalInteractionMode, coachesActiveDomain, setCoachesActiveDomain } = useChatStore();
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
@@ -44,6 +46,8 @@ export default function CoachesScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [domains, setDomains] = useState<CoachingDomain[]>([]);
   const [domainsLoading, setDomainsLoading] = useState(true);
+  const [shuffleKey, setShuffleKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch coaching domains
   useEffect(() => {
@@ -82,8 +86,18 @@ export default function CoachesScreen() {
     ? coaches
     : coaches.filter(p => p.domainId === coachesActiveDomain);
 
-  const featuredCoach = filteredCoaches[0];
-  const otherCoaches = filteredCoaches.slice(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- shuffleKey intentionally triggers re-shuffle
+  const shuffledCoaches = useMemo(() => shuffleArray(filteredCoaches), [filteredCoaches, shuffleKey]);
+  const featuredCoach = shuffledCoaches[0];
+  const otherCoaches = shuffledCoaches.slice(1);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShuffleKey(prev => prev + 1);
+    await new Promise(resolve => setTimeout(resolve, 350));
+    setIsRefreshing(false);
+  }, []);
 
   // Get domain info for display
   const getDomainName = (domainId: string | 'all'): string => {
@@ -254,6 +268,7 @@ export default function CoachesScreen() {
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#10b981" />}
         >
           {/* Featured Coach */}
           {featuredCoach && (
@@ -282,12 +297,12 @@ export default function CoachesScreen() {
           {/* Grid of Coaches */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
             {otherCoaches.map((coach) => (
-              <View key={coach.id} style={{ width: '100%', padding: 4 }}>
+              <Animated.View key={coach.id} layout={Layout.springify()} style={{ width: '100%', padding: 4 }}>
                 <PersonaCard
                   persona={coach}
                   onPress={() => setSelectedPersona(coach)}
                 />
-              </View>
+              </Animated.View>
             ))}
           </View>
 

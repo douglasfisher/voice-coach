@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
-import Animated from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import Animated, { Layout } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -14,6 +15,7 @@ import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { HeaderFade } from '../../components/ui/HeaderFade';
+import { shuffleArray } from '../../lib/shuffle';
 
 // Height of header content (title + subtitle + filter pills) without safe area
 const HEADER_CONTENT_HEIGHT = 119;
@@ -33,13 +35,15 @@ export default function PersonasScreen() {
   const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
   const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
-  const { personas, isLoading, refresh: _refresh } = usePersonas();
+  const { personas, isLoading } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation, challengersActiveFilter, setChallengersActiveFilter } = useChatStore();
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [shuffleKey, setShuffleKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filter to only show challengers (not coaches)
   const challengers = personas.filter(p => p.personaType === 'challenger');
@@ -56,8 +60,18 @@ export default function PersonasScreen() {
     ? challengers
     : challengers.filter(p => p.challengeStyle === challengersActiveFilter);
 
-  const featuredPersona = filteredPersonas[0];
-  const otherPersonas = filteredPersonas.slice(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- shuffleKey intentionally triggers re-shuffle
+  const shuffledPersonas = useMemo(() => shuffleArray(filteredPersonas), [filteredPersonas, shuffleKey]);
+  const featuredPersona = shuffledPersonas[0];
+  const otherPersonas = shuffledPersonas.slice(1);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShuffleKey(prev => prev + 1);
+    await new Promise(resolve => setTimeout(resolve, 350));
+    setIsRefreshing(false);
+  }, []);
 
   const handleChallenge = async (persona: PersonaDisplay) => {
     if (!user?.id) {
@@ -183,6 +197,7 @@ export default function PersonasScreen() {
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" />}
         >
           {/* Featured Persona */}
           {featuredPersona && (
@@ -211,12 +226,12 @@ export default function PersonasScreen() {
           {/* Grid of Personas */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
             {otherPersonas.map((persona) => (
-              <View key={persona.id} style={{ width: '100%', padding: 4 }}>
+              <Animated.View key={persona.id} layout={Layout.springify()} style={{ width: '100%', padding: 4 }}>
                 <PersonaCard
                   persona={persona}
                   onPress={() => setSelectedPersona(persona)}
                 />
-              </View>
+              </Animated.View>
             ))}
           </View>
 
