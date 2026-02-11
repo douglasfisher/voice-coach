@@ -255,7 +255,7 @@ export default function PersonasScreen() {
               <PersonaCard
                 persona={featuredPersona}
                 onPress={() => setSelectedPersona(featuredPersona)}
-                variant="featured"
+                featured
               />
             )}
 

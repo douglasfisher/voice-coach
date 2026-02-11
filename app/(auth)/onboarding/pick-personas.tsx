@@ -166,6 +166,7 @@ export default function PickPersonasScreen() {
                 persona={item}
                 onPress={() => togglePersona(item)}
                 selected={selectedIds.includes(item.id)}
+                size="sm"
                 height={280}
               />
             </View>

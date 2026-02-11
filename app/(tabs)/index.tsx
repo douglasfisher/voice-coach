@@ -536,7 +536,7 @@ export default function HomeScreen() {
               <PersonaCard
                 persona={featuredCoach}
                 onPress={() => setSelectedPersona(featuredCoach)}
-                variant="featured"
+                featured
               />
             )}
 
@@ -552,6 +552,7 @@ export default function HomeScreen() {
                     <PersonaCard
                       persona={coach}
                       onPress={() => setSelectedPersona(coach)}
+                      size="sm"
                       height={300}
                     />
                   </View>
@@ -598,7 +599,7 @@ export default function HomeScreen() {
                 <PersonaCard
                   persona={featuredChallenger}
                   onPress={() => setSelectedPersona(featuredChallenger)}
-                  variant="featured"
+                  featured
                 />
               </View>
             )}
@@ -615,6 +616,7 @@ export default function HomeScreen() {
                     <PersonaCard
                       persona={challenger}
                       onPress={() => setSelectedPersona(challenger)}
+                      size="sm"
                       height={300}
                     />
                   </View>

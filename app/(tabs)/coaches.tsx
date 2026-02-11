@@ -326,7 +326,7 @@ export default function CoachesScreen() {
               <PersonaCard
                 persona={featuredCoach}
                 onPress={() => setSelectedPersona(featuredCoach)}
-                variant="featured"
+                featured
               />
             )}
 
