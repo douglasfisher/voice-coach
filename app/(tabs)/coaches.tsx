@@ -98,6 +98,8 @@ export default function CoachesScreen() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Let spinner show briefly
+    await new Promise(resolve => setTimeout(resolve, 300));
     // Fade out cards
     listOpacity.value = withTiming(0, { duration: 200 });
     await new Promise(resolve => setTimeout(resolve, 250));
@@ -281,6 +283,13 @@ export default function CoachesScreen() {
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#10b981" />}
         >
+          {isRefreshing && (
+            <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+              <ActivityIndicator size="small" color="#10b981" />
+              <Text style={{ color: '#6E6E73', fontSize: 12, marginTop: 6 }}>Shuffling coaches...</Text>
+            </View>
+          )}
+
           <Animated.View style={listAnimatedStyle}>
             {/* Featured Coach */}
             {featuredCoach && (

@@ -72,6 +72,8 @@ export default function PersonasScreen() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Let spinner show briefly
+    await new Promise(resolve => setTimeout(resolve, 300));
     // Fade out cards
     listOpacity.value = withTiming(0, { duration: 200 });
     await new Promise(resolve => setTimeout(resolve, 250));
@@ -210,6 +212,13 @@ export default function PersonasScreen() {
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" />}
         >
+          {isRefreshing && (
+            <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+              <ActivityIndicator size="small" color="#F59E0B" />
+              <Text style={{ color: '#6E6E73', fontSize: 12, marginTop: 6 }}>Shuffling challengers...</Text>
+            </View>
+          )}
+
           <Animated.View style={listAnimatedStyle}>
             {/* Featured Persona */}
             {featuredPersona && (
