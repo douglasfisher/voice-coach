@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GraduationCap } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { Layout } from 'react-native-reanimated';
+import Animated, { Layout, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -48,6 +48,10 @@ export default function CoachesScreen() {
   const [domainsLoading, setDomainsLoading] = useState(true);
   const [shuffleKey, setShuffleKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const listOpacity = useSharedValue(1);
+  const listAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: listOpacity.value,
+  }));
 
   // Fetch coaching domains
   useEffect(() => {
@@ -94,10 +98,17 @@ export default function CoachesScreen() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Fade out cards
+    listOpacity.value = withTiming(0, { duration: 200 });
+    await new Promise(resolve => setTimeout(resolve, 250));
+    // Shuffle while invisible
     setShuffleKey(prev => prev + 1);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    // Fade back in
+    listOpacity.value = withTiming(1, { duration: 300 });
     await new Promise(resolve => setTimeout(resolve, 350));
     setIsRefreshing(false);
-  }, []);
+  }, [listOpacity]);
 
   // Get domain info for display
   const getDomainName = (domainId: string | 'all'): string => {
@@ -270,47 +281,49 @@ export default function CoachesScreen() {
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#10b981" />}
         >
-          {/* Featured Coach */}
-          {featuredCoach && (
-            <PersonaCard
-              persona={featuredCoach}
-              onPress={() => setSelectedPersona(featuredCoach)}
-              variant="featured"
-            />
-          )}
+          <Animated.View style={listAnimatedStyle}>
+            {/* Featured Coach */}
+            {featuredCoach && (
+              <PersonaCard
+                persona={featuredCoach}
+                onPress={() => setSelectedPersona(featuredCoach)}
+                variant="featured"
+              />
+            )}
 
-          {/* Section Header */}
-          {otherCoaches.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {getDomainName(coachesActiveDomain)}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 }} />
-                <Text style={{ color: '#6E6E73', fontSize: 12 }}>
-                  {otherCoaches.length + 1} available
+            {/* Section Header */}
+            {otherCoaches.length > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  {getDomainName(coachesActiveDomain)}
                 </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 }} />
+                  <Text style={{ color: '#6E6E73', fontSize: 12 }}>
+                    {otherCoaches.length + 1} available
+                  </Text>
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* Grid of Coaches */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
-            {otherCoaches.map((coach) => (
-              <Animated.View key={coach.id} layout={Layout.springify()} style={{ width: '100%', padding: 4 }}>
-                <PersonaCard
-                  persona={coach}
-                  onPress={() => setSelectedPersona(coach)}
-                />
-              </Animated.View>
-            ))}
-          </View>
-
-          {filteredCoaches.length === 0 && (
-            <View className="py-20 items-center">
-              <Text className="text-text-muted">No coaches available in this category</Text>
+            {/* Grid of Coaches */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+              {otherCoaches.map((coach) => (
+                <Animated.View key={coach.id} layout={Layout.springify()} style={{ width: '100%', padding: 4 }}>
+                  <PersonaCard
+                    persona={coach}
+                    onPress={() => setSelectedPersona(coach)}
+                  />
+                </Animated.View>
+              ))}
             </View>
-          )}
+
+            {filteredCoaches.length === 0 && (
+              <View className="py-20 items-center">
+                <Text className="text-text-muted">No coaches available in this category</Text>
+              </View>
+            )}
+          </Animated.View>
         </Animated.ScrollView>
       )}
 

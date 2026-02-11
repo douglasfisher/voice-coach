@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { Layout } from 'react-native-reanimated';
+import Animated, { Layout, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -44,6 +44,10 @@ export default function PersonasScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [shuffleKey, setShuffleKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const listOpacity = useSharedValue(1);
+  const listAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: listOpacity.value,
+  }));
 
   // Filter to only show challengers (not coaches)
   const challengers = personas.filter(p => p.personaType === 'challenger');
@@ -68,10 +72,17 @@ export default function PersonasScreen() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Fade out cards
+    listOpacity.value = withTiming(0, { duration: 200 });
+    await new Promise(resolve => setTimeout(resolve, 250));
+    // Shuffle while invisible
     setShuffleKey(prev => prev + 1);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    // Fade back in
+    listOpacity.value = withTiming(1, { duration: 300 });
     await new Promise(resolve => setTimeout(resolve, 350));
     setIsRefreshing(false);
-  }, []);
+  }, [listOpacity]);
 
   const handleChallenge = async (persona: PersonaDisplay) => {
     if (!user?.id) {
@@ -199,47 +210,49 @@ export default function PersonasScreen() {
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" />}
         >
-          {/* Featured Persona */}
-          {featuredPersona && (
-            <PersonaCard
-              persona={featuredPersona}
-              onPress={() => setSelectedPersona(featuredPersona)}
-              variant="featured"
-            />
-          )}
+          <Animated.View style={listAnimatedStyle}>
+            {/* Featured Persona */}
+            {featuredPersona && (
+              <PersonaCard
+                persona={featuredPersona}
+                onPress={() => setSelectedPersona(featuredPersona)}
+                variant="featured"
+              />
+            )}
 
-          {/* Section Header */}
-          {otherPersonas.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {challengersActiveFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[challengersActiveFilter]}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', marginRight: 6 }} />
-                <Text style={{ color: '#6E6E73', fontSize: 12 }}>
-                  {otherPersonas.length + 1} available
+            {/* Section Header */}
+            {otherPersonas.length > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  {challengersActiveFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[challengersActiveFilter]}
                 </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', marginRight: 6 }} />
+                  <Text style={{ color: '#6E6E73', fontSize: 12 }}>
+                    {otherPersonas.length + 1} available
+                  </Text>
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* Grid of Personas */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
-            {otherPersonas.map((persona) => (
-              <Animated.View key={persona.id} layout={Layout.springify()} style={{ width: '100%', padding: 4 }}>
-                <PersonaCard
-                  persona={persona}
-                  onPress={() => setSelectedPersona(persona)}
-                />
-              </Animated.View>
-            ))}
-          </View>
-
-          {filteredPersonas.length === 0 && (
-            <View className="py-20 items-center">
-              <Text className="text-text-muted">No challengers match this filter</Text>
+            {/* Grid of Personas */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+              {otherPersonas.map((persona) => (
+                <Animated.View key={persona.id} layout={Layout.springify()} style={{ width: '100%', padding: 4 }}>
+                  <PersonaCard
+                    persona={persona}
+                    onPress={() => setSelectedPersona(persona)}
+                  />
+                </Animated.View>
+              ))}
             </View>
-          )}
+
+            {filteredPersonas.length === 0 && (
+              <View className="py-20 items-center">
+                <Text className="text-text-muted">No challengers match this filter</Text>
+              </View>
+            )}
+          </Animated.View>
         </Animated.ScrollView>
       )}
 
