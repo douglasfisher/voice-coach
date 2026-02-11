@@ -176,7 +176,7 @@ export default function PersonasScreen() {
         <Animated.ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
-            paddingTop: headerHeight,
+            paddingTop: headerHeight + 10,
             paddingHorizontal: 8,
             paddingBottom: 100,
           }}
