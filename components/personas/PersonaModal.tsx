@@ -252,8 +252,8 @@ export function PersonaModal({
               {isCoach && (
                 <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 10 }}>
                   {globalInteractionMode === 'question'
-                    ? 'You ask the questions — get direct, expert answers from your coach.'
-                    : 'Your coach sets the scene and guides you through a realistic roleplay scenario.'}
+                    ? 'Your coach sets the scene — you roleplay a realistic scenario together.'
+                    : 'Your coach asks the questions and guides you with direct feedback.'}
                 </Text>
               )}
             </View>
