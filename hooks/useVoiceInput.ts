@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useSTT } from './useSTT';
+import { playBeep } from '../lib/sounds';
 
 export type VoiceInputState = 'idle' | 'recording' | 'processing' | 'error';
 
@@ -49,8 +50,9 @@ export function useVoiceInput(enabled: boolean = true): UseVoiceInputReturn {
     setError(null);
     setState('recording');
 
-    // Haptic feedback on start
+    // Haptic feedback + acknowledgement beep on start
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    playBeep();
 
     startListening().catch((err) => {
       setState('error');
