@@ -9,6 +9,7 @@ import {
   Pressable,
   Image,
   ImageSourcePropType,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -201,9 +202,22 @@ export default function ChatScreen() {
     if (report) {
       router.replace(`/(tabs)/chat/report/${conversation.id}`);
     } else {
-      // Fallback: just end and go back to source tab
-      await end();
-      goBackToSource();
+      const errorMsg = useChatStore.getState().error || 'An unexpected error occurred.';
+      Alert.alert(
+        'Report Generation Failed',
+        errorMsg,
+        [
+          { text: 'Try Again', onPress: () => handleViewReport() },
+          {
+            text: 'Skip Report',
+            style: 'cancel',
+            onPress: async () => {
+              await end();
+              goBackToSource();
+            },
+          },
+        ],
+      );
     }
   };
 

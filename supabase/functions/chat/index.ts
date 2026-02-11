@@ -522,7 +522,7 @@ serve(async (req) => {
 
       const { data: conversation, error: convError } = await supabase
         .from('conversations')
-        .select('*, started_at, created_at, personas(name, challenge_style)')
+        .select('*, started_at, created_at, analysis_summary, personas(name, challenge_style)')
         .eq('id', conversationId)
         .single();
 
@@ -587,54 +587,65 @@ Generate a comprehensive session report.`;
         );
       }
 
-      const reportGroqResponse = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: reportConfig.model,
-          messages: [
-            { role: 'system', content: reportConfig.report_system_prompt },
-            { role: 'user', content: reportUserPrompt },
-          ],
-          temperature: reportConfig.temperature,
-          max_tokens: reportConfig.max_completion_tokens,
-        }),
-      });
-
-      if (!reportGroqResponse.ok) {
-        const errorText = await reportGroqResponse.text();
-        console.error('Groq error:', reportGroqResponse.status, errorText);
-        throw new Error(`Groq API error: ${reportGroqResponse.status}`);
+      // Try report generation with primary model, then fallback
+      const modelsToTry = [reportConfig.model];
+      if (reportConfig.fallback_model && reportConfig.fallback_model !== reportConfig.model) {
+        modelsToTry.push(reportConfig.fallback_model);
       }
 
-      const reportGroqData = await reportGroqResponse.json();
-      const reportContent = reportGroqData.choices[0]?.message?.content || '';
+      let report: SessionReport | null = null;
+      let reportGroqData: Record<string, unknown> | null = null;
+      let usedModel = reportConfig.model;
 
-      let report: SessionReport;
-      try {
-        const jsonMatch = reportContent.match(/\{[\s\S]*\}/);
-        const jsonStr = jsonMatch ? jsonMatch[0] : reportContent;
-        report = JSON.parse(jsonStr.trim());
-        report.generated_at = new Date().toISOString();
-      } catch {
-        console.error('Failed to parse report:', reportContent);
-        report = {
-          tldr: 'Session completed. Analysis could not be generated.',
-          strengths: ['Engaged in conversation', 'Completed the session'],
-          weaknesses: ['Analysis unavailable'],
-          detailed_analysis: 'The session was completed but detailed analysis could not be generated at this time.',
-          overall_score: 50,
-          dimension_scores: {
-            logical_reasoning: 50,
-            bias_awareness: 50,
-            perspective_taking: 50,
-            emotional_regulation: 50,
-          },
-          generated_at: new Date().toISOString(),
-        };
+      for (const model of modelsToTry) {
+        try {
+          const reportGroqResponse = await fetch(GROQ_API_URL, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${groqApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: reportConfig.report_system_prompt },
+                { role: 'user', content: reportUserPrompt },
+              ],
+              temperature: reportConfig.temperature,
+              max_tokens: reportConfig.max_completion_tokens,
+              response_format: { type: 'json_object' },
+            }),
+          });
+
+          if (!reportGroqResponse.ok) {
+            const errorText = await reportGroqResponse.text();
+            console.error(`Groq error (${model}):`, reportGroqResponse.status, errorText);
+            continue; // Try next model
+          }
+
+          reportGroqData = await reportGroqResponse.json();
+          const reportContent = (reportGroqData as { choices: { message: { content: string } }[] }).choices[0]?.message?.content || '';
+
+          const jsonMatch = reportContent.match(/\{[\s\S]*\}/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : reportContent;
+          report = JSON.parse(jsonStr.trim());
+          report!.generated_at = new Date().toISOString();
+          usedModel = model;
+          break; // Success
+        } catch (parseErr) {
+          console.error(`Report parse/fetch failed for model ${model}:`, parseErr);
+          continue; // Try next model
+        }
+      }
+
+      if (!report) {
+        return new Response(
+          JSON.stringify({
+            error: 'Report generation failed — AI returned invalid data. Please try again.',
+            errorCode: 'REPORT_PARSE_FAILED',
+          }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       if (!report.dimension_scores) {
@@ -698,37 +709,44 @@ Generate a comprehensive session report.`;
         console.error('Failed to save report:', updateError);
       }
 
-      if (reportGroqData.usage) {
+      const groqUsage = (reportGroqData as { usage?: GroqUsage })?.usage;
+      if (groqUsage) {
         await recordAIUsage(supabase, {
           userId: conversation.user_id,
           conversationId: conversationId,
           personaId: conversation.persona_id,
-          model: reportConfig.model,
-          promptTokens: reportGroqData.usage.prompt_tokens,
-          completionTokens: reportGroqData.usage.completion_tokens,
-          totalTokens: reportGroqData.usage.total_tokens,
+          model: usedModel,
+          promptTokens: groqUsage.prompt_tokens,
+          completionTokens: groqUsage.completion_tokens,
+          totalTokens: groqUsage.total_tokens,
           taskType: 'report',
         });
       }
 
+      // Skip gamification on re-analysis (not idempotent — awards XP, streaks, achievements)
+      const isRegeneration = conversation.analysis_summary != null;
       let gamificationResult = null;
-      try {
-        gamificationResult = await processSessionGamification(
-          supabase,
-          conversation.user_id,
-          conversationId,
-          {
-            overall_score: report.overall_score,
-            dimension_scores: report.dimension_scores,
-          }
-        );
-        console.log('Gamification processed:', {
-          xpAwarded: gamificationResult.xp.awarded,
-          streak: gamificationResult.streak.current,
-          achievements: gamificationResult.achievements.length,
-        });
-      } catch (gamificationError) {
-        console.error('Gamification processing error:', gamificationError);
+      if (!isRegeneration) {
+        try {
+          gamificationResult = await processSessionGamification(
+            supabase,
+            conversation.user_id,
+            conversationId,
+            {
+              overall_score: report.overall_score,
+              dimension_scores: report.dimension_scores,
+            }
+          );
+          console.log('Gamification processed:', {
+            xpAwarded: gamificationResult.xp.awarded,
+            streak: gamificationResult.streak.current,
+            achievements: gamificationResult.achievements.length,
+          });
+        } catch (gamificationError) {
+          console.error('Gamification processing error:', gamificationError);
+        }
+      } else {
+        console.log('Skipping gamification — re-analysis of existing report');
       }
 
       return new Response(

@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Image,
   ImageSourcePropType,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ import {
   ChevronUp,
   Clock,
   Activity,
+  RefreshCw,
 } from 'lucide-react-native';
 
 /**
@@ -44,7 +46,7 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 import { supabase } from '../../../../lib/supabase';
-import { usePersonaStore, useAuthStore } from '../../../../stores';
+import { usePersonaStore, useAuthStore, useChatStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
 import { SessionStats, PerformanceAnalysis, AIStats, EmotionalJourney } from '../../../../components/report';
 
@@ -123,6 +125,8 @@ export default function ReportScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const { generateReport } = useChatStore();
 
   useEffect(() => {
     loadReport();
@@ -208,6 +212,48 @@ export default function ReportScreen() {
     return '#f87171';
   };
 
+  const handleReanalyse = () => {
+    Alert.alert(
+      'Re-Analyse Session',
+      'This will regenerate the report. The existing report will be overwritten.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Re-Analyse',
+          onPress: async () => {
+            if (!id) return;
+            setIsRegenerating(true);
+            try {
+              const result = await generateReport(id);
+              if (result) {
+                await loadReport();
+              } else {
+                Alert.alert('Error', useChatStore.getState().error || 'Failed to regenerate report.');
+              }
+            } finally {
+              setIsRegenerating(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleGenerateReport = async () => {
+    if (!id) return;
+    setIsRegenerating(true);
+    try {
+      const result = await generateReport(id);
+      if (result) {
+        await loadReport();
+      } else {
+        Alert.alert('Error', useChatStore.getState().error || 'Failed to generate report.');
+      }
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
@@ -224,19 +270,50 @@ export default function ReportScreen() {
   if (!report) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>Report not found</Text>
-          <Pressable
-            onPress={() => router.navigate('/(tabs)/personas')}
+        {/* Regeneration overlay */}
+        {isRegenerating && (
+          <View
             style={{
-              marginTop: 16,
-              paddingHorizontal: 20,
-              paddingVertical: 12,
-              backgroundColor: '#F59E0B',
-              borderRadius: 12,
+              position: 'absolute',
+              top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              zIndex: 50,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <Text style={{ color: '#0f0f12', fontWeight: '600' }}>Go Back</Text>
+            <ActivityIndicator size="large" color="#F59E0B" />
+            <Text style={{ color: '#fff', marginTop: 12, fontSize: 16 }}>Generating report...</Text>
+          </View>
+        )}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>Report not found</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+            The analysis for this session hasn't been generated yet.
+          </Text>
+          <Pressable
+            onPress={handleGenerateReport}
+            disabled={isRegenerating}
+            style={{
+              marginTop: 20,
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+              backgroundColor: '#F59E0B',
+              borderRadius: 12,
+              opacity: isRegenerating ? 0.5 : 1,
+            }}
+          >
+            <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 16 }}>Generate Report</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.canGoBack() ? router.back() : router.navigate('/(tabs)/personas')}
+            style={{
+              marginTop: 12,
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+            }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '500' }}>Go Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -247,6 +324,23 @@ export default function ReportScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
+      {/* Regeneration overlay */}
+      {isRegenerating && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            zIndex: 50,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ActivityIndicator size="large" color="#F59E0B" />
+          <Text style={{ color: '#fff', marginTop: 12, fontSize: 16 }}>Re-analysing session...</Text>
+        </View>
+      )}
+
       {/* Header */}
       <View
         style={{
@@ -261,9 +355,32 @@ export default function ReportScreen() {
         <Pressable onPress={() => router.canGoBack() ? router.back() : router.navigate('/(tabs)/chat/sessions')} style={{ padding: 4 }}>
           <ChevronLeft size={24} color="#F59E0B" />
         </Pressable>
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 }}>
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8, flex: 1 }}>
           Session Report
         </Text>
+        {profile?.is_admin && (
+          <Pressable
+            onPress={handleReanalyse}
+            disabled={isRegenerating}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16,
+              backgroundColor: 'rgba(245,158,11,0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(245,158,11,0.3)',
+              opacity: isRegenerating ? 0.5 : 1,
+              gap: 4,
+            }}
+          >
+            <RefreshCw size={14} color="#F59E0B" />
+            <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '600' }}>
+              {isRegenerating ? 'Analysing...' : 'Re-Analyse'}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView

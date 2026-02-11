@@ -49,21 +49,28 @@ export default function SessionsScreen() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [scoreSort, setScoreSort] = useState<ScoreSort>('off');
 
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { getPersonaById } = usePersonaStore();
+  const isAdmin = !!profile?.is_admin;
 
   const fetchSessions = useCallback(async (showRefresh = false) => {
     if (!user?.id) return;
     if (showRefresh) setIsRefreshing(true);
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('conversations')
         .select('id, persona_id, overall_score, ended_at, created_at')
         .eq('user_id', user.id)
         .eq('status', 'completed')
-        .not('overall_score', 'is', null)
         .order('ended_at', { ascending: false });
+
+      // Admin sees all completed sessions, including those with missing reports
+      if (!isAdmin) {
+        query = query.not('overall_score', 'is', null);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setSessions(data ?? []);
@@ -73,7 +80,7 @@ export default function SessionsScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, isAdmin]);
 
   useEffect(() => {
     fetchSessions();
@@ -176,25 +183,47 @@ export default function SessionsScreen() {
         </View>
 
         {/* Score Badge */}
-        <View
-          style={{
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 12,
-            backgroundColor: `${scoreColor}20`,
-            marginRight: 8,
-          }}
-        >
-          <Text
+        {item.overall_score != null ? (
+          <View
             style={{
-              color: scoreColor,
-              fontSize: 14,
-              fontWeight: '700',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 12,
+              backgroundColor: `${scoreColor}20`,
+              marginRight: 8,
             }}
           >
-            {item.overall_score ?? '--'}
-          </Text>
-        </View>
+            <Text
+              style={{
+                color: scoreColor,
+                fontSize: 14,
+                fontWeight: '700',
+              }}
+            >
+              {item.overall_score}
+            </Text>
+          </View>
+        ) : (
+          <View
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 12,
+              backgroundColor: 'rgba(239,68,68,0.15)',
+              marginRight: 8,
+            }}
+          >
+            <Text
+              style={{
+                color: '#ef4444',
+                fontSize: 11,
+                fontWeight: '600',
+              }}
+            >
+              No Report
+            </Text>
+          </View>
+        )}
 
         <ChevronRight size={20} color="rgba(255,255,255,0.3)" />
       </Pressable>
