@@ -44,7 +44,7 @@ export default function PersonasScreen() {
   const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
   const isSnapMode = fullscreenCardMode === true;
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
-  const snapCardHeight = SCREEN_HEIGHT - headerHeight - TAB_BAR_HEIGHT - insets.bottom;
+  const snapCardHeight = SCREEN_HEIGHT - headerHeight - TAB_BAR_HEIGHT;
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
