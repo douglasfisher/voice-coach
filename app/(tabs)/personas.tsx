@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { Layout, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -72,17 +72,11 @@ export default function PersonasScreen() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Let spinner show briefly
-    await new Promise(resolve => setTimeout(resolve, 300));
-    // Fade out cards
-    listOpacity.value = withTiming(0, { duration: 200 });
-    await new Promise(resolve => setTimeout(resolve, 250));
-    // Shuffle while invisible
+    listOpacity.value = withTiming(0.15, { duration: 150 });
+    await new Promise(resolve => setTimeout(resolve, 200));
     setShuffleKey(prev => prev + 1);
-    await new Promise(resolve => setTimeout(resolve, 100));
-    // Fade back in
-    listOpacity.value = withTiming(1, { duration: 300 });
-    await new Promise(resolve => setTimeout(resolve, 350));
+    listOpacity.value = withTiming(1, { duration: 250 });
+    await new Promise(resolve => setTimeout(resolve, 300));
     setIsRefreshing(false);
   }, [listOpacity]);
 
@@ -210,7 +204,7 @@ export default function PersonasScreen() {
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" />}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" progressViewOffset={headerHeight} />}
         >
           {isRefreshing && (
             <View style={{ alignItems: 'center', paddingVertical: 16 }}>
@@ -247,12 +241,12 @@ export default function PersonasScreen() {
             {/* Grid of Personas */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
               {otherPersonas.map((persona) => (
-                <Animated.View key={persona.id} layout={Layout.springify()} style={{ width: '100%', padding: 4 }}>
+                <View key={persona.id} style={{ width: '100%', padding: 4 }}>
                   <PersonaCard
                     persona={persona}
                     onPress={() => setSelectedPersona(persona)}
                   />
-                </Animated.View>
+                </View>
               ))}
             </View>
 
