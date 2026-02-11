@@ -204,11 +204,11 @@ export default function PersonasScreen() {
           data={shuffledPersonas}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <View style={{ height: snapCardHeight, paddingHorizontal: 8 }}>
+            <View style={{ height: snapCardHeight, paddingHorizontal: 8, paddingBottom: 16 }}>
               <PersonaCard
                 persona={item}
                 onPress={() => setSelectedPersona(item)}
-                height={snapCardHeight}
+                height={snapCardHeight - 16}
               />
             </View>
           )}
