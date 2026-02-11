@@ -13,7 +13,6 @@ import { useScrollHideAnimation } from '../../hooks/useScrollHideAnimation';
 import { useAppSetting } from '../../hooks';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
-import { ModeToggle } from '../../components/chat/ModeToggle';
 import { PersonaDisplay } from '../../types/persona';
 import { supabase } from '../../lib/supabase';
 import { HEADER_TOP_PADDING } from '../../constants/layout';
@@ -42,7 +41,7 @@ export default function CoachesScreen() {
 
   const { personas, isLoading: personasLoading } = usePersonas();
   const { user } = useAuthStore();
-  const { createConversation, globalInteractionMode, setGlobalInteractionMode, coachesActiveDomain, setCoachesActiveDomain } = useChatStore();
+  const { createConversation, coachesActiveDomain, setCoachesActiveDomain } = useChatStore();
   const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
   const isSnapMode = fullscreenCardMode === true;
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
@@ -170,25 +169,16 @@ export default function CoachesScreen() {
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <GraduationCap size={24} color="#10b981" />
-                <Text className="text-text-primary text-2xl font-bold ml-2">
-                  Coaches
-                </Text>
-              </View>
-              <Text className="text-text-secondary mt-1">
-                {globalInteractionMode === 'question'
-                  ? 'You ask the questions!'
-                  : 'Practice real-world conversations'}
+          <View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <GraduationCap size={24} color="#10b981" />
+              <Text className="text-text-primary text-2xl font-bold ml-2">
+                Coaches
               </Text>
             </View>
-            <ModeToggle
-              mode={globalInteractionMode}
-              onModeChange={setGlobalInteractionMode}
-              accentColor="#10b981"
-            />
+            <Text className="text-text-secondary mt-1">
+              Practice real-world conversations
+            </Text>
           </View>
         </View>
 
