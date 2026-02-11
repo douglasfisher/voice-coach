@@ -118,7 +118,8 @@ export type AppSettingKey =
   | 'cost_markup_percent'
   | 'unified_card_gradient'
   | 'challenge_show_persona_image'
-  | 'daily_challenges_batch';
+  | 'daily_challenges_batch'
+  | 'fullscreen_card_mode';
 
 export interface DailyChallengeItem {
   question: string;
@@ -144,6 +145,7 @@ export interface AppSettingsMap {
   unified_card_gradient: boolean;
   challenge_show_persona_image: boolean;
   daily_challenges_batch: DailyChallengesBatch | null;
+  fullscreen_card_mode: boolean;
 }
 
 // =============================================================================

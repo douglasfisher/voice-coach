@@ -30,6 +30,7 @@ import {
   Palette,
   ImageIcon,
   Target,
+  Maximize,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -687,6 +688,35 @@ export default function AdminSettingsScreen() {
                     onValueChange={(value) => updateLocal('unified_card_gradient', value)}
                     trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(192, 132, 252, 0.5)' }}
                     thumbColor={localSettings.unified_card_gradient ? '#c084fc' : 'rgba(255,255,255,0.5)'}
+                    ios_backgroundColor="rgba(255,255,255,0.1)"
+                  />
+                </View>
+
+                {/* Fullscreen Card Mode */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(255,255,255,0.05)',
+                    marginTop: 8,
+                  }}
+                >
+                  <Maximize size={18} color="#2dd4bf" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                      Fullscreen Card Mode
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                      One card at a time with snap scrolling
+                    </Text>
+                  </View>
+                  <Switch
+                    value={localSettings.fullscreen_card_mode || false}
+                    onValueChange={(value) => updateLocal('fullscreen_card_mode', value)}
+                    trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(45, 212, 191, 0.5)' }}
+                    thumbColor={localSettings.fullscreen_card_mode ? '#2dd4bf' : 'rgba(255,255,255,0.5)'}
                     ios_backgroundColor="rgba(255,255,255,0.1)"
                   />
                 </View>

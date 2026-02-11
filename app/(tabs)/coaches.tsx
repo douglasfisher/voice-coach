@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl, Dimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useScrollHideAnimation } from '../../hooks/useScrollHideAnimation';
+import { useAppSetting } from '../../hooks';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { ModeToggle } from '../../components/chat/ModeToggle';
@@ -21,6 +22,8 @@ import { shuffleArray } from '../../lib/shuffle';
 
 // Height of header content (title + subtitle + filter pills) without safe area
 const HEADER_CONTENT_HEIGHT = 119;
+const TAB_BAR_HEIGHT = 85;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 interface CoachingDomain {
   id: string;
@@ -40,7 +43,10 @@ export default function CoachesScreen() {
   const { personas, isLoading: personasLoading } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation, globalInteractionMode, setGlobalInteractionMode, coachesActiveDomain, setCoachesActiveDomain } = useChatStore();
-  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
+  const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
+  const isSnapMode = fullscreenCardMode === true;
+  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
+  const snapCardHeight = SCREEN_HEIGHT - headerHeight - TAB_BAR_HEIGHT - insets.bottom;
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -264,6 +270,36 @@ export default function CoachesScreen() {
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#10b981" />
         </View>
+      ) : isSnapMode ? (
+        <Animated.FlatList
+          data={shuffledCoaches}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={{ height: snapCardHeight, paddingHorizontal: 8 }}>
+              <PersonaCard
+                persona={item}
+                onPress={() => setSelectedPersona(item)}
+                height={snapCardHeight}
+              />
+            </View>
+          )}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingTop: headerHeight,
+          }}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={snapCardHeight}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#10b981" progressViewOffset={headerHeight} />}
+          ListEmptyComponent={
+            <View style={{ paddingVertical: 80, alignItems: 'center' }}>
+              <Text style={{ color: '#6E6E73' }}>No coaches available in this category</Text>
+            </View>
+          }
+        />
       ) : (
         <Animated.ScrollView
           style={{ flex: 1 }}
