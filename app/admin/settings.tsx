@@ -31,6 +31,7 @@ import {
   ImageIcon,
   Target,
   Maximize,
+  Crosshair,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -717,6 +718,35 @@ export default function AdminSettingsScreen() {
                     onValueChange={(value) => updateLocal('fullscreen_card_mode', value)}
                     trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(45, 212, 191, 0.5)' }}
                     thumbColor={localSettings.fullscreen_card_mode ? '#2dd4bf' : 'rgba(255,255,255,0.5)'}
+                    ios_backgroundColor="rgba(255,255,255,0.1)"
+                  />
+                </View>
+
+                {/* Focus Mode Chat */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(255,255,255,0.05)',
+                    marginTop: 8,
+                  }}
+                >
+                  <Crosshair size={18} color="#f59e0b" />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                      Focus Mode Chat
+                    </Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                      Show only the latest exchange in conversations
+                    </Text>
+                  </View>
+                  <Switch
+                    value={localSettings.focus_mode_chat || false}
+                    onValueChange={(value) => updateLocal('focus_mode_chat', value)}
+                    trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(245, 158, 11, 0.5)' }}
+                    thumbColor={localSettings.focus_mode_chat ? '#f59e0b' : 'rgba(255,255,255,0.5)'}
                     ios_backgroundColor="rgba(255,255,255,0.1)"
                   />
                 </View>

@@ -119,7 +119,8 @@ export type AppSettingKey =
   | 'unified_card_gradient'
   | 'challenge_show_persona_image'
   | 'daily_challenges_batch'
-  | 'fullscreen_card_mode';
+  | 'fullscreen_card_mode'
+  | 'focus_mode_chat';
 
 export interface DailyChallengeItem {
   question: string;
@@ -146,6 +147,7 @@ export interface AppSettingsMap {
   challenge_show_persona_image: boolean;
   daily_challenges_batch: DailyChallengesBatch | null;
   fullscreen_card_mode: boolean;
+  focus_mode_chat: boolean;
 }
 
 // =============================================================================

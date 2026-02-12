@@ -42,7 +42,9 @@ import {
   EndChatModal,
   SessionTimer,
   ResetConfirmationModal,
+  FocusModeChat,
 } from '../../../components/chat';
+import { useAppSetting } from '../../../hooks/useAppSetting';
 import { HeaderFade } from '../../../components/ui/HeaderFade';
 import { ChallengeStyle } from '../../../types/persona';
 
@@ -142,6 +144,10 @@ export default function ChatScreen() {
     setTrait,
   } = useChatStore();
   const chatStarted = messages.length > 0;
+
+  // Focus mode setting
+  const { value: focusModeEnabled } = useAppSetting('focus_mode_chat');
+  const isFocusMode = focusModeEnabled === true;
 
   // Trait system
   const personaType = persona?.personaType as 'coach' | 'challenger' | undefined;
@@ -311,12 +317,12 @@ export default function ChatScreen() {
   }, [messages.length, sessionStartTime]);
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && !isFocusMode) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages.length]);
+  }, [messages.length, isFocusMode]);
 
   if (isLoading && !conversation) {
     return (
@@ -456,40 +462,54 @@ export default function ChatScreen() {
 
         {/* Messages or Full-screen Hero */}
         {chatStarted ? (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{
-              padding: 16,
-              paddingBottom: 8,
-              paddingTop: showImmersiveLayout ? insets.top + 60 : 16,
-            }}
-            showsVerticalScrollIndicator={false}
-            style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
-            renderItem={({ item }) => (
-              <MessageBubble
-                content={item.content}
-                role={item.role as 'user' | 'assistant'}
-                persona={item.role === 'assistant' ? persona : undefined}
-                audioUrl={item.audio_url}
-                onPlayAudio={
-                  item.role === 'assistant' && preferences?.tts_enabled
-                    ? () => handlePlayAudio(item.audio_url, item.content)
-                    : undefined
-                }
-                isPlaying={isPlaying}
-                timestamp={item.created_at}
-                responseTimeMs={item.response_time_ms}
-                immersiveMode={showImmersiveLayout}
-                metadata={item.metadata}
-                isAdmin={!!profile?.is_admin}
-              />
-            )}
-            ListFooterComponent={
-              isSending ? <TypingIndicator persona={persona} /> : null
-            }
-          />
+          isFocusMode ? (
+            <FocusModeChat
+              messages={messages}
+              persona={persona}
+              isSending={isSending}
+              immersiveMode={showImmersiveLayout}
+              isAdmin={!!profile?.is_admin}
+              preferences={preferences}
+              onPlayAudio={handlePlayAudio}
+              isPlaying={isPlaying}
+              isQAMode={isQAMode}
+            />
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{
+                padding: 16,
+                paddingBottom: 8,
+                paddingTop: showImmersiveLayout ? insets.top + 60 : 16,
+              }}
+              showsVerticalScrollIndicator={false}
+              style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
+              renderItem={({ item }) => (
+                <MessageBubble
+                  content={item.content}
+                  role={item.role as 'user' | 'assistant'}
+                  persona={item.role === 'assistant' ? persona : undefined}
+                  audioUrl={item.audio_url}
+                  onPlayAudio={
+                    item.role === 'assistant' && preferences?.tts_enabled
+                      ? () => handlePlayAudio(item.audio_url, item.content)
+                      : undefined
+                  }
+                  isPlaying={isPlaying}
+                  timestamp={item.created_at}
+                  responseTimeMs={item.response_time_ms}
+                  immersiveMode={showImmersiveLayout}
+                  metadata={item.metadata}
+                  isAdmin={!!profile?.is_admin}
+                />
+              )}
+              ListFooterComponent={
+                isSending ? <TypingIndicator persona={persona} /> : null
+              }
+            />
+          )
         ) : (
           <ChatHeroEmptyState
             persona={persona}

@@ -13,3 +13,5 @@ export { EndChatModal } from './EndChatModal';
 export { SessionTimer } from './SessionTimer';
 export { ResetConfirmationModal } from './ResetConfirmationModal';
 export { ModeToggle } from './ModeToggle';
+export { FocusModeChat } from './FocusModeChat';
+export { CollapsibleSceneHeader } from './CollapsibleSceneHeader';
