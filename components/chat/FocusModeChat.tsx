@@ -30,6 +30,7 @@ interface FocusModeChatProps {
   onPlayAudio: (audioUrl: string | null, content: string) => void;
   isPlaying: boolean;
   isQAMode: boolean;
+  topPadding?: number;
 }
 
 export function FocusModeChat({
@@ -42,6 +43,7 @@ export function FocusModeChat({
   onPlayAudio,
   isPlaying,
   isQAMode,
+  topPadding = 16,
 }: FocusModeChatProps) {
   // Derive the key messages
   const openingMessage = messages.length > 0 ? messages[0] : null;
@@ -50,7 +52,7 @@ export function FocusModeChat({
   const lastAssistant = [...messages]
     .reverse()
     .find(
-      (m, _i) =>
+      (m) =>
         m.role === 'assistant' && m.id !== openingMessage?.id
     ) || null;
 
@@ -65,7 +67,7 @@ export function FocusModeChat({
   // Only opening message — show expanded header, no bubbles
   if (messages.length <= 1) {
     return (
-      <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}>
+      <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: topPadding }}>
         {openingMessage && (
           <CollapsibleSceneHeader
             message={openingMessage}
@@ -79,7 +81,7 @@ export function FocusModeChat({
   }
 
   return (
-    <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8 }}>
+    <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: topPadding }}>
       {/* Collapsible opening message */}
       {openingMessage && (
         <CollapsibleSceneHeader
@@ -119,8 +121,8 @@ export function FocusModeChat({
         </View>
       )}
 
-      {/* Latest exchange area */}
-      <View style={{ flex: 1, justifyContent: 'center' }}>
+      {/* Latest exchange area — anchored to bottom like a chat */}
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
         {/* Last assistant message */}
         {lastAssistant && (
           <Animated.View

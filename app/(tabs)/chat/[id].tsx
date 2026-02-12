@@ -473,6 +473,7 @@ export default function ChatScreen() {
               onPlayAudio={handlePlayAudio}
               isPlaying={isPlaying}
               isQAMode={isQAMode}
+              topPadding={showImmersiveLayout ? insets.top + 60 : 16}
             />
           ) : (
             <FlatList

@@ -4,7 +4,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
+  interpolate,
 } from 'react-native-reanimated';
 import { ChevronDown, Clapperboard } from 'lucide-react-native';
 import { PersonaDisplay } from '../../types/persona';
@@ -63,8 +63,7 @@ export function CollapsibleSceneHeader({
 
   const expandedStyle = useAnimatedStyle(() => ({
     opacity: expandProgress.value,
-    maxHeight: withTiming(expandProgress.value === 1 ? 500 : 0, { duration: 250 }),
-    overflow: 'hidden' as const,
+    maxHeight: interpolate(expandProgress.value, [0, 1], [0, 500]),
   }));
 
   return (
@@ -130,7 +129,7 @@ export function CollapsibleSceneHeader({
       </Pressable>
 
       {/* Expanded content */}
-      <Animated.View style={expandedStyle}>
+      <Animated.View style={[{ overflow: 'hidden' }, expandedStyle]}>
         <View
           style={{
             marginTop: 8,
