@@ -411,19 +411,21 @@ export default function AdminPersonaEditScreen() {
           />
 
           {form.name.trim().length > 0 && (
-            <View style={{ marginBottom: 16 }}>
+            <View
+              style={{
+                marginBottom: 16,
+                borderRadius: 16,
+                overflow: 'hidden',
+                borderWidth: 2,
+                borderColor: 'rgba(245, 158, 11, 0.3)',
+              }}
+            >
               <Image
                 source={resolvePersonaAvatarWithUrl(form.name, form.avatar_url, form.avatar_thumbnail_url)}
-                style={{
-                  width: '100%',
-                  aspectRatio: 896 / 1152,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: 'rgba(245, 158, 11, 0.3)',
-                }}
+                style={{ width: '100%', height: 400 }}
                 resizeMode="cover"
               />
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6, textAlign: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6, textAlign: 'center', paddingBottom: 8 }}>
                 {form.avatar_url === 'local' ? 'Local avatar' : form.avatar_url ? 'Custom avatar' : 'No avatar set'}
               </Text>
             </View>
