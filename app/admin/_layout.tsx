@@ -22,7 +22,8 @@ function BackToAppButton() {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        marginLeft: 16,
+        height: '100%',
+        paddingHorizontal: 16,
       }}
     >
       <ArrowLeft size={20} color="#F59E0B" />
@@ -54,6 +55,7 @@ function MenuButton({ onPress }: { onPress: () => void }) {
       hitSlop={12}
       style={{
         marginRight: 16,
+        height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
       }}
