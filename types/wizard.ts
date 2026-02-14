@@ -145,3 +145,25 @@ export const CAMERA_OPTIONS = [
   'Nikon 105mm f/2.8',
   'Hasselblad medium format',
 ];
+
+// =============================================================================
+// PROMPT SECTIONS
+// =============================================================================
+
+export const PROMPT_SECTION_KEYS = [
+  'identity',
+  'trait_tokens',
+  'character_traits',
+  'roleplay_behavior',
+  'coaching_approach',
+] as const;
+
+export type PromptSectionKey = (typeof PROMPT_SECTION_KEYS)[number];
+
+export const PROMPT_SECTION_LABELS: Record<PromptSectionKey, string> = {
+  identity: 'Identity & Background',
+  trait_tokens: 'Trait Tokens',
+  character_traits: 'Character Traits',
+  roleplay_behavior: 'Roleplay & Coaching Behavior',
+  coaching_approach: 'Coaching Approach',
+};

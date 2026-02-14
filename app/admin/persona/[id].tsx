@@ -213,6 +213,7 @@ export default function AdminPersonaEditScreen() {
     default_interaction_mode: 'coach_leads',
     feedback_style: 'sandwich',
     emotional_progression_enabled: false,
+    prompt_sections: null,
   });
 
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
@@ -276,6 +277,7 @@ export default function AdminPersonaEditScreen() {
         default_interaction_mode: selectedPersona.default_interaction_mode || 'coach_leads',
         feedback_style: selectedPersona.feedback_style || 'sandwich',
         emotional_progression_enabled: selectedPersona.emotional_progression_enabled ?? false,
+        prompt_sections: selectedPersona.prompt_sections || null,
       });
     }
   }, [selectedPersona, isNew]);

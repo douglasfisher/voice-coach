@@ -31,7 +31,10 @@ import {
   ACCESSORY_OPTIONS,
   POSE_OPTIONS,
   CAMERA_OPTIONS,
+  PROMPT_SECTION_KEYS,
+  PromptSectionKey,
 } from '../types/wizard';
+import { TRAIT_TOKENS } from '../components/admin/shared/TraitTokenBadges';
 
 // =============================================================================
 // DEFAULTS
@@ -75,7 +78,9 @@ const DEFAULT_FORM_DATA: WizardFormData = {
     model: 'llama-3.1-8b-instant',
     fallback_model: 'llama-3.1-8b-instant',
     temperature: 0.7,
+    top_p: 0.9,
     max_completion_tokens: 1024,
+    stop: [],
   },
   persona_type: 'coach',
   domain_id: null,
@@ -83,6 +88,7 @@ const DEFAULT_FORM_DATA: WizardFormData = {
   default_interaction_mode: 'coach_leads',
   feedback_style: 'sandwich',
   emotional_progression_enabled: false,
+  prompt_sections: null,
 };
 
 // =============================================================================
@@ -153,6 +159,18 @@ interface WizardState {
   upscaleSelected: () => Promise<void>;
   saveUnusedToLibrary: () => Promise<void>;
   selectFromLibrary: (publicUrl: string, storagePath: string) => void;
+
+  // Trait defaults
+  traitDefaults: Record<string, string>; // categorySlug → optionId
+  setTraitDefault: (categorySlug: string, optionId: string) => void;
+  setTraitDefaults: (defaults: Record<string, string>) => void;
+
+  // Prompt sections
+  promptSections: Record<string, string>;
+  setPromptSection: (key: PromptSectionKey, value: string) => void;
+  generatePromptSection: (key: PromptSectionKey) => Promise<void>;
+  compilePrompt: () => void;
+  isGeneratingSection: PromptSectionKey | null;
 
   // AI-assisted generation
   generatePersonaDetails: () => Promise<void>;
@@ -430,6 +448,105 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   },
 
   // =========================================================================
+  // TRAIT DEFAULTS
+  // =========================================================================
+
+  traitDefaults: {},
+
+  setTraitDefault: (categorySlug, optionId) => {
+    set((state) => ({
+      traitDefaults: { ...state.traitDefaults, [categorySlug]: optionId },
+    }));
+  },
+
+  setTraitDefaults: (defaults) => {
+    set({ traitDefaults: defaults });
+  },
+
+  // =========================================================================
+  // PROMPT SECTIONS
+  // =========================================================================
+
+  promptSections: {
+    identity: '',
+    trait_tokens: '',
+    character_traits: '',
+    roleplay_behavior: '',
+    coaching_approach: '',
+  },
+  isGeneratingSection: null,
+
+  setPromptSection: (key, value) => {
+    set((state) => ({
+      promptSections: { ...state.promptSections, [key]: value },
+    }));
+  },
+
+  generatePromptSection: async (key: PromptSectionKey) => {
+    const { formData, avatar, aiComplete } = get();
+    set({ isGeneratingSection: key });
+
+    const personaContext = `Name: ${formData.name || 'Unknown'}
+Tagline: ${formData.tagline || 'None'}
+Cultural Background: ${formData.cultural_background || 'None'}
+Type: ${formData.persona_type}
+Coaching Style: ${formData.coaching_style || 'Not set'}
+Challenge Style: ${formData.challenge_style}
+Feedback Style: ${formData.feedback_style}
+Personality: Warmth ${formData.warmth}/100, Directness ${formData.directness}/100, Patience ${formData.patience}/100, Humor ${formData.humor}/100, Formality ${formData.formality}/100
+Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}`;
+
+    const sectionPrompts: Record<PromptSectionKey, string> = {
+      identity: `Write an opening identity paragraph for this AI coaching persona. Start with "You are [Name], a [role]..." and establish who they are, their background, and their approach. 2-4 sentences.\n\nPersona:\n${personaContext}\n\nReturn ONLY the paragraph, no explanation.`,
+      trait_tokens: '', // Not AI-generated
+      character_traits: `Write a CHARACTER TRAITS section for this AI coaching persona. Start with "CHARACTER TRAITS:" on its own line, then include the placeholder {{character_demeanor}} on its own line, followed by 4-6 bullet points describing specific character traits. Each bullet should be one concise sentence.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
+      roleplay_behavior: `Write a "WHEN IN ROLEPLAY:" section for this AI coaching persona. Start with "WHEN IN ROLEPLAY:" on its own line, then 5-7 bullet points describing specific roleplay behaviors and rules. Each bullet should be one concise directive.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
+      coaching_approach: `Write a "COACHING APPROACH:" section for this AI coaching persona. Start with "COACHING APPROACH:" on its own line, then 4-6 bullet points describing specific coaching methods and philosophy. Each bullet should be one concise sentence.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
+    };
+
+    try {
+      if (key === 'trait_tokens') {
+        // Not AI-generated — insert standard 12 tokens
+        const tokensBlock = TRAIT_TOKENS.map((t) => `{{${t}}}`).join('\n');
+        set((state) => ({
+          promptSections: { ...state.promptSections, trait_tokens: tokensBlock },
+          isGeneratingSection: null,
+        }));
+        return;
+      }
+
+      const responseText = await aiComplete(
+        'You are an expert prompt engineer designing AI coaching personas. Write natural, engaging system prompt sections.',
+        sectionPrompts[key],
+      );
+
+      if (responseText.trim()) {
+        set((state) => ({
+          promptSections: { ...state.promptSections, [key]: responseText.trim() },
+          isGeneratingSection: null,
+        }));
+      } else {
+        throw new Error('Empty response');
+      }
+    } catch (err) {
+      console.error(`Generate prompt section "${key}" error:`, err);
+      set({ isGeneratingSection: null });
+    }
+  },
+
+  compilePrompt: () => {
+    const { promptSections } = get();
+    const compiled = PROMPT_SECTION_KEYS
+      .map((key) => promptSections[key]?.trim())
+      .filter(Boolean)
+      .join('\n\n');
+
+    set((state) => ({
+      formData: { ...state.formData, system_prompt: compiled },
+    }));
+  },
+
+  // =========================================================================
   // AI-ASSISTED GENERATION
   // =========================================================================
 
@@ -554,18 +671,40 @@ Return ONLY the system prompt text, no explanation or markdown.`;
   // =========================================================================
 
   savePersona: async () => {
-    const { formData, avatar, saveUnusedToLibrary } = get();
+    const { formData, avatar, saveUnusedToLibrary, traitDefaults, promptSections } = get();
     const store = useAdminPersonaStore.getState();
 
-    // Images are already in Supabase storage (uploaded by edge function)
-    const result = await store.createPersona(formData);
+    // Include prompt_sections in the form data
+    const dataWithSections = {
+      ...formData,
+      prompt_sections: Object.values(promptSections).some((v) => v.trim())
+        ? promptSections
+        : null,
+    };
 
-    // Save unused drafts to library if storage is available
-    if (result.id && avatar.drafts.length > 0) {
-      try {
-        await saveUnusedToLibrary();
-      } catch (err) {
-        console.warn('Failed to save unused drafts to library:', err);
+    // Images are already in Supabase storage (uploaded by edge function)
+    const result = await store.createPersona(dataWithSections as typeof formData);
+
+    if (result.id) {
+      // Save trait defaults
+      const traitEntries = Object.entries(traitDefaults);
+      if (traitEntries.length > 0) {
+        try {
+          for (const [, optionId] of traitEntries) {
+            await store.updatePersonaTraitDefault(result.id, optionId);
+          }
+        } catch (err) {
+          console.warn('Failed to save trait defaults:', err);
+        }
+      }
+
+      // Save unused drafts to library if storage is available
+      if (avatar.drafts.length > 0) {
+        try {
+          await saveUnusedToLibrary();
+        } catch (err) {
+          console.warn('Failed to save unused drafts to library:', err);
+        }
       }
     }
 
@@ -580,6 +719,15 @@ Return ONLY the system prompt text, no explanation or markdown.`;
     set({
       currentStep: 0 as WizardStep,
       formData: { ...DEFAULT_FORM_DATA },
+      traitDefaults: {},
+      promptSections: {
+        identity: '',
+        trait_tokens: '',
+        character_traits: '',
+        roleplay_behavior: '',
+        coaching_approach: '',
+      },
+      isGeneratingSection: null,
       avatar: {
         params: { ...DEFAULT_AVATAR_PARAMS },
         editablePrompt: buildPromptFromParams(DEFAULT_AVATAR_PARAMS),

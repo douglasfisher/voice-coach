@@ -231,6 +231,7 @@ export interface Database {
           default_interaction_mode: string;
           feedback_style: string;
           emotional_progression_enabled: boolean;
+          prompt_sections: Record<string, string> | null;
         };
         Insert: {
           id?: string;
@@ -274,6 +275,7 @@ export interface Database {
           default_interaction_mode?: string;
           feedback_style?: string;
           emotional_progression_enabled?: boolean;
+          prompt_sections?: Record<string, string> | null;
         };
         Update: {
           id?: string;
@@ -317,6 +319,7 @@ export interface Database {
           default_interaction_mode?: string;
           feedback_style?: string;
           emotional_progression_enabled?: boolean;
+          prompt_sections?: Record<string, string> | null;
         };
       };
       conversations: {

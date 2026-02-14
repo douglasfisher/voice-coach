@@ -153,6 +153,7 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
           temperature: 0.7,
           max_completion_tokens: 1024,
         },
+        prompt_sections: data.prompt_sections || null,
       };
 
       const { data: newPersona, error } = await supabase
