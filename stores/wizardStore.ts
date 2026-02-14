@@ -227,8 +227,18 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       });
 
       if (invokeError) {
-        console.error('Runware invoke error:', invokeError);
-        console.error('Runware response data:', runwareResponse);
+        // FunctionsHttpError has a .context with the Response object
+        const ctx = (invokeError as any).context;
+        if (ctx && typeof ctx.json === 'function') {
+          try {
+            const errBody = await ctx.json();
+            console.error('Runware error body:', JSON.stringify(errBody));
+          } catch {
+            const errText = await ctx.text?.();
+            console.error('Runware error text:', errText);
+          }
+        }
+        console.error('Runware invoke error:', invokeError.message);
         throw invokeError;
       }
 
