@@ -1,12 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ScrollView, View, Text, Pressable, ActivityIndicator, TextInput } from 'react-native';
 import { Sparkles, ChevronDown, ChevronRight, RotateCcw, Layers } from 'lucide-react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { TraitTokenBadges, TRAIT_TOKENS } from '../shared/TraitTokenBadges';
 import { AvatarPreviewHeader } from './AvatarPreviewHeader';
 import { PROMPT_SECTION_KEYS, PROMPT_SECTION_LABELS, PromptSectionKey } from '../../../types/wizard';
-
-const MIN_INPUT_HEIGHT = 60;
 
 function PromptSectionCard({ sectionKey }: { sectionKey: PromptSectionKey }) {
   const {
@@ -16,17 +14,11 @@ function PromptSectionCard({ sectionKey }: { sectionKey: PromptSectionKey }) {
     isGeneratingSection,
   } = useWizardStore();
   const [expanded, setExpanded] = useState(true);
-  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
 
   const value = promptSections[sectionKey] || '';
   const isGenerating = isGeneratingSection === sectionKey;
   const isTraitTokens = sectionKey === 'trait_tokens';
   const hasContent = value.trim().length > 0;
-
-  const handleContentSizeChange = useCallback((e: { nativeEvent: { contentSize: { height: number } } }) => {
-    const newHeight = Math.max(MIN_INPUT_HEIGHT, e.nativeEvent.contentSize.height + 16);
-    setInputHeight(newHeight);
-  }, []);
 
   return (
     <View
@@ -126,11 +118,9 @@ function PromptSectionCard({ sectionKey }: { sectionKey: PromptSectionKey }) {
           <TextInput
             value={value}
             onChangeText={(text) => setPromptSection(sectionKey, text)}
-            onContentSizeChange={handleContentSizeChange}
             placeholder={`Enter ${PROMPT_SECTION_LABELS[sectionKey].toLowerCase()}...`}
             placeholderTextColor="rgba(255,255,255,0.2)"
             multiline
-            scrollEnabled={false}
             style={{
               backgroundColor: 'rgba(255,255,255,0.04)',
               borderWidth: 1,
@@ -139,7 +129,7 @@ function PromptSectionCard({ sectionKey }: { sectionKey: PromptSectionKey }) {
               padding: 12,
               color: '#fff',
               fontSize: 13,
-              height: inputHeight,
+              minHeight: 60,
               textAlignVertical: 'top',
               lineHeight: 20,
             }}
@@ -162,7 +152,25 @@ export function WizardStepPrompt() {
     isGeneratingPrompt,
     isGeneratingSection,
   } = useWizardStore();
-  const [compiledHeight, setCompiledHeight] = useState(200);
+
+  // Auto-trigger AI generation on mount if all sections are empty
+  const hasTriggered = useRef(false);
+  useEffect(() => {
+    if (hasTriggered.current) return;
+    const allEmpty = PROMPT_SECTION_KEYS.every(
+      (key) => !(promptSections[key] || '').trim()
+    );
+    if (!allEmpty) return;
+
+    hasTriggered.current = true;
+    (async () => {
+      const store = useWizardStore.getState();
+      for (const key of PROMPT_SECTION_KEYS) {
+        await store.generatePromptSection(key);
+      }
+      useWizardStore.getState().compilePrompt();
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasAnySections = PROMPT_SECTION_KEYS.some(
     (key) => (promptSections[key] || '').trim().length > 0
@@ -174,11 +182,10 @@ export function WizardStepPrompt() {
 
   // Generate all sections at once
   const handleGenerateAll = async () => {
-    const { generatePromptSection } = useWizardStore.getState();
+    const store = useWizardStore.getState();
     for (const key of PROMPT_SECTION_KEYS) {
-      await generatePromptSection(key);
+      await store.generatePromptSection(key);
     }
-    // Auto-compile after generating all
     useWizardStore.getState().compilePrompt();
   };
 
@@ -238,10 +245,7 @@ export function WizardStepPrompt() {
       </Text>
 
       <TraitTokenBadges
-        systemPrompt={
-          // Show badge status based on trait_tokens section content
-          promptSections.trait_tokens || ''
-        }
+        systemPrompt={promptSections.trait_tokens || ''}
       />
 
       {/* Trait tokens section card — after the badges */}
@@ -315,13 +319,9 @@ export function WizardStepPrompt() {
           <TextInput
             value={formData.system_prompt}
             onChangeText={(text) => updateFormField('system_prompt', text)}
-            onContentSizeChange={(e) => {
-              setCompiledHeight(Math.max(200, e.nativeEvent.contentSize.height + 16));
-            }}
             placeholder="Compiled system prompt will appear here..."
             placeholderTextColor="rgba(255,255,255,0.2)"
             multiline
-            scrollEnabled={false}
             style={{
               backgroundColor: 'rgba(255,255,255,0.04)',
               borderWidth: 1,
@@ -330,7 +330,7 @@ export function WizardStepPrompt() {
               padding: 14,
               color: '#fff',
               fontSize: 13,
-              height: compiledHeight,
+              minHeight: 200,
               textAlignVertical: 'top',
               lineHeight: 20,
               marginBottom: 16,
