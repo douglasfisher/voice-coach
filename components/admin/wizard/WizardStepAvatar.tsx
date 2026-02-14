@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, TextInput, Pressable, Image, ActivityIndicator } from 'react-native';
-import { Wand2, ZoomIn, Library } from 'lucide-react-native';
+import { Wand2, ZoomIn, Library, Shuffle, Sparkles, X } from 'lucide-react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { AvatarGrid } from './AvatarGrid';
 import { AvatarLibraryModal } from './AvatarLibraryModal';
@@ -15,18 +15,19 @@ import {
   CAMERA_OPTIONS,
 } from '../../../types/wizard';
 
+// Match generated image ratio: 896x1152
+const IMAGE_ASPECT_RATIO = 896 / 1152;
+
 function OptionChips({
   label,
   options,
   selected,
   onSelect,
-  multi: _multi = false,
 }: {
   label: string;
   options: string[];
   selected: string | string[];
   onSelect: (val: string) => void;
-  multi?: boolean;
 }) {
   const selectedArray = Array.isArray(selected) ? selected : [selected];
 
@@ -73,10 +74,13 @@ export function WizardStepAvatar() {
     avatar,
     updateAvatarParams,
     setEditablePrompt,
+    randomizeAvatarParams,
     generateDrafts,
     selectDraft,
     upscaleSelected,
     selectFromLibrary,
+    generatePersonaDetails,
+    isGeneratingDetails,
   } = useWizardStore();
 
   const [libraryVisible, setLibraryVisible] = useState(false);
@@ -101,22 +105,87 @@ export function WizardStepAvatar() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Hi-res preview */}
+      {/* Hi-res preview — shown after upscale, portrait ratio */}
       {avatar.hiResUrl && (
-        <View style={{ alignItems: 'center', marginBottom: 20 }}>
-          <Image
-            source={{ uri: avatar.hiResUrl }}
+        <View style={{ marginBottom: 20 }}>
+          <Text
             style={{
-              width: 200,
-              height: 200,
-              borderRadius: 100,
-              borderWidth: 3,
-              borderColor: '#F59E0B',
+              color: '#4ade80',
+              fontSize: 12,
+              fontWeight: '600',
+              letterSpacing: 1,
+              marginBottom: 10,
+              textAlign: 'center',
             }}
-          />
-          <Text style={{ color: '#4ade80', fontSize: 12, fontWeight: '600', marginTop: 8 }}>
-            Hi-res avatar ready
+          >
+            HI-RES RESULT
           </Text>
+          <View style={{ alignItems: 'center' }}>
+            <Image
+              source={{ uri: avatar.hiResUrl }}
+              style={{
+                width: '70%',
+                aspectRatio: IMAGE_ASPECT_RATIO,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: '#4ade80',
+              }}
+              resizeMode="cover"
+            />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+            <Pressable
+              onPress={() => {
+                // Clear hi-res to go back to draft selection
+                useWizardStore.setState((state) => ({
+                  avatar: { ...state.avatar, hiResUrl: null, hiResStoragePath: null },
+                  formData: { ...state.formData, avatar_url: '', avatar_thumbnail_url: null },
+                }));
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                borderRadius: 8,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(239, 68, 68, 0.3)',
+              }}
+            >
+              <X size={14} color="#ef4444" />
+              <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
+                Reject
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                // Use AI to generate persona details from avatar
+                generatePersonaDetails();
+              }}
+              disabled={isGeneratingDetails}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                borderRadius: 8,
+                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(168, 85, 247, 0.3)',
+                opacity: isGeneratingDetails ? 0.5 : 1,
+              }}
+            >
+              {isGeneratingDetails ? (
+                <ActivityIndicator size="small" color="#a855f7" />
+              ) : (
+                <Sparkles size={14} color="#a855f7" />
+              )}
+              <Text style={{ color: '#a855f7', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
+                {isGeneratingDetails ? 'Generating...' : 'AI Fill Details'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -161,7 +230,6 @@ export function WizardStepAvatar() {
         options={ACCESSORY_OPTIONS}
         selected={avatar.params.accessories}
         onSelect={handleAccessoryToggle}
-        multi
       />
 
       <OptionChips
@@ -202,8 +270,27 @@ export function WizardStepAvatar() {
         placeholderTextColor="rgba(255,255,255,0.3)"
       />
 
-      {/* Action buttons */}
+      {/* Action buttons row */}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+        {/* Randomize */}
+        <Pressable
+          onPress={randomizeAvatarParams}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            borderRadius: 10,
+            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+            borderWidth: 1,
+            borderColor: 'rgba(168, 85, 247, 0.3)',
+          }}
+        >
+          <Shuffle size={16} color="#a855f7" />
+        </Pressable>
+
+        {/* Generate */}
         <Pressable
           onPress={generateDrafts}
           disabled={avatar.isGenerating}
@@ -226,6 +313,7 @@ export function WizardStepAvatar() {
           </Text>
         </Pressable>
 
+        {/* Library */}
         <Pressable
           onPress={() => setLibraryVisible(true)}
           style={{
@@ -233,7 +321,7 @@ export function WizardStepAvatar() {
             alignItems: 'center',
             justifyContent: 'center',
             paddingVertical: 12,
-            paddingHorizontal: 16,
+            paddingHorizontal: 14,
             borderRadius: 10,
             backgroundColor: 'rgba(255,255,255,0.05)',
             borderWidth: 1,
@@ -241,9 +329,6 @@ export function WizardStepAvatar() {
           }}
         >
           <Library size={16} color="rgba(255,255,255,0.6)" />
-          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginLeft: 6 }}>
-            Library
-          </Text>
         </Pressable>
       </View>
 
@@ -255,7 +340,7 @@ export function WizardStepAvatar() {
         isGenerating={avatar.isGenerating}
       />
 
-      {/* Upscale button */}
+      {/* Upscale button — only when a draft is selected and no hi-res yet */}
       {avatar.selectedDraftId && !avatar.hiResUrl && (
         <Pressable
           onPress={upscaleSelected}
@@ -277,7 +362,7 @@ export function WizardStepAvatar() {
             <>
               <ActivityIndicator size="small" color="#4ade80" />
               <Text style={{ color: '#4ade80', fontSize: 14, fontWeight: '600', marginLeft: 8 }}>
-                Upscaling...
+                Upscaling to hi-res...
               </Text>
             </>
           ) : (

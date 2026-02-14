@@ -23,6 +23,14 @@ import {
   DraftImage,
   WizardStep,
   WizardFormData,
+  ETHNICITY_OPTIONS,
+  GENDER_OPTIONS,
+  LIGHTING_OPTIONS,
+  CLOTHING_OPTIONS,
+  EXPRESSION_OPTIONS,
+  ACCESSORY_OPTIONS,
+  POSE_OPTIONS,
+  CAMERA_OPTIONS,
 } from '../types/wizard';
 
 // =============================================================================
@@ -81,6 +89,30 @@ const DEFAULT_FORM_DATA: WizardFormData = {
 // PROMPT BUILDER
 // =============================================================================
 
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function randomizeParams(): AvatarParams {
+  const numAccessories = Math.random() > 0.5 ? Math.floor(Math.random() * 2) + 1 : 0;
+  const accessories = numAccessories === 0
+    ? ['none']
+    : Array.from({ length: numAccessories }, () =>
+        pickRandom(ACCESSORY_OPTIONS.filter((a) => a !== 'none'))
+      );
+
+  return {
+    ethnicity: pickRandom(ETHNICITY_OPTIONS),
+    gender: pickRandom(GENDER_OPTIONS),
+    lighting: pickRandom(LIGHTING_OPTIONS),
+    clothing: pickRandom(CLOTHING_OPTIONS),
+    expression: pickRandom(EXPRESSION_OPTIONS),
+    accessories: [...new Set(accessories)],
+    pose: pickRandom(POSE_OPTIONS),
+    camera: pickRandom(CAMERA_OPTIONS),
+  };
+}
+
 function buildPromptFromParams(params: AvatarParams): string {
   const accessoriesText = params.accessories.filter((a) => a !== 'none').join(', ');
   const accessoriesPart = accessoriesText ? `wearing ${accessoriesText}` : 'no accessories';
@@ -115,11 +147,16 @@ interface WizardState {
   avatar: AvatarGenerationState;
   updateAvatarParams: (params: Partial<AvatarParams>) => void;
   setEditablePrompt: (prompt: string) => void;
+  randomizeAvatarParams: () => void;
   generateDrafts: () => Promise<void>;
   selectDraft: (id: string) => void;
   upscaleSelected: () => Promise<void>;
   saveUnusedToLibrary: () => Promise<void>;
   selectFromLibrary: (publicUrl: string, storagePath: string) => void;
+
+  // AI-assisted persona details
+  generatePersonaDetails: () => Promise<void>;
+  isGeneratingDetails: boolean;
 
   // Save
   savePersona: () => Promise<{ id: string | null; error: Error | null }>;
@@ -180,6 +217,17 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     isUpscaling: false,
   },
 
+  randomizeAvatarParams: () => {
+    const newParams = randomizeParams();
+    set((state) => ({
+      avatar: {
+        ...state.avatar,
+        params: newParams,
+        editablePrompt: buildPromptFromParams(newParams),
+      },
+    }));
+  },
+
   updateAvatarParams: (params) => {
     set((state) => {
       const newParams = { ...state.avatar.params, ...params };
@@ -206,33 +254,34 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     }));
 
     try {
-      // Build Runware payload for 4 draft images
-      const payload = [
-        {
-          taskType: 'imageInference',
-          taskUUID: generateUUID(),
-          model: 'runware:400@1',
-          positivePrompt: avatar.editablePrompt,
-          negativePrompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
-          width: 896,
-          height: 1152,
-          numberResults: 4,
-          outputFormat: 'JPEG',
-          CFGScale: 3.5,
-          scheduler: 'FlowMatchEulerDiscreteScheduler',
-          includeCost: true,
-          outputType: ['dataURI', 'URL'],
-          acceleration: 'high',
-        },
-      ];
-
+      // Build Runware payload — edge function uploads to storage via service role
       const { data: runwareResponse, error: invokeError } = await supabase.functions.invoke('runware', {
-        body: payload,
+        body: {
+          uploadToStorage: true,
+          storagePrefix: 'drafts',
+          tasks: [
+            {
+              taskType: 'imageInference',
+              taskUUID: generateUUID(),
+              model: 'runware:400@1',
+              positivePrompt: avatar.editablePrompt,
+              negativePrompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
+              width: 896,
+              height: 1152,
+              numberResults: 4,
+              outputFormat: 'JPEG',
+              CFGScale: 3.5,
+              scheduler: 'FlowMatchEulerDiscreteScheduler',
+              includeCost: true,
+              outputType: ['URL'],
+              acceleration: 'high',
+            },
+          ],
+        },
       });
 
       if (invokeError) {
-        // FunctionsHttpError has a .context with the Response object
-        const ctx = (invokeError as any).context;
+        const ctx = (invokeError as Record<string, unknown>).context as { json?: () => Promise<unknown>; text?: () => Promise<string> } | undefined;
         if (ctx && typeof ctx.json === 'function') {
           try {
             const errBody = await ctx.json();
@@ -246,23 +295,19 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         throw invokeError;
       }
 
-      console.log('Runware response:', JSON.stringify(runwareResponse).slice(0, 500));
-
-      // Runware returns { data: [...images] }
       const images = runwareResponse?.data || runwareResponse || [];
 
-      // Use Runware URLs directly for display; upload to storage on save
       const drafts: DraftImage[] = [];
-
       for (let i = 0; i < images.length; i++) {
         const img = images[i];
-        const imageUrl = img.imageURL || img.imageUrl || img.image_url;
-        if (!imageUrl) continue;
+        // Prefer storage URL (permanent), fall back to Runware URL (expires)
+        const url = img.storageUrl || img.imageURL || img.imageUrl;
+        if (!url) continue;
 
         drafts.push({
           id: img.imageUUID || `draft_${i}`,
-          url: imageUrl,
-          storagePath: '', // Will be set when uploading to storage on save
+          url,
+          storagePath: img.storagePath || '',
           selected: false,
         });
       }
@@ -299,45 +344,46 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     set((state) => ({ avatar: { ...state.avatar, isUpscaling: true } }));
 
     try {
-      const payload = [
-        {
-          taskType: 'imageInference',
-          taskUUID: generateUUID(),
-          model: 'google:4@2',
-          positivePrompt: 'make this is more photorealistic, with full ultra photorealistic details but keep the same pose and position in the frame',
-          referenceImages: [selected.url],
-          width: 1792,
-          height: 2400,
-          numberResults: 1,
-          outputFormat: 'JPEG',
-          includeCost: true,
-          outputType: ['dataURI', 'URL'],
-        },
-      ];
-
       const { data: runwareResponse, error: invokeError } = await supabase.functions.invoke('runware', {
-        body: payload,
+        body: {
+          uploadToStorage: true,
+          storagePrefix: 'hires',
+          tasks: [
+            {
+              taskType: 'imageInference',
+              taskUUID: generateUUID(),
+              model: 'google:4@2',
+              positivePrompt: 'make this is more photorealistic, with full ultra photorealistic details but keep the same pose and position in the frame',
+              referenceImages: [selected.url],
+              width: 1792,
+              height: 2400,
+              numberResults: 1,
+              outputFormat: 'JPEG',
+              includeCost: true,
+              outputType: ['URL'],
+            },
+          ],
+        },
       });
 
       if (invokeError) throw invokeError;
 
       const images = runwareResponse?.data || runwareResponse || [];
       const hiResImage = images[0];
-      const hiResImageUrl = hiResImage?.imageURL || hiResImage?.imageUrl || hiResImage?.image_url;
+      const hiResUrl = hiResImage?.storageUrl || hiResImage?.imageURL || hiResImage?.imageUrl;
 
-      if (!hiResImageUrl) throw new Error('No hi-res image returned');
+      if (!hiResUrl) throw new Error('No hi-res image returned');
 
-      // Use Runware URL directly; upload to storage on save
       set((state) => ({
         avatar: {
           ...state.avatar,
-          hiResUrl: hiResImageUrl,
-          hiResStoragePath: '',
+          hiResUrl,
+          hiResStoragePath: hiResImage?.storagePath || '',
           isUpscaling: false,
         },
         formData: {
           ...state.formData,
-          avatar_url: hiResImageUrl,
+          avatar_url: hiResUrl,
           avatar_thumbnail_url: selected.url,
         },
       }));
@@ -381,6 +427,76 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   },
 
   // =========================================================================
+  // AI-ASSISTED PERSONA DETAILS
+  // =========================================================================
+
+  isGeneratingDetails: false,
+
+  generatePersonaDetails: async () => {
+    const { avatar } = get();
+    set({ isGeneratingDetails: true });
+
+    try {
+      const { params } = avatar;
+      const prompt = `Based on this avatar description, generate persona details for a coaching app character.
+
+Avatar: ${params.ethnicity} ${params.gender}, ${params.expression}, wearing ${params.clothing} attire, ${params.accessories.join(', ')}.
+
+Generate a JSON object with these fields:
+- name: A culturally appropriate full name (first + last)
+- tagline: A short catchy tagline (5-8 words) describing their coaching style
+- cultural_background: A brief cultural/professional background (e.g., "Japanese-American, Executive Coach")
+- coaching_style: One of: supportive_guide, tough_love, playful_mentor, expert_advisor, confidence_builder
+- challenge_style: One of: socratic, devils_advocate, steelman, empathetic_probe, logical_surgeon, perspective_shifter
+- warmth: number 0-100
+- directness: number 0-100
+- patience: number 0-100
+- humor: number 0-100
+- formality: number 0-100
+
+Return ONLY valid JSON, no markdown or explanation.`;
+
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          action: 'complete',
+          systemPrompt: 'You are a creative character designer for a coaching app. Return only valid JSON.',
+          userPrompt: prompt,
+          settings: { temperature: 0.9, max_completion_tokens: 500 },
+        },
+      });
+
+      if (error) throw error;
+
+      const responseText = data?.content || data?.message || '';
+      // Extract JSON from response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON in response');
+
+      const details = JSON.parse(jsonMatch[0]);
+
+      set((state) => ({
+        formData: {
+          ...state.formData,
+          name: details.name || state.formData.name,
+          tagline: details.tagline || state.formData.tagline,
+          cultural_background: details.cultural_background || state.formData.cultural_background,
+          coaching_style: details.coaching_style || state.formData.coaching_style,
+          challenge_style: details.challenge_style || state.formData.challenge_style,
+          warmth: details.warmth ?? state.formData.warmth,
+          directness: details.directness ?? state.formData.directness,
+          patience: details.patience ?? state.formData.patience,
+          humor: details.humor ?? state.formData.humor,
+          formality: details.formality ?? state.formData.formality,
+        },
+        isGeneratingDetails: false,
+      }));
+    } catch (err) {
+      console.error('Generate persona details error:', err);
+      set({ isGeneratingDetails: false });
+    }
+  },
+
+  // =========================================================================
   // SAVE
   // =========================================================================
 
@@ -388,53 +504,8 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     const { formData, avatar, saveUnusedToLibrary } = get();
     const store = useAdminPersonaStore.getState();
 
-    // Upload avatar to storage if we have a Runware URL
-    let finalFormData = { ...formData };
-    if (avatar.hiResUrl && avatar.hiResUrl.includes('runware.ai')) {
-      try {
-        const imageResponse = await fetch(avatar.hiResUrl);
-        const blob = await imageResponse.blob();
-        const fileName = `avatars/${Date.now()}_hires.jpg`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('persona-avatars')
-          .upload(fileName, blob, { contentType: 'image/jpeg' });
-
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from('persona-avatars')
-            .getPublicUrl(fileName);
-          finalFormData.avatar_url = urlData.publicUrl;
-        }
-      } catch (err) {
-        console.warn('Failed to upload avatar to storage, using Runware URL:', err);
-      }
-    }
-
-    // Upload thumbnail too
-    const selectedDraft = avatar.drafts.find((d) => d.id === avatar.selectedDraftId);
-    if (selectedDraft && selectedDraft.url.includes('runware.ai')) {
-      try {
-        const imageResponse = await fetch(selectedDraft.url);
-        const blob = await imageResponse.blob();
-        const fileName = `avatars/${Date.now()}_thumb.jpg`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('persona-avatars')
-          .upload(fileName, blob, { contentType: 'image/jpeg' });
-
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from('persona-avatars')
-            .getPublicUrl(fileName);
-          finalFormData.avatar_thumbnail_url = urlData.publicUrl;
-        }
-      } catch (err) {
-        console.warn('Failed to upload thumbnail to storage, using Runware URL:', err);
-      }
-    }
-
-    const result = await store.createPersona(finalFormData);
+    // Images are already in Supabase storage (uploaded by edge function)
+    const result = await store.createPersona(formData);
 
     // Save unused drafts to library if storage is available
     if (result.id && avatar.drafts.length > 0) {

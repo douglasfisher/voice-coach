@@ -2,6 +2,9 @@ import { View, Image, Pressable, ActivityIndicator, Text } from 'react-native';
 import { Check } from 'lucide-react-native';
 import { DraftImage } from '../../../types/wizard';
 
+// Generated images are 896x1152, aspect ratio ~0.778
+const IMAGE_ASPECT_RATIO = 896 / 1152;
+
 interface AvatarGridProps {
   drafts: DraftImage[];
   selectedId: string | null;
@@ -35,7 +38,7 @@ export function AvatarGrid({ drafts, selectedId, onSelect, isGenerating }: Avata
     return (
       <View
         style={{
-          height: 280,
+          height: 200,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: 'rgba(255,255,255,0.03)',
@@ -62,7 +65,7 @@ export function AvatarGrid({ drafts, selectedId, onSelect, isGenerating }: Avata
             onPress={() => onSelect(draft.id)}
             style={{
               width: '48.5%',
-              aspectRatio: 1,
+              aspectRatio: IMAGE_ASPECT_RATIO,
               borderRadius: 12,
               overflow: 'hidden',
               borderWidth: 3,
