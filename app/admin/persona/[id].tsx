@@ -8,7 +8,6 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   Pressable,
   Switch,
   Alert,
@@ -21,12 +20,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 
-import Slider from '@react-native-community/slider';
 import {
   Save,
   Trash2,
   ChevronDown,
-  Plus,
   ImageIcon,
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
@@ -36,6 +33,11 @@ import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
 import { resolvePersonaAvatar } from '../../../lib/personaImages';
 import { ALL_PERSONA_IMAGES } from '../../../lib/allPersonaImages';
+
+import { FormInput } from '../../../components/admin/shared/FormInput';
+import { SliderInput } from '../../../components/admin/shared/SliderInput';
+import { SelectInput } from '../../../components/admin/shared/SelectInput';
+import { TraitTokenBadges, TRAIT_TOKENS, getMissingTokens } from '../../../components/admin/shared/TraitTokenBadges';
 
 interface AIModelOption {
   id: string;
@@ -57,175 +59,6 @@ const VOICE_PROVIDERS = [
   { value: 'azure', label: 'Azure' },
 ];
 
-const TRAIT_TOKENS = [
-  'character_demeanor',
-  'conversation_register',
-  'response_length',
-  'response_depth',
-  'humor_style',
-  'challenge_intensity',
-  'emotional_attunement',
-  'directness',
-  'topic_flexibility',
-  'question_frequency',
-  'energy_mirroring',
-  'coaching_method',
-];
-
-interface FormInputProps {
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder?: string;
-  multiline?: boolean;
-  numberOfLines?: number;
-}
-
-function FormInput({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  multiline,
-  numberOfLines,
-}: FormInputProps) {
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 8 }}>
-        {label}
-      </Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="rgba(255,255,255,0.3)"
-        multiline={multiline}
-        numberOfLines={numberOfLines}
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.1)',
-          borderRadius: 12,
-          padding: 14,
-          color: '#fff',
-          fontSize: 15,
-          minHeight: multiline ? 100 : undefined,
-          textAlignVertical: multiline ? 'top' : 'center',
-        }}
-      />
-    </View>
-  );
-}
-
-interface SliderInputProps {
-  label: string;
-  value: number;
-  onValueChange: (value: number) => void;
-  min?: number;
-  max?: number;
-}
-
-function SliderInput({ label, value, onValueChange, min = 0, max = 100 }: SliderInputProps) {
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-          {label}
-        </Text>
-        <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600' }}>
-          {Math.round(value)}
-        </Text>
-      </View>
-      <Slider
-        value={value}
-        onValueChange={onValueChange}
-        minimumValue={min}
-        maximumValue={max}
-        step={1}
-        minimumTrackTintColor="#F59E0B"
-        maximumTrackTintColor="rgba(255,255,255,0.1)"
-        thumbTintColor="#F59E0B"
-      />
-    </View>
-  );
-}
-
-interface SelectInputProps {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onValueChange: (value: string) => void;
-}
-
-function SelectInput({ label, value, options, onValueChange }: SelectInputProps) {
-  const [showOptions, setShowOptions] = useState(false);
-  const selectedOption = options.find((o) => o.value === value);
-
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 8 }}>
-        {label}
-      </Text>
-      <Pressable
-        onPress={() => setShowOptions(!showOptions)}
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.1)',
-          borderRadius: 12,
-          padding: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Text style={{ color: '#fff', fontSize: 15 }}>
-          {selectedOption?.label || 'Select...'}
-        </Text>
-        <ChevronDown size={18} color="rgba(255,255,255,0.5)" />
-      </Pressable>
-
-      {showOptions && (
-        <View
-          style={{
-            marginTop: 8,
-            backgroundColor: '#1A1A1F',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.1)',
-            borderRadius: 12,
-            overflow: 'hidden',
-          }}
-        >
-          {options.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => {
-                onValueChange(option.value);
-                setShowOptions(false);
-              }}
-              style={{
-                padding: 14,
-                backgroundColor:
-                  option.value === value ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-                borderBottomWidth: 1,
-                borderBottomColor: 'rgba(255,255,255,0.05)',
-              }}
-            >
-              <Text
-                style={{
-                  color: option.value === value ? '#F59E0B' : '#fff',
-                  fontSize: 15,
-                }}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-}
 
 type ImageFilter = 'all' | 'men' | 'women';
 
@@ -520,9 +353,7 @@ export default function AdminPersonaEditScreen() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const missingTokens = TRAIT_TOKENS.filter(
-    (t) => !form.system_prompt.includes(`{{${t}}}`)
-  );
+  const missingTokens = getMissingTokens(form.system_prompt);
 
   const handleInsertMissingTokens = () => {
     if (missingTokens.length === 0) return;
@@ -780,61 +611,10 @@ export default function AdminPersonaEditScreen() {
           </Text>
 
           {/* Trait Token Status Badges */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-            {TRAIT_TOKENS.map((token) => {
-              const present = form.system_prompt.includes(`{{${token}}}`);
-              return (
-                <View
-                  key={token}
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 6,
-                    backgroundColor: present
-                      ? 'rgba(74, 222, 128, 0.12)'
-                      : 'rgba(239, 68, 68, 0.12)',
-                    borderWidth: 1,
-                    borderColor: present
-                      ? 'rgba(74, 222, 128, 0.3)'
-                      : 'rgba(239, 68, 68, 0.3)',
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: '600',
-                      color: present ? '#4ade80' : '#ef4444',
-                    }}
-                  >
-                    {`{{${token}}}`}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-
-          {missingTokens.length > 0 && (
-            <Pressable
-              onPress={handleInsertMissingTokens}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                alignSelf: 'flex-start',
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 8,
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                borderWidth: 1,
-                borderColor: 'rgba(245, 158, 11, 0.25)',
-                marginBottom: 12,
-              }}
-            >
-              <Plus size={14} color="#F59E0B" />
-              <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
-                Insert Missing Tokens ({missingTokens.length})
-              </Text>
-            </Pressable>
-          )}
+          <TraitTokenBadges
+            systemPrompt={form.system_prompt}
+            onInsertMissing={handleInsertMissingTokens}
+          />
 
           {/* Trait Defaults Section */}
           {!isNew && allTraitCategories.length > 0 && (

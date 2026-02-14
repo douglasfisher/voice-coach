@@ -186,7 +186,7 @@ export default function AdminPersonasScreen() {
   };
 
   const handleCreateNew = () => {
-    router.push('/admin/persona/new');
+    router.push('/admin/persona/wizard');
   };
 
   const activePersonas = personas.filter((p) => p.is_active);

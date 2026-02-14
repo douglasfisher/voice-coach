@@ -126,6 +126,10 @@ export default function AdminLayout() {
           name="persona/[id]"
           options={{ headerTitle: 'Edit Persona' }}
         />
+        <Stack.Screen
+          name="persona/wizard"
+          options={{ headerTitle: 'Create Persona' }}
+        />
       </Stack>
 
       <AdminSidePanel
