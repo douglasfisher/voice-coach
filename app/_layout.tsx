@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as ScreenCapture from 'expo-screen-capture';
 import { captureScreen } from 'react-native-view-shot';
 import { useAuthStore } from '../stores/authStore';
@@ -45,7 +46,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -59,6 +60,6 @@ export default function RootLayout() {
       </Stack>
       {isOverlayVisible && <ScreenshotOverlay />}
       <FeedbackModal visible={isModalVisible} onClose={closeModal} />
-    </>
+    </GestureHandlerRootView>
   );
 }
