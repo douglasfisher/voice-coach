@@ -32,7 +32,10 @@ interface AdminPersonaState {
   createPersona: (data: PersonaFormData) => Promise<{ id: string | null; error: Error | null }>;
   updatePersona: (id: string, data: Partial<Persona>) => Promise<{ error: Error | null }>;
   deletePersona: (id: string) => Promise<{ error: Error | null }>;
+  hardDeletePersona: (id: string) => Promise<{ error: Error | null }>;
   toggleActive: (id: string) => Promise<{ error: Error | null }>;
+  togglePremium: (id: string) => Promise<{ error: Error | null }>;
+  toggleEmotionalProgression: (id: string) => Promise<{ error: Error | null }>;
   reorderPersonas: (ids: string[]) => Promise<{ error: Error | null }>;
   clearSelectedPersona: () => void;
   fetchPersonaTraitDefaults: (personaId: string) => Promise<void>;
@@ -63,7 +66,7 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
       if (error) throw error;
 
       // Transform to include stats
-      const personasWithStats: AdminPersonaView[] = (personas || []).map((p: any) => ({
+      const personasWithStats: AdminPersonaView[] = (personas || []).map((p) => ({
         ...p,
         conversation_count: p.conversations?.[0]?.count || 0,
         // messages count needs to be aggregated differently
@@ -152,6 +155,7 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
           temperature: 0.7,
           max_completion_tokens: 1024,
         },
+        prompt_sections: data.prompt_sections || null,
       };
 
       const { data: newPersona, error } = await supabase
@@ -233,12 +237,55 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
     }
   },
 
+  hardDeletePersona: async (id: string) => {
+    set({ isSaving: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      const { personas, selectedPersona } = get();
+      set({
+        personas: personas.filter((p) => p.id !== id),
+        selectedPersona: selectedPersona?.id === id ? null : selectedPersona,
+      });
+
+      return { error: null };
+    } catch (error) {
+      set({ error: (error as Error).message });
+      return { error: error as Error };
+    } finally {
+      set({ isSaving: false });
+    }
+  },
+
   toggleActive: async (id: string) => {
     const { personas } = get();
     const persona = personas.find((p) => p.id === id);
     if (!persona) return { error: new Error('Persona not found') };
 
     return get().updatePersona(id, { is_active: !persona.is_active });
+  },
+
+  togglePremium: async (id: string) => {
+    const { personas } = get();
+    const persona = personas.find((p) => p.id === id);
+    if (!persona) return { error: new Error('Persona not found') };
+
+    return get().updatePersona(id, { is_premium: !persona.is_premium });
+  },
+
+  toggleEmotionalProgression: async (id: string) => {
+    const { personas } = get();
+    const persona = personas.find((p) => p.id === id);
+    if (!persona) return { error: new Error('Persona not found') };
+
+    return get().updatePersona(id, {
+      emotional_progression_enabled: !persona.emotional_progression_enabled,
+    });
   },
 
   reorderPersonas: async (ids: string[]) => {
@@ -291,14 +338,20 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
 
       if (error) throw error;
 
-      const defaults: PersonaTraitDefault[] = (data || []).map((row: any) => ({
-        categoryId: row.trait_options?.trait_categories?.id,
-        categorySlug: row.trait_options?.trait_categories?.slug,
-        categoryName: row.trait_options?.trait_categories?.name,
-        optionId: row.trait_options?.id,
-        optionSlug: row.trait_options?.slug,
-        optionName: row.trait_options?.name,
-      }));
+      const defaults: PersonaTraitDefault[] = (data || []).map((row) => {
+        const opts = row.trait_options;
+        const opt = Array.isArray(opts) ? opts[0] : opts;
+        const cats = opt?.trait_categories;
+        const cat = Array.isArray(cats) ? cats[0] : cats;
+        return {
+          categoryId: cat?.id,
+          categorySlug: cat?.slug,
+          categoryName: cat?.name,
+          optionId: opt?.id,
+          optionSlug: opt?.slug,
+          optionName: opt?.name,
+        };
+      });
 
       set({ personaTraitDefaults: defaults });
     } catch (error) {

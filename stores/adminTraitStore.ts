@@ -46,25 +46,28 @@ export const useAdminTraitStore = create<AdminTraitState>((set, get) => ({
 
       if (error) throw error;
 
-      const mapped: AdminTraitCategory[] = (cats || []).map((c: any) => ({
-        id: c.id,
-        slug: c.slug,
-        name: c.name,
-        description: c.description,
-        appliesTo: c.applies_to || [],
-        userVisible: c.user_visible ?? false,
-        sortOrder: c.sort_order,
-        optionCount: c.trait_options?.length || 0,
-        options: (c.trait_options || [])
-          .sort((a: any, b: any) => a.sort_order - b.sort_order)
-          .map((o: any) => ({
-            id: o.id,
-            slug: o.slug,
-            name: o.name,
-            promptModifier: o.prompt_modifier,
-            sortOrder: o.sort_order,
-          })),
-      }));
+      const mapped: AdminTraitCategory[] = (cats || []).map((c) => {
+        const traitOpts = c.trait_options ?? [];
+        return {
+          id: c.id,
+          slug: c.slug,
+          name: c.name,
+          description: c.description,
+          appliesTo: c.applies_to || [],
+          userVisible: c.user_visible ?? false,
+          sortOrder: c.sort_order,
+          optionCount: traitOpts.length,
+          options: [...traitOpts]
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((o) => ({
+              id: o.id,
+              slug: o.slug,
+              name: o.name,
+              promptModifier: o.prompt_modifier,
+              sortOrder: o.sort_order,
+            })),
+        };
+      });
 
       set({ categories: mapped });
     } catch (error) {

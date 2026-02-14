@@ -1,20 +1,27 @@
-import { useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl, Dimensions } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles } from 'lucide-react-native';
-import Animated from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useScrollHideAnimation } from '../../hooks/useScrollHideAnimation';
+import { useAppSetting } from '../../hooks';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+import { HEADER_TOP_PADDING } from '../../constants/layout';
+import { HeaderFade } from '../../components/ui/HeaderFade';
+import { shuffleArray } from '../../lib/shuffle';
 
 // Height of header content (title + subtitle + filter pills) without safe area
-const HEADER_CONTENT_HEIGHT = 135;
+const HEADER_CONTENT_HEIGHT = 119;
+const TAB_BAR_HEIGHT = 85;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: '#F59E0B' },
@@ -29,24 +36,57 @@ const STYLE_FILTERS: { key: ChallengeStyle | 'all'; label: string; color: string
 export default function PersonasScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
+  const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
-  const { personas, isLoading, refresh } = usePersonas();
+  const { personas, isLoading } = usePersonas();
   const { user } = useAuthStore();
   const { createConversation, challengersActiveFilter, setChallengersActiveFilter } = useChatStore();
-  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight);
+  const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
+  const isSnapMode = fullscreenCardMode === true;
+  const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
+  const snapCardHeight = SCREEN_HEIGHT - headerHeight - TAB_BAR_HEIGHT;
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [shuffleKey, setShuffleKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const listOpacity = useSharedValue(1);
+  const listAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: listOpacity.value,
+  }));
 
   // Filter to only show challengers (not coaches)
   const challengers = personas.filter(p => p.personaType === 'challenger');
+
+  // Auto-open persona modal when navigated with openPersonaId param
+  useEffect(() => {
+    if (openPersonaId && challengers.length > 0) {
+      const match = challengers.find(c => c.id === openPersonaId);
+      if (match) setSelectedPersona(match);
+    }
+  }, [openPersonaId, challengers.length]);
 
   const filteredPersonas = challengersActiveFilter === 'all'
     ? challengers
     : challengers.filter(p => p.challengeStyle === challengersActiveFilter);
 
-  const featuredPersona = filteredPersonas[0];
-  const otherPersonas = filteredPersonas.slice(1);
+  // Stable key based on actual content so shuffle doesn't re-run on every render
+  const filteredKey = filteredPersonas.map(c => c.id).join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredKey tracks content; shuffleKey triggers explicit re-shuffle
+  const shuffledPersonas = useMemo(() => shuffleArray(filteredPersonas), [filteredKey, shuffleKey]);
+  const featuredPersona = shuffledPersonas[0];
+  const otherPersonas = shuffledPersonas.slice(1);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    listOpacity.value = withTiming(0.15, { duration: 150 });
+    await new Promise(resolve => setTimeout(resolve, 200));
+    setShuffleKey(prev => prev + 1);
+    listOpacity.value = withTiming(1, { duration: 250 });
+    await new Promise(resolve => setTimeout(resolve, 300));
+    setIsRefreshing(false);
+  }, [listOpacity]);
 
   const handleChallenge = async (persona: PersonaDisplay) => {
     if (!user?.id) {
@@ -89,7 +129,7 @@ export default function PersonasScreen() {
         ]}
       >
         {/* Header */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -110,7 +150,7 @@ export default function PersonasScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+            contentContainerStyle={{ paddingHorizontal: 8, gap: 8 }}
           >
             {STYLE_FILTERS.map((filter) => {
               const isActive = challengersActiveFilter === filter.key;
@@ -119,7 +159,7 @@ export default function PersonasScreen() {
                   key={filter.key}
                   onPress={() => setChallengersActiveFilter(filter.key)}
                   style={{
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 8,
                     paddingVertical: 8,
                     borderRadius: 20,
                     backgroundColor: isActive ? `${filter.color}20` : 'rgba(255,255,255,0.05)',
@@ -143,63 +183,117 @@ export default function PersonasScreen() {
         </View>
       </Animated.View>
 
+      {/* Fade gradient — fixed below status bar, always visible */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 9,
+        }}
+        pointerEvents="none"
+      >
+        <HeaderFade />
+      </View>
+
       {isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#F59E0B" />
         </View>
+      ) : isSnapMode ? (
+        <Animated.FlatList
+          data={shuffledPersonas}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={{ height: snapCardHeight, paddingHorizontal: 8, paddingBottom: 16 }}>
+              <PersonaCard
+                persona={item}
+                onPress={() => setSelectedPersona(item)}
+                height={snapCardHeight - 16}
+              />
+            </View>
+          )}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingTop: headerHeight,
+          }}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={snapCardHeight}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" progressViewOffset={headerHeight} />}
+          ListEmptyComponent={
+            <View style={{ paddingVertical: 80, alignItems: 'center' }}>
+              <Text style={{ color: '#6E6E73' }}>No challengers match this filter</Text>
+            </View>
+          }
+        />
       ) : (
         <Animated.ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
-            paddingTop: headerHeight,
-            paddingHorizontal: 16,
+            paddingTop: headerHeight + 10,
+            paddingHorizontal: 8,
             paddingBottom: 100,
           }}
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" progressViewOffset={headerHeight} />}
         >
-          {/* Featured Persona */}
-          {featuredPersona && (
-            <PersonaCard
-              persona={featuredPersona}
-              onPress={() => setSelectedPersona(featuredPersona)}
-              variant="featured"
-            />
+          {isRefreshing && (
+            <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+              <ActivityIndicator size="small" color="#F59E0B" />
+              <Text style={{ color: '#6E6E73', fontSize: 12, marginTop: 6 }}>Shuffling challengers...</Text>
+            </View>
           )}
 
-          {/* Section Header */}
-          {otherPersonas.length > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {challengersActiveFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[challengersActiveFilter]}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', marginRight: 6 }} />
-                <Text style={{ color: '#6E6E73', fontSize: 12 }}>
-                  {otherPersonas.length + 1} available
+          <Animated.View style={listAnimatedStyle}>
+            {/* Featured Persona */}
+            {featuredPersona && (
+              <PersonaCard
+                persona={featuredPersona}
+                onPress={() => setSelectedPersona(featuredPersona)}
+                featured
+              />
+            )}
+
+            {/* Section Header */}
+            {otherPersonas.length > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  {challengersActiveFilter === 'all' ? 'All Challengers' : CHALLENGE_STYLE_LABELS[challengersActiveFilter]}
                 </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ade80', marginRight: 6 }} />
+                  <Text style={{ color: '#6E6E73', fontSize: 12 }}>
+                    {otherPersonas.length + 1} available
+                  </Text>
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* Grid of Personas */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
-            {otherPersonas.map((persona) => (
-              <View key={persona.id} style={{ width: '50%', padding: 4 }}>
-                <PersonaCard
-                  persona={persona}
-                  onPress={() => setSelectedPersona(persona)}
-                />
+            {/* Grid of Personas */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
+              {otherPersonas.map((persona) => (
+                <View key={persona.id} style={{ width: '100%', padding: 4 }}>
+                  <PersonaCard
+                    persona={persona}
+                    onPress={() => setSelectedPersona(persona)}
+                  />
+                </View>
+              ))}
+            </View>
+
+            {filteredPersonas.length === 0 && (
+              <View className="py-20 items-center">
+                <Text className="text-text-muted">No challengers match this filter</Text>
               </View>
-            ))}
-          </View>
-
-          {filteredPersonas.length === 0 && (
-            <View className="py-20 items-center">
-              <Text className="text-text-muted">No challengers match this filter</Text>
-            </View>
-          )}
+            )}
+          </Animated.View>
         </Animated.ScrollView>
       )}
 

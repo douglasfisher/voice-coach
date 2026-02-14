@@ -22,7 +22,7 @@ import {
   Circle,
   RotateCcw,
 } from 'lucide-react-native';
-import type { Achievement, AchievementRarity } from '../../types/gamification';
+import type { Achievement } from '../../types/gamification';
 import { RARITY_COLORS, RARITY_LABELS } from '../../lib/gamification';
 
 interface AchievementBadgeProps {
@@ -34,7 +34,7 @@ interface AchievementBadgeProps {
   onPress?: () => void;
 }
 
-const ICON_MAP: Record<string, React.ComponentType<any>> = {
+const ICON_MAP: Record<string, typeof Award> = {
   award: Award,
   star: Star,
   flame: Flame,

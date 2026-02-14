@@ -9,6 +9,7 @@ import {
   Pressable,
   Image,
   ImageSourcePropType,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -41,7 +42,10 @@ import {
   EndChatModal,
   SessionTimer,
   ResetConfirmationModal,
+  FocusModeChat,
 } from '../../../components/chat';
+import { useAppSetting } from '../../../hooks/useAppSetting';
+import { HeaderFade } from '../../../components/ui/HeaderFade';
 import { ChallengeStyle } from '../../../types/persona';
 
 // Challenge style themes
@@ -85,7 +89,7 @@ const STYLE_THEMES: Record<ChallengeStyle, {
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const flatListRef = useRef<FlatList>(null);
-  const { preferences } = useAuthStore();
+  const { preferences, profile } = useAuthStore();
   const insets = useSafeAreaInsets();
 
   const {
@@ -99,7 +103,7 @@ export default function ChatScreen() {
     end,
   } = useConversation(id);
 
-  const { play, stop, isPlaying, generateAndPlay, isLoading: ttsLoading } = useTTS();
+  const { play, stop, isPlaying, generateAndPlay, isLoading: _ttsLoading } = useTTS();
 
   // Voice input
   const voiceInputEnabled = preferences?.voice_input_enabled ?? false;
@@ -112,7 +116,7 @@ export default function ChatScreen() {
     hasPermission: hasVoicePermission,
   } = useVoiceInput(voiceInputEnabled);
 
-  const isRecording = voiceState === 'recording';
+  const _isRecording = voiceState === 'recording';
 
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -120,7 +124,7 @@ export default function ChatScreen() {
   const [showResetModal, setShowResetModal] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const {
-    fetchMessages,
+    fetchMessages: _fetchMessages,
     clearMessages,
     startChat,
     generatePreview,
@@ -140,6 +144,10 @@ export default function ChatScreen() {
     setTrait,
   } = useChatStore();
   const chatStarted = messages.length > 0;
+
+  // Focus mode setting
+  const { value: focusModeEnabled } = useAppSetting('focus_mode_chat');
+  const isFocusMode = focusModeEnabled === true;
 
   // Trait system
   const personaType = persona?.personaType as 'coach' | 'challenger' | undefined;
@@ -200,9 +208,22 @@ export default function ChatScreen() {
     if (report) {
       router.replace(`/(tabs)/chat/report/${conversation.id}`);
     } else {
-      // Fallback: just end and go back to source tab
-      await end();
-      goBackToSource();
+      const errorMsg = useChatStore.getState().error || 'An unexpected error occurred.';
+      Alert.alert(
+        'Report Generation Failed',
+        errorMsg,
+        [
+          { text: 'Try Again', onPress: () => handleViewReport() },
+          {
+            text: 'Skip Report',
+            style: 'cancel',
+            onPress: async () => {
+              await end();
+              goBackToSource();
+            },
+          },
+        ],
+      );
     }
   };
 
@@ -220,8 +241,8 @@ export default function ChatScreen() {
 
     setIsStartingChat(true);
     try {
-      // If we have preview question, save it and start
-      if (previewQuestion) {
+      // If we have preview content (question for practice, scenario for Q&A), save and start
+      if (previewQuestion || previewScenario) {
         await startChatWithPreview();
       } else {
         // Fallback to original behavior
@@ -271,6 +292,7 @@ export default function ChatScreen() {
     if (conversation && !chatStarted && !hasPreview && !isGeneratingPreview) {
       generatePreview();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.id, chatStarted, hasPreview]);
 
   // Clear preview when leaving the screen
@@ -278,7 +300,7 @@ export default function ChatScreen() {
     return () => {
       clearPreview();
     };
-  }, []);
+  }, [clearPreview]);
 
   // Track session start time when first message appears
   useEffect(() => {
@@ -291,15 +313,16 @@ export default function ChatScreen() {
         setSessionStartTime(new Date());
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, sessionStartTime]);
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && !isFocusMode) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages.length]);
+  }, [messages.length, isFocusMode]);
 
   if (isLoading && !conversation) {
     return (
@@ -430,40 +453,64 @@ export default function ChatScreen() {
           {!chatStarted && <View style={{ flex: 1 }} />}
         </View>
 
+        {/* Fade gradient — fixed below status bar for immersive mode */}
+        {showImmersiveLayout && (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9 }} pointerEvents="none">
+            <HeaderFade />
+          </View>
+        )}
+
         {/* Messages or Full-screen Hero */}
         {chatStarted ? (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{
-              padding: 16,
-              paddingBottom: 8,
-              paddingTop: showImmersiveLayout ? insets.top + 60 : 16,
-            }}
-            showsVerticalScrollIndicator={false}
-            style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
-            renderItem={({ item }) => (
-              <MessageBubble
-                content={item.content}
-                role={item.role as 'user' | 'assistant'}
-                persona={item.role === 'assistant' ? persona : undefined}
-                audioUrl={item.audio_url}
-                onPlayAudio={
-                  item.role === 'assistant' && preferences?.tts_enabled
-                    ? () => handlePlayAudio(item.audio_url, item.content)
-                    : undefined
-                }
-                isPlaying={isPlaying}
-                timestamp={item.created_at}
-                responseTimeMs={item.response_time_ms}
-                immersiveMode={showImmersiveLayout}
-              />
-            )}
-            ListFooterComponent={
-              isSending ? <TypingIndicator persona={persona} /> : null
-            }
-          />
+          isFocusMode ? (
+            <FocusModeChat
+              messages={messages}
+              persona={persona}
+              isSending={isSending}
+              immersiveMode={showImmersiveLayout}
+              isAdmin={!!profile?.is_admin}
+              preferences={preferences}
+              onPlayAudio={handlePlayAudio}
+              isPlaying={isPlaying}
+              isQAMode={isQAMode}
+              topPadding={showImmersiveLayout ? insets.top + 60 : 16}
+            />
+          ) : (
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{
+                padding: 16,
+                paddingBottom: 8,
+                paddingTop: showImmersiveLayout ? insets.top + 60 : 16,
+              }}
+              showsVerticalScrollIndicator={false}
+              style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
+              renderItem={({ item }) => (
+                <MessageBubble
+                  content={item.content}
+                  role={item.role as 'user' | 'assistant'}
+                  persona={item.role === 'assistant' ? persona : undefined}
+                  audioUrl={item.audio_url}
+                  onPlayAudio={
+                    item.role === 'assistant' && preferences?.tts_enabled
+                      ? () => handlePlayAudio(item.audio_url, item.content)
+                      : undefined
+                  }
+                  isPlaying={isPlaying}
+                  timestamp={item.created_at}
+                  responseTimeMs={item.response_time_ms}
+                  immersiveMode={showImmersiveLayout}
+                  metadata={item.metadata}
+                  isAdmin={!!profile?.is_admin}
+                />
+              )}
+              ListFooterComponent={
+                isSending ? <TypingIndicator persona={persona} /> : null
+              }
+            />
+          )
         ) : (
           <ChatHeroEmptyState
             persona={persona}

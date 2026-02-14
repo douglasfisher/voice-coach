@@ -20,6 +20,7 @@ export default function AuthLayout() {
         options={{ animation: 'fade' }}
       />
       <Stack.Screen name="onboarding/pick-personas" />
+      <Stack.Screen name="onboarding/dating-preferences" />
       <Stack.Screen name="onboarding/preferences" />
     </Stack>
   );

@@ -1,4 +1,4 @@
-import { View, Text, Pressable, Image, ImageSourcePropType, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, Pressable, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap, HelpCircle } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
@@ -15,44 +15,29 @@ const COACHING_STYLE_LABELS: Record<string, string> = {
   'supportive_guide': 'Supportive Guide',
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Scene descriptions for Q&A mode based on domain/specialty
+// Short fallback scene descriptions for Q&A mode based on domain/specialty
 function getQAModeScene(specialtyAreas: string[]): string {
   const areas = specialtyAreas.join(' ').toLowerCase();
 
-  // Dating
   if (areas.includes('date') || areas.includes('dating') || areas.includes('romance') || areas.includes('flirt') || areas.includes('connection') || areas.includes('confidence building')) {
-    return "You're at a cozy bar on a Friday night. You notice someone interesting across the room — they catch your eye and smile. This is your moment. You walk over and take the lead...";
+    return "You spot someone interesting at a rooftop bar and decide to walk over.";
   }
-
-  // Interviews
   if (areas.includes('interview') || areas.includes('hiring') || areas.includes('career') || areas.includes('job')) {
-    return "You're in the interview room. The interviewer sits across from you, ready to assess you. But today, you're driving this conversation. Ask what you need to know...";
+    return "You're seated across from the interviewer — it's your turn to lead.";
   }
-
-  // Presentations
   if (areas.includes('presentation') || areas.includes('speaking') || areas.includes('stage') || areas.includes('audience')) {
-    return "You're backstage, about to step into the spotlight. The audience is waiting. This is your chance to command the room. Take a breath and begin...";
+    return "You step up to the podium, the audience waiting for you to begin.";
   }
-
-  // Negotiations
   if (areas.includes('negotiat') || areas.includes('deal') || areas.includes('contract') || areas.includes('salary')) {
-    return "You're at the negotiating table. The other party is across from you, papers ready. The stakes are high. You make the opening move...";
+    return "You're at the negotiating table, ready to make your opening move.";
   }
-
-  // Difficult conversations
   if (areas.includes('difficult') || areas.includes('conflict') || areas.includes('feedback') || areas.includes('boundary')) {
-    return "The moment has come for that conversation you've been putting off. They're sitting across from you, waiting. You take a breath and begin...";
+    return "You sit down for the conversation you've been putting off.";
   }
-
-  // Networking
   if (areas.includes('network') || areas.includes('connect') || areas.includes('linkedin') || areas.includes('professional')) {
-    return "You're at an industry event, drink in hand. You spot someone you've been wanting to meet. This is your chance to make an impression. You approach...";
+    return "You spot someone you've been wanting to meet at an industry event.";
   }
-
-  // Default
-  return "The scene is set. You're in the moment, ready to take the lead. The other person is waiting for you to make your move...";
+  return "You're in the moment, ready to take the lead.";
 }
 
 // Challenge style themes

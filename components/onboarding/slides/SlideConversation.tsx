@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { Lightbulb } from 'lucide-react-native';
-import { SPRING_GENTLE, EASE_ENTER } from '../../../constants/animations';
+import { SPRING_GENTLE } from '../../../constants/animations';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -38,7 +38,7 @@ function ChatBubble({
       opacity.value = 0;
       translateX.value = isUser ? 40 : -40;
     }
-  }, [isActive]);
+  }, [isActive, delay, isUser, opacity, translateX]);
 
   const animStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -99,7 +99,7 @@ export function SlideConversation({ isActive }: SlideConversationProps) {
       insightOpacity.value = 0;
       insightY.value = 20;
     }
-  }, [isActive]);
+  }, [isActive, insightOpacity, insightY, titleOpacity, titleY]);
 
   const titleStyle = useAnimatedStyle(() => ({
     opacity: titleOpacity.value,

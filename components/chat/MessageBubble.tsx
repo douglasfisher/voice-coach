@@ -1,6 +1,6 @@
 import { View, Text, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Play, Pause, Volume2, Sparkles, Zap, Brain, Heart, Scale, Eye, Clock, MessageSquare } from 'lucide-react-native';
+import { Play, Pause, Volume2, Sparkles, Zap, Brain, Heart, Scale, Eye, Clock, MessageSquare, Clapperboard, Activity } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle } from '../../types/persona';
 
 /**
@@ -61,6 +61,15 @@ const STYLE_THEMES: Record<ChallengeStyle, {
   },
 };
 
+// Stage number to color mapping for emotional state badges
+const STAGE_COLORS: Record<number, string> = {
+  1: '#ef4444', // red - guarded/closed
+  2: '#f97316', // orange - cautious
+  3: '#eab308', // yellow - warming
+  4: '#22c55e', // green - open
+  5: '#3b82f6', // blue - connected
+};
+
 interface MessageBubbleProps {
   content: string;
   role: 'user' | 'assistant';
@@ -72,20 +81,26 @@ interface MessageBubbleProps {
   responseTimeMs?: number | null;
   showMetrics?: boolean;
   immersiveMode?: boolean;
+  metadata?: Record<string, unknown> | null;
+  isAdmin?: boolean;
 }
 
 export function MessageBubble({
   content,
   role,
   persona,
-  audioUrl,
+  audioUrl: _audioUrl,
   onPlayAudio,
   isPlaying,
   timestamp,
   responseTimeMs,
   showMetrics = true,
   immersiveMode = false,
+  metadata,
+  isAdmin = false,
 }: MessageBubbleProps) {
+  const isSceneContext = content.startsWith('[SCENE CONTEXT]');
+  const displayContent = isSceneContext ? content.replace('[SCENE CONTEXT]\n', '').replace('[SCENE CONTEXT]', '') : content;
   const isUser = role === 'user';
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
   const imageSource = persona
@@ -93,6 +108,15 @@ export function MessageBubble({
       ? { uri: persona.avatarUrl }
       : persona.avatarUrl
     : null;
+
+  // Emotional state (admin-only)
+  const emotionalStage = (isAdmin && !isUser && metadata?.emotional_stage)
+    ? metadata.emotional_stage as { number: number; name: string }
+    : null;
+  const stageColor = emotionalStage ? (STAGE_COLORS[emotionalStage.number] || '#9ca3af') : '';
+  const stageName = emotionalStage
+    ? emotionalStage.name.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase())
+    : '';
 
   // Immersive mode styles - more transparent backgrounds
   const immersiveAssistantGradient: [string, string] = ['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.4)'];
@@ -108,8 +132,8 @@ export function MessageBubble({
           ...(isUser ? { flexDirection: 'row-reverse' } : {}),
         }}
       >
-        {/* Avatar for assistant */}
-        {!isUser && persona && (
+        {/* Avatar for assistant (hidden for scene context) */}
+        {!isUser && persona && !isSceneContext && (
           <View
             style={{
               width: 36,
@@ -171,8 +195,29 @@ export function MessageBubble({
                   paddingVertical: 12,
                 }}
               >
-                <Text style={{ color: '#fff', fontSize: 15, lineHeight: 22 }}>
-                  {content}
+                {isSceneContext && (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      alignSelf: 'flex-start',
+                      backgroundColor: 'rgba(96, 165, 250, 0.15)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: 'rgba(96, 165, 250, 0.4)',
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Clapperboard size={12} color="#60a5fa" />
+                    <Text style={{ color: '#60a5fa', fontSize: 11, fontWeight: '700', marginLeft: 5, letterSpacing: 0.5 }}>
+                      THE SCENE
+                    </Text>
+                  </View>
+                )}
+                <Text style={{ color: '#fff', fontSize: 15, lineHeight: 22, ...(isSceneContext ? { fontStyle: 'italic' } : {}) }}>
+                  {displayContent}
                 </Text>
               </LinearGradient>
             </View>
@@ -232,7 +277,7 @@ export function MessageBubble({
           )}
 
           {/* Message Metrics */}
-          {showMetrics && (
+          {showMetrics && !isSceneContext && (
             <View
               style={{
                 flexDirection: 'row',
@@ -299,6 +344,28 @@ export function MessageBubble({
                     }}
                   >
                     {formatResponseTime(responseTimeMs)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Admin-only emotional state badge */}
+              {emotionalStage && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: `${stageColor}20`,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: `${stageColor}50`,
+                  }}
+                >
+                  <Activity size={10} color={stageColor} />
+                  <Text style={{ fontSize: 10, color: stageColor, fontWeight: '600' }}>
+                    {emotionalStage.number}: {stageName}
                   </Text>
                 </View>
               )}

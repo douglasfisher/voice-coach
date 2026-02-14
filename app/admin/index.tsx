@@ -93,12 +93,12 @@ function StatCard({ icon, label, value, subValue, color, onPress }: StatCardProp
 }
 
 export default function AdminDashboardScreen() {
-  const { dashboardStats, isLoadingDashboard, fetchDashboardStats } = useAdminStatsStore();
+  const { dashboardStats, isLoadingDashboard: _isLoadingDashboard, fetchDashboardStats } = useAdminStatsStore();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchDashboardStats();
-  }, []);
+  }, [fetchDashboardStats]);
 
   const onRefresh = async () => {
     setRefreshing(true);

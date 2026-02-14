@@ -27,7 +27,7 @@ export function useScrollHideContext() {
   return value;
 }
 
-export function useScrollHideAnimation(headerHeight: number) {
+export function useScrollHideAnimation(headerHeight: number, disabled?: boolean) {
   const tabBarProgress = useContext(ScrollHideContext);
   const localProgress = useSharedValue(0);
   const progress = tabBarProgress ?? localProgress;
@@ -36,6 +36,7 @@ export function useScrollHideAnimation(headerHeight: number) {
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
+      if (disabled) return;
       const currentY = event.contentOffset.y;
       const delta = currentY - lastY.value;
 

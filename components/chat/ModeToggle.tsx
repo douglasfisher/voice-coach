@@ -28,7 +28,7 @@ export function ModeToggle({
       useNativeDriver: true,
       duration: 200,
     }).start();
-  }, [mode]);
+  }, [mode, slideAnim]);
 
   const toggleWidth = 158;
   const practiceWidth = 92; // Wider for "Practice"

@@ -9,7 +9,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-resolver.ts';
 import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
-import { recordAIUsage } from '../_shared/cost-calculator.ts';
+import { recordAIUsage, calculateAICost } from '../_shared/cost-calculator.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -27,8 +27,15 @@ interface ChatRequest {
   previewGreeting?: boolean;
   regenerateQuestion?: boolean;
   generateChallenge?: boolean;
+  generateChallengeBatch?: boolean;
+  refreshChallengeBatch?: boolean;
   generateScenario?: boolean;
   generateReport?: boolean;
+  // Generic completion (no conversation context needed)
+  action?: 'complete';
+  systemPrompt?: string;
+  userPrompt?: string;
+  settings?: { model?: string; temperature?: number; max_completion_tokens?: number };
   // Coaching-specific fields
   scenarioId?: string;
   interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
@@ -42,6 +49,23 @@ interface ChatRequest {
 interface GroqMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+}
+
+interface GroqUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+function buildAIUsageMetadata(usage: GroqUsage, model: string, taskType: string, costCents: number) {
+  return {
+    prompt_tokens: usage.prompt_tokens,
+    completion_tokens: usage.completion_tokens,
+    total_tokens: usage.total_tokens,
+    cost_cents: costCents,
+    model,
+    task_type: taskType,
+  };
 }
 
 // --- Report types & helpers (merged from report function) ---
@@ -62,6 +86,7 @@ interface MessageWithTiming {
   sequence: number;
   created_at: string;
   response_time_ms: number | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface DimensionScores {
@@ -133,47 +158,6 @@ function calculateTimingMetrics(
   };
 }
 
-const REPORT_SYSTEM_PROMPT = `You are an expert coach analyzing a dialectical conversation. Generate a comprehensive session report.
-
-IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanations.
-
-Output format:
-{
-  "tldr": "1-2 sentence summary of the conversation quality",
-  "strengths": ["strength 1", "strength 2", "strength 3"],
-  "weaknesses": ["area for improvement 1", "area for improvement 2", "area for improvement 3"],
-  "detailed_analysis": "2-3 paragraphs analyzing the user's reasoning, engagement, and growth opportunities",
-  "overall_score": 75,
-  "dimension_scores": {
-    "logical_reasoning": 80,
-    "bias_awareness": 70,
-    "perspective_taking": 75,
-    "emotional_regulation": 72
-  }
-}
-
-Dimension scoring (0-100 each):
-- logical_reasoning: Argument structure, valid inferences, evidence use, logical consistency
-- bias_awareness: Recognition of cognitive biases, fair consideration of evidence, avoiding fallacies
-- perspective_taking: Willingness to consider alternatives, intellectual humility, openness to challenge
-- emotional_regulation: Composure, non-defensive responses, constructive engagement under pressure
-
-Overall score = weighted average of dimension scores.
-
-Scoring guide (0-100):
-- 90-100: Exceptional critical thinking, nuanced arguments, intellectual humility
-- 75-89: Strong reasoning with minor gaps, good engagement
-- 60-74: Decent engagement but logical gaps or missed opportunities
-- 40-59: Surface-level thinking, defensive responses, or avoidance
-- Below 40: Minimal engagement or poor reasoning
-
-Focus on:
-- Logical consistency and soundness of arguments
-- Openness to new perspectives
-- Quality of questions asked
-- Evidence of intellectual growth during conversation
-- Recognition of complexity and nuance`;
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -198,8 +182,15 @@ serve(async (req) => {
       previewGreeting,
       regenerateQuestion,
       generateChallenge,
+      generateChallengeBatch,
+      refreshChallengeBatch,
       generateScenario,
       generateReport,
+      // Generic completion
+      action,
+      systemPrompt,
+      userPrompt,
+      settings,
       // Coaching fields
       scenarioId,
       interactionMode,
@@ -210,6 +201,46 @@ serve(async (req) => {
       promptTokens,
     } = await req.json() as ChatRequest;
 
+    // =========================================================================
+    // Generic completion — lightweight AI call, no conversation context
+    // =========================================================================
+    if (action === 'complete' && systemPrompt && userPrompt) {
+      const model = settings?.model || 'llama-3.1-8b-instant';
+      const groqResponse = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: settings?.temperature ?? 0.7,
+          max_completion_tokens: settings?.max_completion_tokens ?? 1024,
+        }),
+      });
+
+      if (!groqResponse.ok) {
+        const errText = await groqResponse.text();
+        console.error('Groq completion error:', errText);
+        return new Response(JSON.stringify({ error: 'AI completion failed' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const groqData = await groqResponse.json();
+      const content = groqData.choices?.[0]?.message?.content || '';
+
+      return new Response(JSON.stringify({ content }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Handle challenge generation (doesn't require conversationId)
     if (generateChallenge) {
       // Fetch challenge prompt from app_settings
@@ -219,19 +250,14 @@ serve(async (req) => {
         .eq('key', 'ai_challenge_prompt')
         .single();
 
-      const challengePrompt = challengeSettings?.value || `You are a generator of thought-provoking philosophical and ethical questions. Generate ONE unique, engaging question that will challenge someone's assumptions and spark deep thinking.
+      if (!challengeSettings?.value) {
+        return new Response(
+          JSON.stringify({ error: 'Challenge prompt not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanations.
-
-Output format:
-{"question": "Your thought-provoking question here?", "topic": "Brief topic label (2-3 words)"}
-
-Guidelines:
-- Questions should be open-ended, not yes/no
-- Focus on ethics, philosophy, psychology, society, or personal growth
-- Make it personally relevant - something people encounter in daily life
-- Avoid academic jargon - keep it accessible
-- The question should have no single "right" answer`;
+      const challengePrompt = challengeSettings.value;
 
       const config = await resolveAIConfig(supabase, {
         task: 'challenge',
@@ -279,12 +305,171 @@ Guidelines:
       );
     }
 
+    // Handle batch challenge generation (10 challenges per day)
+    if (generateChallengeBatch) {
+      // Check if we already have today's batch (unless admin is forcing refresh)
+      if (!refreshChallengeBatch) {
+        const { data: existingBatch } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'daily_challenges_batch')
+          .single();
+
+        if (existingBatch?.value) {
+          const batch = typeof existingBatch.value === 'string'
+            ? JSON.parse(existingBatch.value)
+            : existingBatch.value;
+          const today = new Date().toISOString().split('T')[0];
+          if (batch.generatedDate === today && batch.challenges?.length > 0) {
+            return new Response(
+              JSON.stringify(batch),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+      }
+
+      // Fetch 10 personas spread across domains (round-robin)
+      const { data: allCoaches } = await supabase
+        .from('personas')
+        .select('id, name, domain_id')
+        .eq('persona_type', 'coach')
+        .eq('is_active', true);
+
+      if (!allCoaches || allCoaches.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'No active coaches found' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Group by domain and round-robin pick 10
+      const byDomain: Record<string, typeof allCoaches> = {};
+      for (const coach of allCoaches) {
+        const domain = coach.domain_id || 'unknown';
+        if (!byDomain[domain]) byDomain[domain] = [];
+        byDomain[domain].push(coach);
+      }
+
+      // Shuffle each domain's coaches
+      for (const domain of Object.keys(byDomain)) {
+        const arr = byDomain[domain];
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      }
+
+      const domainKeys = Object.keys(byDomain);
+      const selectedPersonas: { id: string; name: string }[] = [];
+      let domainIdx = 0;
+      const domainPointers: Record<string, number> = {};
+      for (const d of domainKeys) domainPointers[d] = 0;
+
+      while (selectedPersonas.length < 10 && selectedPersonas.length < allCoaches.length) {
+        const domain = domainKeys[domainIdx % domainKeys.length];
+        const pointer = domainPointers[domain];
+        if (pointer < byDomain[domain].length) {
+          selectedPersonas.push({
+            id: byDomain[domain][pointer].id,
+            name: byDomain[domain][pointer].name,
+          });
+          domainPointers[domain]++;
+        }
+        domainIdx++;
+        // Safety: if we've gone through all domains without adding, break
+        if (domainIdx > domainKeys.length * allCoaches.length) break;
+      }
+
+      // Fetch challenge prompt
+      const { data: challengeSettings } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'ai_challenge_prompt')
+        .single();
+
+      if (!challengeSettings?.value) {
+        return new Response(
+          JSON.stringify({ error: 'Challenge prompt not configured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const challengePrompt = challengeSettings.value;
+
+      const config = await resolveAIConfig(supabase, {
+        task: 'challenge',
+      });
+
+      const challengeResponse = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: 'system', content: challengePrompt },
+            { role: 'user', content: 'Generate 10 unique, thought-provoking questions for today. Each should cover a different topic area.' },
+          ],
+          temperature: 0.9,
+          max_tokens: 1500,
+        }),
+      });
+
+      if (!challengeResponse.ok) {
+        throw new Error(`Groq API error: ${challengeResponse.status}`);
+      }
+
+      const challengeData = await challengeResponse.json();
+      const content = challengeData.choices[0]?.message?.content || '';
+
+      let challenges: { question: string; topic: string }[] = [];
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+        challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
+      } catch {
+        // Fallback: single challenge
+        challenges = [{
+          question: "What belief do you hold that you've never seriously questioned?",
+          topic: 'Self-Reflection',
+        }];
+      }
+
+      // Attach persona info to each challenge (round-robin assignment)
+      const enrichedChallenges = challenges.map((c, i) => ({
+        ...c,
+        personaId: selectedPersonas[i % selectedPersonas.length].id,
+        personaName: selectedPersonas[i % selectedPersonas.length].name,
+      }));
+
+      const now = new Date();
+      const batch = {
+        challenges: enrichedChallenges,
+        generatedAt: now.toISOString(),
+        generatedDate: now.toISOString().split('T')[0],
+      };
+
+      // Upsert into app_settings
+      await supabase
+        .from('app_settings')
+        .update({ value: batch })
+        .eq('key', 'daily_challenges_batch');
+
+      return new Response(
+        JSON.stringify(batch),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Handle scenario generation for Q&A mode (doesn't require conversationId)
     if (generateScenario) {
-      // Fetch persona's qa_scenario_prompt
+      // Fetch persona's qa_scenario_prompt and scene template
       const { data: persona, error: personaError } = await supabase
         .from('personas')
-        .select('qa_scenario_prompt')
+        .select('qa_scenario_prompt, qa_scene_template')
         .eq('id', personaId)
         .single();
 
@@ -292,15 +477,59 @@ Guidelines:
         console.error('Failed to fetch persona for scenario:', personaError);
       }
 
-      const scenarioPrompt = persona?.qa_scenario_prompt ||
-        'Generate a brief practice scenario (2-3 sentences). Set a realistic scene. Second person, present tense.';
+      let scenarioPrompt = persona?.qa_scenario_prompt ||
+        'Generate a short scenario sentence to set the scene for a practice conversation.';
+
+      // Apply trait token replacement on qa_scenario_prompt (same pattern as ai-config-resolver)
+      // First load persona trait defaults for any categories not overridden by user
+      const mergedTokens: Record<string, string> = {};
+      const { data: personaDefaults } = await supabase
+        .from('persona_trait_defaults')
+        .select('trait_options(prompt_modifier, trait_categories(slug))')
+        .eq('persona_id', personaId);
+
+      if (personaDefaults) {
+        for (const row of personaDefaults as any[]) {
+          const catSlug = row.trait_options?.trait_categories?.slug;
+          if (catSlug) {
+            mergedTokens[catSlug] = row.trait_options.prompt_modifier || '';
+          }
+        }
+      }
+
+      // User selections override persona defaults
+      if (promptTokens) {
+        for (const [key, value] of Object.entries(promptTokens)) {
+          mergedTokens[key] = value;
+        }
+      }
+
+      // Replace tokens in scenario prompt
+      for (const [key, value] of Object.entries(mergedTokens)) {
+        scenarioPrompt = scenarioPrompt.replaceAll(`{{${key}}}`, value || '');
+      }
+      // Clean up unreplaced tokens
+      scenarioPrompt = scenarioPrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+      // Append pseudo-tokens (keys starting with _) as additional context
+      const pseudoInstructions = Object.entries(mergedTokens)
+        .filter(([key, value]) => key.startsWith('_') && value)
+        .map(([, value]) => value);
+      if (pseudoInstructions.length > 0) {
+        scenarioPrompt += '\nADDITIONAL CONTEXT:\n' + pseudoInstructions.join('\n');
+      }
 
       const scenarioConfig = await resolveAIConfig(supabase, {
         task: 'scenario',
         personaId,
       });
 
-      const systemPrompt = `You are a creative scenario writer. Your job is to create immersive, realistic practice scenarios.\n\n${scenarioPrompt}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Keep it to 2-3 sentences maximum\n- Make it vivid and specific\n- Use second person present tense ("You...")\n- End on the moment of action\n- Vary locations, people, and details each time`;
+      // Build system prompt from scene template (persona -> global -> minimal fallback)
+      const sceneTemplate = persona?.qa_scene_template
+        || scenarioConfig.scene_template
+        || 'You are a creative scenario writer.\n\n{{scenario_prompt}}\n\nRULES:\n- Output ONLY the scenario text, no quotes or formatting\n- Second person present tense ("You...")\n- Be vivid, specific and immersive\n- Vary locations and details each time';
+
+      const systemPrompt = sceneTemplate.replace('{{scenario_prompt}}', scenarioPrompt);
 
       const scenarioResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
@@ -343,7 +572,7 @@ Guidelines:
 
       const { data: conversation, error: convError } = await supabase
         .from('conversations')
-        .select('*, started_at, created_at, personas(name, challenge_style)')
+        .select('*, started_at, created_at, analysis_summary, personas(name, challenge_style)')
         .eq('id', conversationId)
         .single();
 
@@ -367,7 +596,7 @@ Guidelines:
 
       const { data: reportMessages, error: msgError } = await supabase
         .from('messages')
-        .select('role, content, sequence, created_at, response_time_ms')
+        .select('role, content, sequence, created_at, response_time_ms, metadata')
         .eq('conversation_id', conversationId)
         .order('sequence', { ascending: true });
 
@@ -384,7 +613,13 @@ Guidelines:
       );
 
       const transcript = reportMessages
-        .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+        .map(m => {
+          const emotionalStage = (m as MessageWithTiming).metadata?.emotional_stage as { number: number; name: string } | undefined;
+          if (m.role === 'assistant' && emotionalStage) {
+            return `ASSISTANT [Emotional State: Stage ${emotionalStage.number} - ${emotionalStage.name}]: ${m.content}`;
+          }
+          return `${m.role.toUpperCase()}: ${m.content}`;
+        })
         .join('\n\n');
 
       const personaInfo = conversation.personas;
@@ -395,54 +630,72 @@ ${transcript}
 
 Generate a comprehensive session report.`;
 
-      const reportGroqResponse = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: reportConfig.model,
-          messages: [
-            { role: 'system', content: REPORT_SYSTEM_PROMPT },
-            { role: 'user', content: reportUserPrompt },
-          ],
-          temperature: reportConfig.temperature,
-          max_tokens: reportConfig.max_completion_tokens,
-        }),
-      });
-
-      if (!reportGroqResponse.ok) {
-        const errorText = await reportGroqResponse.text();
-        console.error('Groq error:', reportGroqResponse.status, errorText);
-        throw new Error(`Groq API error: ${reportGroqResponse.status}`);
+      if (!reportConfig.report_system_prompt) {
+        return new Response(
+          JSON.stringify({ error: 'Report prompt not configured in database' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
-      const reportGroqData = await reportGroqResponse.json();
-      const reportContent = reportGroqData.choices[0]?.message?.content || '';
+      // Try report generation with primary model, then fallback
+      const modelsToTry = [reportConfig.model];
+      if (reportConfig.fallback_model && reportConfig.fallback_model !== reportConfig.model) {
+        modelsToTry.push(reportConfig.fallback_model);
+      }
 
-      let report: SessionReport;
-      try {
-        const jsonMatch = reportContent.match(/\{[\s\S]*\}/);
-        const jsonStr = jsonMatch ? jsonMatch[0] : reportContent;
-        report = JSON.parse(jsonStr.trim());
-        report.generated_at = new Date().toISOString();
-      } catch {
-        console.error('Failed to parse report:', reportContent);
-        report = {
-          tldr: 'Session completed. Analysis could not be generated.',
-          strengths: ['Engaged in conversation', 'Completed the session'],
-          weaknesses: ['Analysis unavailable'],
-          detailed_analysis: 'The session was completed but detailed analysis could not be generated at this time.',
-          overall_score: 50,
-          dimension_scores: {
-            logical_reasoning: 50,
-            bias_awareness: 50,
-            perspective_taking: 50,
-            emotional_regulation: 50,
-          },
-          generated_at: new Date().toISOString(),
-        };
+      let report: SessionReport | null = null;
+      let reportGroqData: Record<string, unknown> | null = null;
+      let usedModel = reportConfig.model;
+
+      for (const model of modelsToTry) {
+        try {
+          const reportGroqResponse = await fetch(GROQ_API_URL, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${groqApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: reportConfig.report_system_prompt },
+                { role: 'user', content: reportUserPrompt },
+              ],
+              temperature: reportConfig.temperature,
+              max_tokens: reportConfig.max_completion_tokens,
+              response_format: { type: 'json_object' },
+            }),
+          });
+
+          if (!reportGroqResponse.ok) {
+            const errorText = await reportGroqResponse.text();
+            console.error(`Groq error (${model}):`, reportGroqResponse.status, errorText);
+            continue; // Try next model
+          }
+
+          reportGroqData = await reportGroqResponse.json();
+          const reportContent = (reportGroqData as { choices: { message: { content: string } }[] }).choices[0]?.message?.content || '';
+
+          const jsonMatch = reportContent.match(/\{[\s\S]*\}/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : reportContent;
+          report = JSON.parse(jsonStr.trim());
+          report!.generated_at = new Date().toISOString();
+          usedModel = model;
+          break; // Success
+        } catch (parseErr) {
+          console.error(`Report parse/fetch failed for model ${model}:`, parseErr);
+          continue; // Try next model
+        }
+      }
+
+      if (!report) {
+        return new Response(
+          JSON.stringify({
+            error: 'Report generation failed — AI returned invalid data. Please try again.',
+            errorCode: 'REPORT_PARSE_FAILED',
+          }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       if (!report.dimension_scores) {
@@ -460,10 +713,41 @@ Generate a comprehensive session report.`;
 
       report.overall_score = Math.max(0, Math.min(100, report.overall_score || 50));
 
+      // Compute emotional progression from message metadata
+      let emotionalProgression = null;
+      const emotionalStages: { number: number; name: string }[] = [];
+      for (const m of (reportMessages as MessageWithTiming[])) {
+        if (m.role === 'assistant' && m.metadata?.emotional_stage) {
+          const stage = m.metadata.emotional_stage as { number: number; name: string };
+          emotionalStages.push(stage);
+        }
+      }
+      if (emotionalStages.length > 0) {
+        const startStage = emotionalStages[0];
+        const endStage = emotionalStages[emotionalStages.length - 1];
+        const delta = endStage.number - startStage.number;
+        const stageCounts: Record<number, number> = {};
+        for (const s of emotionalStages) {
+          stageCounts[s.number] = (stageCounts[s.number] || 0) + 1;
+        }
+        emotionalProgression = {
+          start: startStage,
+          end: endStage,
+          delta,
+          trend: delta > 0 ? 'warmed_up' : delta < 0 ? 'cooled_down' : 'stayed_flat',
+          stage_counts: stageCounts,
+          journey: emotionalStages.map(s => s.number),
+        };
+      }
+
+      const analysisSummary = emotionalProgression
+        ? { ...report, emotional_progression: emotionalProgression }
+        : report;
+
       const { error: updateError } = await supabase
         .from('conversations')
         .update({
-          analysis_summary: report,
+          analysis_summary: analysisSummary,
           overall_score: report.overall_score,
           timing_metrics: timingMetrics,
           status: 'completed',
@@ -475,37 +759,44 @@ Generate a comprehensive session report.`;
         console.error('Failed to save report:', updateError);
       }
 
-      if (reportGroqData.usage) {
+      const groqUsage = (reportGroqData as { usage?: GroqUsage })?.usage;
+      if (groqUsage) {
         await recordAIUsage(supabase, {
           userId: conversation.user_id,
           conversationId: conversationId,
           personaId: conversation.persona_id,
-          model: reportConfig.model,
-          promptTokens: reportGroqData.usage.prompt_tokens,
-          completionTokens: reportGroqData.usage.completion_tokens,
-          totalTokens: reportGroqData.usage.total_tokens,
+          model: usedModel,
+          promptTokens: groqUsage.prompt_tokens,
+          completionTokens: groqUsage.completion_tokens,
+          totalTokens: groqUsage.total_tokens,
           taskType: 'report',
         });
       }
 
+      // Skip gamification on re-analysis (not idempotent — awards XP, streaks, achievements)
+      const isRegeneration = conversation.analysis_summary != null;
       let gamificationResult = null;
-      try {
-        gamificationResult = await processSessionGamification(
-          supabase,
-          conversation.user_id,
-          conversationId,
-          {
-            overall_score: report.overall_score,
-            dimension_scores: report.dimension_scores,
-          }
-        );
-        console.log('Gamification processed:', {
-          xpAwarded: gamificationResult.xp.awarded,
-          streak: gamificationResult.streak.current,
-          achievements: gamificationResult.achievements.length,
-        });
-      } catch (gamificationError) {
-        console.error('Gamification processing error:', gamificationError);
+      if (!isRegeneration) {
+        try {
+          gamificationResult = await processSessionGamification(
+            supabase,
+            conversation.user_id,
+            conversationId,
+            {
+              overall_score: report.overall_score,
+              dimension_scores: report.dimension_scores,
+            }
+          );
+          console.log('Gamification processed:', {
+            xpAwarded: gamificationResult.xp.awarded,
+            streak: gamificationResult.streak.current,
+            achievements: gamificationResult.achievements.length,
+          });
+        } catch (gamificationError) {
+          console.error('Gamification processing error:', gamificationError);
+        }
+      } else {
+        console.log('Skipping gamification — re-analysis of existing report');
       }
 
       return new Response(
@@ -567,9 +858,25 @@ Generate a comprehensive session report.`;
 
     // If we have question_mode set on conversation but no scenario, create a coaching context for it
     if (!coachingContext && effectiveInteractionMode === 'question_mode') {
+      // Fetch scenario from first system message (saved by client in Q&A mode)
+      let scenarioText = '';
+      if (conversationId) {
+        const { data: sceneMsg } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('conversation_id', conversationId)
+          .eq('role', 'system')
+          .order('sequence', { ascending: true })
+          .limit(1)
+          .single();
+        if (sceneMsg?.content) {
+          scenarioText = sceneMsg.content.replace(/^\[SCENE CONTEXT\]\n?/, '');
+        }
+      }
       coachingContext = {
         interactionMode: 'question_mode',
-        currentPhase: 'roleplay', // Q&A mode doesn't use phases but we need a value
+        currentPhase: 'roleplay',
+        scenarioContext: scenarioText,
       };
     }
 
@@ -690,11 +997,19 @@ Generate a comprehensive session report.`;
       const questionResponse = await generateQuestion();
       const questionContent = questionResponse.choices[0]?.message?.content || '';
 
+      const greetingTaskType = isCoachingTask ? 'coaching' : 'greeting';
+      let greetingMetadata: Record<string, unknown> | undefined;
+      if (questionResponse.usage) {
+        const greetingCost = await calculateAICost(supabase, config.model, questionResponse.usage.prompt_tokens, questionResponse.usage.completion_tokens);
+        greetingMetadata = { ai_usage: buildAIUsageMetadata(questionResponse.usage, config.model, greetingTaskType, greetingCost) };
+      }
+
       await supabase.from('messages').insert({
         conversation_id: conversationId,
         role: 'assistant',
         content: questionContent,
         sequence: 1,
+        ...(greetingMetadata ? { metadata: greetingMetadata } : {}),
       });
 
       if (questionResponse.usage) {
@@ -706,7 +1021,7 @@ Generate a comprehensive session report.`;
           promptTokens: questionResponse.usage.prompt_tokens,
           completionTokens: questionResponse.usage.completion_tokens,
           totalTokens: questionResponse.usage.total_tokens,
-          taskType: isCoachingTask ? 'coaching' : 'greeting',
+          taskType: greetingTaskType,
         });
       }
 
@@ -754,11 +1069,18 @@ Generate a comprehensive session report.`;
         const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
         const nextSequence = (messages?.length || 0) + 1;
 
+        let switchFeedbackMetadata: Record<string, unknown> | undefined;
+        if (feedbackResponse.usage) {
+          const switchFeedbackCost = await calculateAICost(supabase, feedbackConfig.model, feedbackResponse.usage.prompt_tokens, feedbackResponse.usage.completion_tokens);
+          switchFeedbackMetadata = { ai_usage: buildAIUsageMetadata(feedbackResponse.usage, feedbackConfig.model, 'feedback', switchFeedbackCost) };
+        }
+
         await supabase.from('messages').insert({
           conversation_id: conversationId,
           role: 'assistant',
           content: feedbackMessage,
           sequence: nextSequence,
+          ...(switchFeedbackMetadata ? { metadata: switchFeedbackMetadata } : {}),
         });
 
         // Track feedback AI usage
@@ -815,7 +1137,7 @@ Generate a comprehensive session report.`;
         content: m.content,
       }));
 
-      const quickFeedbackPrompt = getQuickFeedbackPrompt(feedbackStyle);
+      const quickFeedbackPrompt = getQuickFeedbackPrompt(feedbackStyle, config.coaching_prompts);
       const nextSequence = (messages?.length || 0) + 1;
 
       const feedbackResponse = await callGroq([
@@ -826,11 +1148,18 @@ Generate a comprehensive session report.`;
 
       const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
 
+      let quickFeedbackMetadata: Record<string, unknown> | undefined;
+      if (feedbackResponse.usage) {
+        const quickFeedbackCost = await calculateAICost(supabase, config.model, feedbackResponse.usage.prompt_tokens, feedbackResponse.usage.completion_tokens);
+        quickFeedbackMetadata = { ai_usage: buildAIUsageMetadata(feedbackResponse.usage, config.model, 'feedback', quickFeedbackCost) };
+      }
+
       await supabase.from('messages').insert({
         conversation_id: conversationId,
         role: 'assistant',
         content: feedbackMessage,
         sequence: nextSequence,
+        ...(quickFeedbackMetadata ? { metadata: quickFeedbackMetadata } : {}),
       });
 
       // Track quick feedback AI usage
@@ -897,18 +1226,42 @@ Generate a comprehensive session report.`;
       { role: 'user', content: userMessage! },
     ]);
 
-    const assistantMessage = groqResponse.choices[0]?.message?.content || '';
+    let assistantMessage = groqResponse.choices[0]?.message?.content || '';
+
+    // Parse and strip emotional state tag from AI response (e.g., [STATE:2:CAUTIOUSLY_CURIOUS])
+    let messageMetadata: Record<string, unknown> | null = null;
+    const stateTagMatch = assistantMessage.match(/\[STATE:(\d+):([A-Z_]+)\]\s*$/);
+    if (stateTagMatch) {
+      assistantMessage = assistantMessage.replace(/\[STATE:\d+:[A-Z_]+\]\s*$/, '').trimEnd();
+      messageMetadata = {
+        emotional_stage: {
+          number: parseInt(stateTagMatch[1], 10),
+          name: stateTagMatch[2],
+        },
+      };
+    }
+
+    // Add AI usage metadata to the message
+    const chatTaskType = isCoachingTask ? 'coaching' : 'chat';
+    if (groqResponse.usage) {
+      const chatCost = await calculateAICost(supabase, config.model, groqResponse.usage.prompt_tokens, groqResponse.usage.completion_tokens);
+      messageMetadata = {
+        ...messageMetadata,
+        ai_usage: buildAIUsageMetadata(groqResponse.usage, config.model, chatTaskType, chatCost),
+      };
+    }
 
     // Calculate assistant response time (time since user message was saved)
     const assistantResponseTimeMs = Date.now() - new Date(userMessageCreatedAt).getTime();
 
-    // Save assistant message with response time
+    // Save assistant message with response time and optional metadata
     await supabase.from('messages').insert({
       conversation_id: conversationId,
       role: 'assistant',
       content: assistantMessage,
       sequence: nextSequence + 1,
       response_time_ms: assistantResponseTimeMs,
+      ...(messageMetadata ? { metadata: messageMetadata } : {}),
     });
 
     // Log usage
@@ -927,7 +1280,7 @@ Generate a comprehensive session report.`;
         promptTokens: groqResponse.usage.prompt_tokens,
         completionTokens: groqResponse.usage.completion_tokens,
         totalTokens: groqResponse.usage.total_tokens,
-        taskType: isCoachingTask ? 'coaching' : 'chat',
+        taskType: chatTaskType,
       });
     }
 

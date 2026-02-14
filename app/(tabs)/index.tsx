@@ -1,7 +1,8 @@
-import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType, ActivityIndicator, FlatList, Dimensions } from 'react-native';
+import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Flame,
@@ -10,10 +11,7 @@ import {
   MessageCircle,
   Zap,
   TrendingUp,
-  Award,
   Brain,
-  Sparkles,
-  Users,
   RefreshCw,
   GraduationCap,
 } from 'lucide-react-native';
@@ -23,6 +21,13 @@ import { usePersonaStore } from '../../stores/personaStore';
 import { PersonaCard } from '../../components/personas/PersonaCard';
 import { PersonaModal } from '../../components/personas/PersonaModal';
 import { PersonaDisplay } from '../../types/persona';
+import { resolvePersonaAvatar } from '../../lib/personaImages';
+import { useAppSetting } from '../../hooks/useAppSetting';
+import { LevelBadge } from '../../components/growth/LevelBadge';
+import { getBadgeForLevel, LEVELS } from '../../lib/gamification';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_WIDTH = SCREEN_WIDTH - 16;
 
 function shuffle<T>(array: T[]): T[] {
   const copy = [...array];
@@ -39,15 +44,28 @@ export default function HomeScreen() {
     conversations,
     fetchConversations,
     createConversation,
-    dailyChallenge,
+    dailyChallenges,
+    activeChallengeIndex,
+    setActiveChallengeIndex,
     isLoadingChallenge,
-    fetchDailyChallenge,
+    fetchDailyChallenges,
     startChallengeChat,
   } = useChatStore();
   const { getPersonaById, personas } = usePersonaStore();
+  const { value: showPersonaImage } = useAppSetting('challenge_show_persona_image');
   const [isStartingChallenge, setIsStartingChallenge] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index != null) {
+        setActiveChallengeIndex(viewableItems[0].index);
+      }
+    },
+    [setActiveChallengeIndex]
+  );
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
   useEffect(() => {
     if (user?.id) {
@@ -55,12 +73,12 @@ export default function HomeScreen() {
     }
   }, [user?.id, fetchConversations]);
 
-  // Fetch daily challenge when personas are available
+  // Fetch daily challenges batch
   useEffect(() => {
-    if (personas.length > 0) {
-      fetchDailyChallenge(personas);
+    if (user?.id) {
+      fetchDailyChallenges();
     }
-  }, [personas, fetchDailyChallenge]);
+  }, [user?.id, fetchDailyChallenges]);
 
   // Shuffle coaches and challengers once per mount
   const shuffledCoaches = useMemo(
@@ -83,16 +101,11 @@ export default function HomeScreen() {
   const greeting = getGreeting();
   const displayName = profile?.display_name ?? 'Thinker';
 
-  // Get the persona for the daily challenge
-  const challengePersona = dailyChallenge
-    ? getPersonaById(dailyChallenge.personaId)
-    : null;
-
-  const handleStartChallenge = async () => {
+  const handleStartChallenge = async (index: number) => {
     if (!user?.id) return;
 
-    // If no daily challenge loaded, go to personas page instead
-    if (!dailyChallenge) {
+    const challenge = dailyChallenges[index];
+    if (!challenge) {
       router.push('/(tabs)/personas');
       return;
     }
@@ -101,9 +114,9 @@ export default function HomeScreen() {
     try {
       const conversationId = await startChallengeChat(
         user.id,
-        dailyChallenge.personaId,
-        dailyChallenge.question,
-        dailyChallenge.topic
+        challenge.personaId,
+        challenge.question,
+        challenge.topic
       );
 
       if (conversationId) {
@@ -141,18 +154,237 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 12 }}>
           <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>{greeting}</Text>
-          <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 4 }}>
-            {displayName}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <LevelBadge level={profile?.current_level ?? 1} size="md" />
+            <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginLeft: 8 }}>
+              {displayName}
+            </Text>
+          </View>
+        </View>
+
+        {/* Daily Challenges Carousel */}
+        <View style={{ marginBottom: 20 }}>
+          {/* Header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Target size={16} color="#60a5fa" />
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginLeft: 8 }}>
+                TODAY'S CHALLENGES
+              </Text>
+            </View>
+            {dailyChallenges.length > 1 && (
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                {activeChallengeIndex + 1}/{dailyChallenges.length}
+              </Text>
+            )}
+          </View>
+
+          {isLoadingChallenge ? (
+            <View style={{ paddingHorizontal: 8 }}>
+              <LinearGradient
+                colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  borderRadius: 24,
+                  borderWidth: 1,
+                  borderColor: 'rgba(96, 165, 250, 0.3)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 40,
+                }}
+              >
+                <ActivityIndicator size="small" color="#60a5fa" />
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 8 }}>
+                  Generating today's challenges...
+                </Text>
+              </LinearGradient>
+            </View>
+          ) : dailyChallenges.length > 0 ? (
+            <>
+              <FlatList
+                data={dailyChallenges}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={CARD_WIDTH + 8}
+                decelerationRate="fast"
+                contentContainerStyle={{ paddingHorizontal: 8 }}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
+                keyExtractor={(_, i) => `challenge-${i}`}
+                renderItem={({ item: challenge, index }) => {
+                  const hasImage = showPersonaImage !== false && !!challenge.personaName;
+                  const avatarSource = hasImage
+                    ? resolvePersonaAvatar(challenge.personaName)
+                    : null;
+
+                  return (
+                    <Pressable
+                      onPress={() => handleStartChallenge(index)}
+                      disabled={isStartingChallenge}
+                      style={{ width: CARD_WIDTH, marginRight: 8 }}
+                    >
+                      <View style={{
+                        borderRadius: 24,
+                        overflow: 'hidden',
+                        height: hasImage ? 552 : undefined,
+                        borderWidth: 1,
+                        borderColor: 'rgba(96, 165, 250, 0.3)',
+                      }}>
+                        {/* Full-bleed background image */}
+                        {avatarSource && (
+                          <Image
+                            source={avatarSource}
+                            style={{ position: 'absolute', width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                        )}
+
+                        {/* Gradient overlay — bottom half only when image shown */}
+                        <LinearGradient
+                          colors={hasImage
+                            ? ['transparent', 'rgba(10,10,15,0.7)', 'rgba(10,10,15,0.97)']
+                            : ['#1e3a5f', '#1a1a2e', '#0a0a0f']}
+                          locations={hasImage ? [0, 0.35, 1] : undefined}
+                          start={hasImage ? { x: 0, y: 0.5 } : { x: 0, y: 0 }}
+                          end={{ x: hasImage ? 0 : 1, y: 1 }}
+                          style={hasImage
+                            ? { position: 'absolute', width: '100%', height: '100%' }
+                            : { flex: 1 }}
+                        />
+
+                        {/* Content */}
+                        <View style={{ flex: 1, justifyContent: 'space-between', padding: 20 }}>
+                          {/* Top row: label + NEW badge */}
+                          <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: hasImage ? 0 : 16,
+                          }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              {!hasImage && (
+                                <View style={{
+                                  width: 40, height: 40, borderRadius: 20,
+                                  backgroundColor: '#60a5fa',
+                                  alignItems: 'center', justifyContent: 'center',
+                                  marginRight: 12,
+                                }}>
+                                  <Target size={20} color="#0f0f12" />
+                                </View>
+                              )}
+                              <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '600', letterSpacing: 1 }}>
+                                CHALLENGE
+                              </Text>
+                            </View>
+                            <View style={{
+                              backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                              paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+                            }}>
+                              <Text style={{ color: '#60a5fa', fontSize: 11, fontWeight: '600' }}>NEW</Text>
+                            </View>
+                          </View>
+
+                          {/* Bottom content — pushed to bottom by flex space-between when image shown */}
+                          <View>
+                            {challenge.personaName ? (
+                              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 6 }} numberOfLines={1}>
+                                with {challenge.personaName}
+                              </Text>
+                            ) : null}
+
+                            <Text style={{ color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 28, marginBottom: 16 }}>
+                              "{challenge.question}"
+                            </Text>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                <Brain size={16} color="rgba(255,255,255,0.5)" />
+                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginLeft: 6 }}>
+                                  {challenge.topic}
+                                </Text>
+                              </View>
+                              <View style={{
+                                flexDirection: 'row', alignItems: 'center',
+                                backgroundColor: '#60a5fa',
+                                paddingHorizontal: 8, paddingVertical: 10,
+                                borderRadius: 14,
+                                opacity: isStartingChallenge ? 0.7 : 1,
+                              }}>
+                                {isStartingChallenge ? (
+                                  <ActivityIndicator size="small" color="#0f0f12" />
+                                ) : (
+                                  <>
+                                    <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14, paddingLeft: 12 }}>Start</Text>
+                                    <ChevronRight size={18} color="#0f0f12" style={{ marginLeft: 4 }} />
+                                  </>
+                                )}
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                }}
+              />
+
+              {/* Pagination dots */}
+              {dailyChallenges.length > 1 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12 }}>
+                  {dailyChallenges.map((_, i) => (
+                    <View
+                      key={i}
+                      style={{
+                        width: i === activeChallengeIndex ? 20 : 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: i === activeChallengeIndex ? '#60a5fa' : 'rgba(255,255,255,0.2)',
+                        marginHorizontal: 3,
+                      }}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={{ paddingHorizontal: 8 }}>
+              <LinearGradient
+                colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  borderRadius: 24,
+                  borderWidth: 1,
+                  borderColor: 'rgba(96, 165, 250, 0.3)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 30,
+                }}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
+                  Unable to load challenges
+                </Text>
+                <Pressable
+                  onPress={() => fetchDailyChallenges()}
+                  style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
+                >
+                  <RefreshCw size={14} color="#60a5fa" />
+                  <Text style={{ color: '#60a5fa', fontSize: 12, marginLeft: 6 }}>Retry</Text>
+                </Pressable>
+              </LinearGradient>
+            </View>
+          )}
         </View>
 
         {/* Stats Row */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+          contentContainerStyle={{ paddingHorizontal: 8, gap: 8 }}
           style={{ marginBottom: 20 }}
         >
           {/* Streak Card */}
@@ -218,35 +450,44 @@ export default function HomeScreen() {
           </LinearGradient>
 
           {/* Level Card */}
-          <LinearGradient
-            colors={['#10B981', '#059669']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 120,
-              padding: 16,
-              borderRadius: 20,
-            }}
-          >
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 12,
-            }}>
-              <Award size={20} color="#fff" />
-            </View>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
-              Level
-            </Text>
-            <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
-              {profile?.current_level ?? 1}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>thinker</Text>
-          </LinearGradient>
+          {(() => {
+            const lvl = profile?.current_level ?? 1;
+            const badge = getBadgeForLevel(lvl);
+            const levelTitle = LEVELS[Math.max(0, Math.min(9, lvl - 1))]?.title ?? 'Novice Thinker';
+            return (
+              <LinearGradient
+                colors={[badge.color, `${badge.color}CC`]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  width: 120,
+                  padding: 16,
+                  borderRadius: 20,
+                }}
+              >
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                }}>
+                  <LevelBadge level={lvl} size="sm" />
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+                  Level
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 32, fontWeight: 'bold' }}>
+                  {lvl}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }} numberOfLines={1}>
+                  {levelTitle}
+                </Text>
+              </LinearGradient>
+            );
+          })()}
 
           {/* Growth Card */}
           <LinearGradient
@@ -280,120 +521,9 @@ export default function HomeScreen() {
           </LinearGradient>
         </ScrollView>
 
-        {/* Daily Challenge */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
-          <Pressable
-            onPress={handleStartChallenge}
-            disabled={isLoadingChallenge || isStartingChallenge}
-          >
-            <LinearGradient
-              colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={{
-                borderRadius: 24,
-                overflow: 'hidden',
-                borderWidth: 1,
-                borderColor: 'rgba(96, 165, 250, 0.3)',
-              }}
-            >
-              <View style={{ padding: 20 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: '#60a5fa',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: 12,
-                    }}>
-                      <Target size={20} color="#0f0f12" />
-                    </View>
-                    <View>
-                      <Text style={{ color: '#60a5fa', fontSize: 12, fontWeight: '600', letterSpacing: 1 }}>
-                        TODAY'S CHALLENGE
-                      </Text>
-                      {challengePersona && (
-                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 2 }}>
-                          with {challengePersona.name}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                  <View style={{
-                    backgroundColor: 'rgba(96, 165, 250, 0.2)',
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 12,
-                  }}>
-                    <Text style={{ color: '#60a5fa', fontSize: 11, fontWeight: '600' }}>NEW</Text>
-                  </View>
-                </View>
-
-                {isLoadingChallenge ? (
-                  <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                    <ActivityIndicator size="small" color="#60a5fa" />
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 8 }}>
-                      Generating today's challenge...
-                    </Text>
-                  </View>
-                ) : dailyChallenge ? (
-                  <>
-                    <Text style={{ color: '#fff', fontSize: 20, fontWeight: '600', lineHeight: 28, marginBottom: 16 }}>
-                      "{dailyChallenge.question}"
-                    </Text>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Brain size={16} color="rgba(255,255,255,0.5)" />
-                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginLeft: 6 }}>
-                          {dailyChallenge.topic}
-                        </Text>
-                      </View>
-                      <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: '#60a5fa',
-                        paddingHorizontal: 16,
-                        paddingVertical: 10,
-                        borderRadius: 14,
-                        opacity: isStartingChallenge ? 0.7 : 1,
-                      }}>
-                        {isStartingChallenge ? (
-                          <ActivityIndicator size="small" color="#0f0f12" />
-                        ) : (
-                          <>
-                            <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 14 }}>Start</Text>
-                            <ChevronRight size={18} color="#0f0f12" style={{ marginLeft: 4 }} />
-                          </>
-                        )}
-                      </View>
-                    </View>
-                  </>
-                ) : (
-                  <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
-                      Unable to load challenge
-                    </Text>
-                    <Pressable
-                      onPress={() => fetchDailyChallenge(personas)}
-                      style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}
-                    >
-                      <RefreshCw size={14} color="#60a5fa" />
-                      <Text style={{ color: '#60a5fa', fontSize: 12, marginLeft: 6 }}>Retry</Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            </LinearGradient>
-          </Pressable>
-        </View>
-
         {/* Meet the Coaches */}
         {shuffledCoaches.length > 0 && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ paddingHorizontal: 8, marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
               <GraduationCap size={16} color="#10b981" />
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginLeft: 8 }}>
@@ -406,7 +536,7 @@ export default function HomeScreen() {
               <PersonaCard
                 persona={featuredCoach}
                 onPress={() => setSelectedPersona(featuredCoach)}
-                variant="featured"
+                featured
               />
             )}
 
@@ -422,6 +552,8 @@ export default function HomeScreen() {
                     <PersonaCard
                       persona={coach}
                       onPress={() => setSelectedPersona(coach)}
+                      size="sm"
+                      height={300}
                     />
                   </View>
                 ))}
@@ -454,7 +586,7 @@ export default function HomeScreen() {
         {/* Meet the Challengers */}
         {shuffledChallengers.length > 0 && (
           <View style={{ marginBottom: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, marginBottom: 12 }}>
               <Zap size={16} color="#8B5CF6" />
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginLeft: 8 }}>
                 MEET THE CHALLENGERS
@@ -463,11 +595,11 @@ export default function HomeScreen() {
 
             {/* Featured Challenger */}
             {featuredChallenger && (
-              <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+              <View style={{ paddingHorizontal: 8, marginBottom: 12 }}>
                 <PersonaCard
                   persona={featuredChallenger}
                   onPress={() => setSelectedPersona(featuredChallenger)}
-                  variant="featured"
+                  featured
                 />
               </View>
             )}
@@ -477,13 +609,15 @@ export default function HomeScreen() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+                contentContainerStyle={{ paddingHorizontal: 8, gap: 12 }}
               >
                 {scrollChallengers.map((challenger) => (
                   <View key={challenger.id} style={{ width: 200 }}>
                     <PersonaCard
                       persona={challenger}
                       onPress={() => setSelectedPersona(challenger)}
+                      size="sm"
+                      height={300}
                     />
                   </View>
                 ))}
@@ -516,7 +650,7 @@ export default function HomeScreen() {
 
         {/* Active Conversation */}
         {activeConversations.length > 0 && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ paddingHorizontal: 8, marginBottom: 20 }}>
             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
               CONTINUE WHERE YOU LEFT OFF
             </Text>
@@ -573,7 +707,7 @@ export default function HomeScreen() {
 
         {/* Recent Sessions */}
         {recentConversations.length > 0 && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+          <View style={{ paddingHorizontal: 8, marginBottom: 20 }}>
             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginBottom: 12 }}>
               RECENT SESSIONS
             </Text>

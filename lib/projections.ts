@@ -1,16 +1,15 @@
 // Growth Projections and Velocity Calculations
 
-import type { GrowthSnapshot, UserPattern } from '../types/database';
+import type { UserPattern } from '../types/database';
 import type {
   GrowthVelocity,
-  GrowthProjection,
   DimensionProjections,
   FocusArea,
   GrowthDimension,
   LimitingFactor,
   VelocityTrend,
 } from '../types/gamification';
-import { PROJECTION_CONFIG, DIMENSION_CONFIG } from './gamification';
+import { PROJECTION_CONFIG } from './gamification';
 
 // =============================================================================
 // GROWTH VELOCITY CALCULATION

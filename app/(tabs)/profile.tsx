@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, Switch, Pressable, Alert, Image } from 'react-native';
+import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
@@ -16,23 +17,26 @@ import {
   FileText,
   LogOut,
   ChevronRight,
-  Award,
   MessageSquare,
-  Flame,
+  Heart,
   LayoutDashboard,
   Maximize2,
+  MessageSquareText,
 } from 'lucide-react-native';
 import { requestSTTPermission, getSTTPermissionStatus, checkSTTAvailability, isSTTModuleAvailable } from '../../lib/stt';
 import { useAuthStore } from '../../stores/authStore';
+import { useFeedbackStore } from '../../stores/feedbackStore';
+import { LevelBadge } from '../../components/growth/LevelBadge';
 
 export default function ProfileScreen() {
-  const { profile, preferences, user, signOut, updatePreferences, updateProfile } =
+  const { profile, preferences, user, signOut, updatePreferences, updateProfile: _updateProfile } =
     useAuthStore();
+  const { openModalManual } = useFeedbackStore();
 
   const [intensity, setIntensity] = useState(
     preferences?.preferred_challenge_intensity ?? 5
   );
-  const [ttsEnabled, setTtsEnabled] = useState(preferences?.tts_enabled ?? true);
+  const [ttsEnabled, setTtsEnabled] = useState(preferences?.tts_enabled ?? false);
   const [voiceInputEnabled, setVoiceInputEnabled] = useState(
     preferences?.voice_input_enabled ?? false
   );
@@ -43,6 +47,25 @@ export default function ProfileScreen() {
   const [immersiveChatEnabled, setImmersiveChatEnabled] = useState(
     preferences?.immersive_chat_enabled ?? true
   );
+  const [userGender, setUserGender] = useState<string | null>(
+    preferences?.user_gender ?? null
+  );
+  const [interestedIn, setInterestedIn] = useState<string | null>(
+    preferences?.interested_in ?? null
+  );
+
+  // Sync local state when preferences load/change from the store
+  useEffect(() => {
+    if (preferences) {
+      setIntensity(preferences.preferred_challenge_intensity ?? 5);
+      setTtsEnabled(preferences.tts_enabled ?? false);
+      setVoiceInputEnabled(preferences.voice_input_enabled ?? false);
+      setNotifications(preferences.notification_daily_challenge ?? true);
+      setImmersiveChatEnabled(preferences.immersive_chat_enabled ?? true);
+      setUserGender(preferences.user_gender ?? null);
+      setInterestedIn(preferences.interested_in ?? null);
+    }
+  }, [preferences]);
 
   // Check if voice input is available and has permission on mount
   useEffect(() => {
@@ -70,7 +93,7 @@ export default function ProfileScreen() {
     };
 
     checkVoiceInputStatus();
-  }, [preferences?.voice_input_enabled]);
+  }, [preferences?.voice_input_enabled, updatePreferences]);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -129,6 +152,16 @@ export default function ProfileScreen() {
     await updatePreferences({ immersive_chat_enabled: value });
   };
 
+  const selectUserGender = async (value: string | null) => {
+    setUserGender(value);
+    await updatePreferences({ user_gender: value });
+  };
+
+  const selectInterestedIn = async (value: string | null) => {
+    setInterestedIn(value);
+    await updatePreferences({ interested_in: value });
+  };
+
   const intensityLabels = ['Gentle', 'Moderate', 'Challenging', 'Intense'];
   const intensityLabel = intensityLabels[Math.min(Math.floor((intensity - 1) / 2.5), 3)];
   const intensityColor =
@@ -138,7 +171,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+        contentContainerStyle={{ paddingHorizontal: 8, paddingTop: HEADER_TOP_PADDING, paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -225,10 +258,7 @@ export default function ProfileScreen() {
                       borderColor: 'rgba(192, 132, 252, 0.3)',
                     }}
                   >
-                    <Award size={14} color="#c084fc" />
-                    <Text style={{ color: '#c084fc', fontSize: 12, fontWeight: '600', marginLeft: 4 }}>
-                      Level {profile?.current_level ?? 1}
-                    </Text>
+                    <LevelBadge level={profile?.current_level ?? 1} size="sm" showTitle />
                   </View>
                   <View
                     style={{
@@ -445,6 +475,150 @@ export default function ProfileScreen() {
           onValueChange={toggleImmersiveChat}
         />
 
+        {/* Dating Preferences */}
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: 12,
+            fontWeight: '600',
+            letterSpacing: 1,
+            marginTop: 8,
+            marginBottom: 12,
+            marginLeft: 4,
+          }}
+        >
+          DATING SCENARIOS
+        </Text>
+
+        <View
+          style={{
+            borderRadius: 20,
+            overflow: 'hidden',
+            marginBottom: 20,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+          }}
+        >
+          <LinearGradient
+            colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 18 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(244, 114, 182, 0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <Heart size={20} color="#f472b6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>
+                  Dating Preferences
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 2 }}>
+                  Personalize your dating scenarios
+                </Text>
+              </View>
+            </View>
+
+            {/* I am */}
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: 13,
+                fontWeight: '600',
+                marginBottom: 8,
+              }}
+            >
+              I am
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+              {(['male', 'female'] as const).map((g) => (
+                <Pressable
+                  key={g}
+                  onPress={() => selectUserGender(userGender === g ? null : g)}
+                  style={{ flex: 1 }}
+                >
+                  <View
+                    style={{
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      backgroundColor:
+                        userGender === g ? 'rgba(244, 114, 182, 0.2)' : 'rgba(255,255,255,0.05)',
+                      borderWidth: 2,
+                      borderColor:
+                        userGender === g ? '#f472b6' : 'rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: userGender === g ? '#f472b6' : 'rgba(255,255,255,0.5)',
+                        fontSize: 15,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {g === 'male' ? 'Male' : 'Female'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Interested in */}
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.6)',
+                fontSize: 13,
+                fontWeight: '600',
+                marginBottom: 8,
+              }}
+            >
+              Interested in
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {(['men', 'women'] as const).map((i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => selectInterestedIn(interestedIn === i ? null : i)}
+                  style={{ flex: 1 }}
+                >
+                  <View
+                    style={{
+                      paddingVertical: 12,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      backgroundColor:
+                        interestedIn === i ? 'rgba(192, 132, 252, 0.2)' : 'rgba(255,255,255,0.05)',
+                      borderWidth: 2,
+                      borderColor:
+                        interestedIn === i ? '#c084fc' : 'rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: interestedIn === i ? '#c084fc' : 'rgba(255,255,255,0.5)',
+                        fontSize: 15,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {i === 'men' ? 'Men' : 'Women'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </LinearGradient>
+        </View>
+
         {/* About Section */}
         <Text
           style={{
@@ -474,6 +648,8 @@ export default function ProfileScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
+            <SettingLink icon={MessageSquareText} iconColor="#F59E0B" title="Send Feedback" onPress={openModalManual} />
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 18 }} />
             <SettingLink icon={Info} iconColor="#4ade80" title="About Dialectica" />
             <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 18 }} />
             <SettingLink icon={Shield} iconColor="#c084fc" title="Privacy Policy" />

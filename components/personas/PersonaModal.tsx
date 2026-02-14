@@ -7,6 +7,9 @@ import {
   CHALLENGE_STYLE_LABELS,
   CHALLENGE_STYLE_DESCRIPTIONS,
 } from '../../types/persona';
+import { ModeToggle } from '../chat/ModeToggle';
+import { useChatStore } from '../../stores/chatStore';
+import { useAppSetting } from '../../hooks';
 
 // Coaching style labels for coaches
 const COACHING_STYLE_LABELS: Record<string, string> = {
@@ -26,7 +29,9 @@ const COACHING_STYLE_DESCRIPTIONS: Record<string, string> = {
 };
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const HERO_HEIGHT = SCREEN_HEIGHT * 0.45;
+const HERO_HEIGHT = SCREEN_HEIGHT * 0.85;
+
+const UNIFIED_GRADIENT: [string, string, string] = ['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.9)'];
 
 // Challenge style colors and gradients
 const STYLE_THEMES: Record<ChallengeStyle, {
@@ -83,8 +88,10 @@ export function PersonaModal({
   onPlayVoice,
   isPlayingVoice = false,
 }: PersonaModalProps) {
-  if (!persona) return null;
+  const { globalInteractionMode, setGlobalInteractionMode } = useChatStore();
+  const { value: unifiedGradient, isLoading: isGradientLoading } = useAppSetting('unified_card_gradient');
 
+  if (!persona) return null;
   const isCoach = persona.personaType === 'coach';
   const theme = STYLE_THEMES[persona.challengeStyle];
   const StyleIcon = isCoach ? GraduationCap : theme.Icon;
@@ -129,8 +136,8 @@ export function PersonaModal({
 
             {/* Gradient overlay */}
             <LinearGradient
-              colors={theme.gradient}
-              locations={[0, 0.6, 1]}
+              colors={(unifiedGradient || isGradientLoading) ? UNIFIED_GRADIENT : theme.gradient}
+              locations={(unifiedGradient || isGradientLoading) ? [0, 0.5, 1] : [0, 0.8, 1]}
               style={{
                 position: 'absolute',
                 width: '100%',
@@ -189,6 +196,17 @@ export function PersonaModal({
 
             {/* Hero text content */}
             <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }}>
+              {/* Mode toggle for coaches */}
+              {isCoach && (
+                <View style={{ marginBottom: 12 }}>
+                  <ModeToggle
+                    mode={globalInteractionMode}
+                    onModeChange={setGlobalInteractionMode}
+                    accentColor="#10b981"
+                  />
+                </View>
+              )}
+
               {/* Style badge */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                 <View
@@ -227,6 +245,15 @@ export function PersonaModal({
               {persona.tagline && (
                 <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 18, fontStyle: 'italic' }}>
                   "{persona.tagline}"
+                </Text>
+              )}
+
+              {/* Mode description */}
+              {isCoach && (
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 10 }}>
+                  {globalInteractionMode === 'question'
+                    ? 'Your coach sets the scene — you roleplay a realistic scenario together.'
+                    : 'Your coach asks the questions and guides you with direct feedback.'}
                 </Text>
               )}
             </View>
@@ -300,20 +327,12 @@ export function PersonaModal({
               <PersonalityBar label="Formality" value={persona.personality.formality} color={theme.accent} isLast />
             </View>
 
-            {/* Spacer for button */}
-            <View style={{ height: 100 }} />
           </View>
         </ScrollView>
 
         {/* Fixed CTA Button */}
         <View
           style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 999,
-            elevation: 999,
             backgroundColor: '#0a0a0f',
             paddingHorizontal: 24,
             paddingTop: 16,
@@ -335,7 +354,7 @@ export function PersonaModal({
           >
             <StyleIcon size={22} color="#0f0f12" />
             <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18, marginLeft: 10 }}>
-              {isCoach ? 'Start Practice' : 'Start Challenge'}
+              {isCoach ? (globalInteractionMode === 'question' ? 'Start Q&A' : 'Start Practice') : 'Start Challenge'}
             </Text>
             <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
           </Pressable>

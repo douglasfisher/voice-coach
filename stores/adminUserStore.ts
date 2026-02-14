@@ -6,7 +6,6 @@
 
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { UserProfile } from '../types/database';
 import { AdminUserView } from '../types/admin';
 
 interface AdminUserState {

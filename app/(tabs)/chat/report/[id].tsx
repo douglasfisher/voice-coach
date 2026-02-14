@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Image,
   ImageSourcePropType,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +22,8 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Activity,
+  RefreshCw,
 } from 'lucide-react-native';
 
 /**
@@ -43,9 +46,41 @@ function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(w => w.length > 0).length;
 }
 import { supabase } from '../../../../lib/supabase';
-import { usePersonaStore } from '../../../../stores';
+import { usePersonaStore, useAuthStore, useChatStore } from '../../../../stores';
 import { PersonaDisplay } from '../../../../types/persona';
-import { SessionStats, PerformanceAnalysis } from '../../../../components/report';
+import { SessionStats, PerformanceAnalysis, AIStats, EmotionalJourney } from '../../../../components/report';
+
+const STAGE_COLORS: Record<number, string> = {
+  1: '#ef4444',
+  2: '#f97316',
+  3: '#eab308',
+  4: '#22c55e',
+  5: '#3b82f6',
+};
+
+function EmotionalStageBadge({ metadata }: { metadata: Record<string, unknown> }) {
+  const stage = metadata.emotional_stage as { number: number; name: string };
+  const color = STAGE_COLORS[stage.number] || '#666';
+  const label = stage.name.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase());
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: `${color}20`,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+      }}
+    >
+      <Activity size={10} color={color} />
+      <Text style={{ color, fontSize: 10, fontWeight: '600' }}>
+        {stage.number}: {label}
+      </Text>
+    </View>
+  );
+}
 
 interface SessionReport {
   tldr: string;
@@ -62,6 +97,7 @@ interface Message {
   sequence: number;
   created_at: string;
   response_time_ms: number | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface TimingMetrics {
@@ -79,6 +115,7 @@ interface TimingMetrics {
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getPersonaById } = usePersonaStore();
+  const { profile } = useAuthStore();
 
   const [report, setReport] = useState<SessionReport | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -88,9 +125,12 @@ export default function ReportScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const { generateReport } = useChatStore();
 
   useEffect(() => {
     loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const loadReport = async () => {
@@ -142,10 +182,10 @@ export default function ReportScreen() {
         setPersona(personaData);
       }
 
-      // Fetch messages for transcript with timing data
+      // Fetch messages for transcript with timing data and metadata
       const { data: msgs, error: msgError } = await supabase
         .from('messages')
-        .select('role, content, sequence, created_at, response_time_ms')
+        .select('role, content, sequence, created_at, response_time_ms, metadata')
         .eq('conversation_id', id)
         .order('sequence', { ascending: true });
 
@@ -156,6 +196,7 @@ export default function ReportScreen() {
           sequence: m.sequence,
           created_at: m.created_at,
           response_time_ms: m.response_time_ms ?? null,
+          metadata: m.metadata ?? null,
         })));
       }
     } catch (error) {
@@ -169,6 +210,48 @@ export default function ReportScreen() {
     if (score >= 75) return '#4ade80';
     if (score >= 50) return '#fbbf24';
     return '#f87171';
+  };
+
+  const handleReanalyse = () => {
+    Alert.alert(
+      'Re-Analyse Session',
+      'This will regenerate the report. The existing report will be overwritten.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Re-Analyse',
+          onPress: async () => {
+            if (!id) return;
+            setIsRegenerating(true);
+            try {
+              const result = await generateReport(id);
+              if (result) {
+                await loadReport();
+              } else {
+                Alert.alert('Error', useChatStore.getState().error || 'Failed to regenerate report.');
+              }
+            } finally {
+              setIsRegenerating(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleGenerateReport = async () => {
+    if (!id) return;
+    setIsRegenerating(true);
+    try {
+      const result = await generateReport(id);
+      if (result) {
+        await loadReport();
+      } else {
+        Alert.alert('Error', useChatStore.getState().error || 'Failed to generate report.');
+      }
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   if (isLoading) {
@@ -187,19 +270,50 @@ export default function ReportScreen() {
   if (!report) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <Text style={{ color: '#fff', fontSize: 18 }}>Report not found</Text>
-          <Pressable
-            onPress={() => router.navigate('/(tabs)/personas')}
+        {/* Regeneration overlay */}
+        {isRegenerating && (
+          <View
             style={{
-              marginTop: 16,
-              paddingHorizontal: 20,
-              paddingVertical: 12,
-              backgroundColor: '#F59E0B',
-              borderRadius: 12,
+              position: 'absolute',
+              top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              zIndex: 50,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <Text style={{ color: '#0f0f12', fontWeight: '600' }}>Go Back</Text>
+            <ActivityIndicator size="large" color="#F59E0B" />
+            <Text style={{ color: '#fff', marginTop: 12, fontSize: 16 }}>Generating report...</Text>
+          </View>
+        )}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>Report not found</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+            The analysis for this session hasn't been generated yet.
+          </Text>
+          <Pressable
+            onPress={handleGenerateReport}
+            disabled={isRegenerating}
+            style={{
+              marginTop: 20,
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+              backgroundColor: '#F59E0B',
+              borderRadius: 12,
+              opacity: isRegenerating ? 0.5 : 1,
+            }}
+          >
+            <Text style={{ color: '#0f0f12', fontWeight: '600', fontSize: 16 }}>Generate Report</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.canGoBack() ? router.back() : router.navigate('/(tabs)/personas')}
+            style={{
+              marginTop: 12,
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+            }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '500' }}>Go Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -210,6 +324,23 @@ export default function ReportScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
+      {/* Regeneration overlay */}
+      {isRegenerating && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            zIndex: 50,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ActivityIndicator size="large" color="#F59E0B" />
+          <Text style={{ color: '#fff', marginTop: 12, fontSize: 16 }}>Re-analysing session...</Text>
+        </View>
+      )}
+
       {/* Header */}
       <View
         style={{
@@ -221,17 +352,40 @@ export default function ReportScreen() {
           borderBottomColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <Pressable onPress={() => router.back()} style={{ padding: 4 }}>
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.navigate('/(tabs)/chat/sessions')} style={{ padding: 4 }}>
           <ChevronLeft size={24} color="#F59E0B" />
         </Pressable>
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 }}>
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8, flex: 1 }}>
           Session Report
         </Text>
+        {profile?.is_admin && (
+          <Pressable
+            onPress={handleReanalyse}
+            disabled={isRegenerating}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16,
+              backgroundColor: 'rgba(245,158,11,0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(245,158,11,0.3)',
+              opacity: isRegenerating ? 0.5 : 1,
+              gap: 4,
+            }}
+          >
+            <RefreshCw size={14} color="#F59E0B" />
+            <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '600' }}>
+              {isRegenerating ? 'Analysing...' : 'Re-Analyse'}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ padding: 8 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Persona Hero Card */}
@@ -241,10 +395,9 @@ export default function ReportScreen() {
               borderRadius: 20,
               overflow: 'hidden',
               marginBottom: 20,
-              marginHorizontal: -20,
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.1)',
-              aspectRatio: 1 / 1.3,
+              height: 550,
               position: 'relative',
             }}
           >
@@ -403,6 +556,9 @@ export default function ReportScreen() {
 
         {/* Performance Analysis */}
         {messages.length > 2 && <PerformanceAnalysis messages={messages} />}
+
+        {/* Emotional Journey (Admin only) */}
+        {profile?.is_admin && <EmotionalJourney messages={messages} />}
 
         {/* Strengths */}
         <View
@@ -578,9 +734,9 @@ export default function ReportScreen() {
                 const wordCount = countWords(msg.content);
                 const timestamp = msg.created_at
                   ? new Date(msg.created_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
                   : null;
 
                 return (
@@ -660,6 +816,11 @@ export default function ReportScreen() {
                           </Text>
                         </View>
                       )}
+
+                      {/* Emotional stage badge (admin only, assistant messages) */}
+                      {profile?.is_admin && msg.role === 'assistant' && !!(msg.metadata as Record<string, unknown> | null)?.emotional_stage && (
+                        <EmotionalStageBadge metadata={msg.metadata as Record<string, unknown>} />
+                      )}
                     </View>
                   </View>
                 );
@@ -667,6 +828,9 @@ export default function ReportScreen() {
             </View>
           )}
         </Pressable>
+
+        {/* Admin AI Stats */}
+        {profile?.is_admin && <AIStats messages={messages} />}
 
         {/* Bottom spacer for fixed button */}
         <View style={{ height: 80 }} />
@@ -687,7 +851,15 @@ export default function ReportScreen() {
           borderTopColor: 'rgba(255,255,255,0.08)',
         }}
       >
-        <Pressable onPress={() => router.navigate(persona?.personaType === 'coach' ? '/(tabs)/coaches' : '/(tabs)/personas')}>
+        <Pressable
+          onPress={() => {
+            if (!persona) return;
+            const route = persona.personaType === 'coach'
+              ? `/(tabs)/coaches?openPersonaId=${persona.id}`
+              : `/(tabs)/personas?openPersonaId=${persona.id}`;
+            router.navigate(route);
+          }}
+        >
           <LinearGradient
             colors={['#F59E0B', '#D97706']}
             start={{ x: 0, y: 0 }}
@@ -709,7 +881,9 @@ export default function ReportScreen() {
                 marginLeft: 8,
               }}
             >
-              {persona?.personaType === 'coach' ? 'Start New Session' : 'Start New Challenge'}
+              {persona?.personaType === 'coach'
+                ? 'Start New Session'
+                : 'Start New Challenge'}
             </Text>
           </LinearGradient>
         </Pressable>

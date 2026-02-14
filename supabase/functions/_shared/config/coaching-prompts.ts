@@ -25,6 +25,13 @@ export type FeedbackStyle = 'sandwich' | 'direct' | 'question_based' | 'observat
 
 export type SessionPhase = 'roleplay' | 'feedback';
 
+export interface DBCoachingPrompts {
+  coaching_styles?: Record<string, string>;
+  interaction_modes?: Record<string, string>;
+  feedback_styles?: Record<string, string>;
+  phases?: Record<string, string>;
+}
+
 export interface CoachingPromptContext {
   coachingStyle: CoachingStyle;
   interactionMode: InteractionMode;
@@ -33,6 +40,7 @@ export interface CoachingPromptContext {
   scenarioContext: string;
   scenarioVariant?: { name: string; context: string };
   userGoal?: string;
+  emotionalProgression?: string;
 }
 
 // =============================================================================
@@ -110,15 +118,14 @@ const INTERACTION_MODE_PROMPTS: Record<InteractionMode, string> = {
 - Allow negotiation, compromise, and pushback
 - Keep it realistic - don't be a pushover`,
 
-  question_mode: `INTERACTION MODE: Q&A Expert Mode
-- The user is asking YOU questions - you are the expert
-- Provide clear, actionable, expert-level answers
-- Share domain knowledge, strategies, and insights
-- DO NOT turn questions back on them or use Socratic method
-- Be direct and informative, giving practical advice
-- Structure longer answers with bullet points when helpful
-- Give concrete examples to clarify concepts
-- Draw on your coaching expertise to give authoritative answers`,
+  question_mode: `INTERACTION MODE: Q&A Roleplay Mode
+- The user starts and drives the conversation
+- You ARE the character described in the scenario — respond as them, not as a coach
+- Stay fully in character — do NOT give coaching advice or commentary
+- React naturally as the scenario character would
+- Show personality, emotions, and realistic reactions
+- Let the user practice — don't make it easy or break character
+- If they say something awkward, respond as a real person would`,
 };
 
 // =============================================================================
@@ -195,45 +202,59 @@ const PHASE_PROMPTS: Record<SessionPhase, string> = {
  */
 export function buildCoachingPrompt(
   basePersonaPrompt: string,
-  context: CoachingPromptContext
+  context: CoachingPromptContext,
+  dbPrompts?: DBCoachingPrompts
 ): string {
   const parts: string[] = [];
 
   // 1. Base persona prompt
   parts.push(basePersonaPrompt);
 
-  // 2. Coaching style
-  parts.push(COACHING_STYLE_PROMPTS[context.coachingStyle]);
+  // 2. Coaching style (DB overrides hardcoded)
+  const stylePrompt = dbPrompts?.coaching_styles?.[context.coachingStyle]
+    ?? COACHING_STYLE_PROMPTS[context.coachingStyle];
+  parts.push(stylePrompt);
 
-  // 3. Interaction mode
-  parts.push(INTERACTION_MODE_PROMPTS[context.interactionMode]);
+  // 3. Interaction mode (DB overrides hardcoded)
+  const modePrompt = dbPrompts?.interaction_modes?.[context.interactionMode]
+    ?? INTERACTION_MODE_PROMPTS[context.interactionMode];
+  parts.push(modePrompt);
 
-  // 4. Current phase
-  parts.push(PHASE_PROMPTS[context.currentPhase]);
+  // 4. Current phase (DB overrides hardcoded)
+  const phasePrompt = dbPrompts?.phases?.[context.currentPhase]
+    ?? PHASE_PROMPTS[context.currentPhase];
+  parts.push(phasePrompt);
 
-  // 5. Feedback style (only relevant in feedback phase, but include for context)
-  if (context.currentPhase === 'feedback') {
-    parts.push(FEEDBACK_STYLE_PROMPTS[context.feedbackStyle]);
+  // 5. Emotional progression (only during roleplay, when enabled)
+  if (context.emotionalProgression) {
+    parts.push(context.emotionalProgression);
   }
 
-  // 6. Scenario context
+  // 6. Feedback style (only relevant in feedback phase, but include for context)
+  if (context.currentPhase === 'feedback') {
+    const feedbackPrompt = dbPrompts?.feedback_styles?.[context.feedbackStyle]
+      ?? FEEDBACK_STYLE_PROMPTS[context.feedbackStyle];
+    parts.push(feedbackPrompt);
+  }
+
+  // 7. Scenario context
   parts.push(`---
 SCENARIO CONTEXT:
 ${context.scenarioContext}`);
 
-  // 7. Scenario variant (if selected)
+  // 8. Scenario variant (if selected)
   if (context.scenarioVariant) {
     parts.push(`SPECIFIC SITUATION: ${context.scenarioVariant.name}
 ${context.scenarioVariant.context}`);
   }
 
-  // 8. User goal (what they're practicing)
+  // 9. User goal (what they're practicing)
   if (context.userGoal) {
     parts.push(`USER'S PRACTICE GOAL:
 ${context.userGoal}`);
   }
 
-  // 9. Final reminders based on mode
+  // 10. Final reminders based on mode
   if (context.interactionMode === 'user_leads' && context.currentPhase === 'roleplay') {
     parts.push(`---
 CRITICAL REMINDERS:
@@ -242,6 +263,17 @@ CRITICAL REMINDERS:
 - React realistically - show emotions, hesitation, interest as appropriate
 - Do NOT break character to give coaching tips
 - If they ask "how am I doing?" in character, respond in character
+- Only switch to coaching mode when explicitly requested`);
+  }
+
+  if (context.interactionMode === 'question_mode' && context.currentPhase === 'roleplay') {
+    parts.push(`---
+CRITICAL REMINDERS:
+- The user will send the first message - wait for them
+- You ARE the person in the scenario - respond as THEM, not as a coach
+- Stay in character throughout - never break to give tips or commentary
+- React realistically - show emotions, hesitation, interest as appropriate
+- Do NOT refer to the scenario character in third person
 - Only switch to coaching mode when explicitly requested`);
   }
 
@@ -303,9 +335,11 @@ export function generateSceneContext(
  * Generate a prompt for the "quick feedback" feature
  * Used when user requests mid-session feedback without ending roleplay
  */
-export function getQuickFeedbackPrompt(feedbackStyle: FeedbackStyle): string {
+export function getQuickFeedbackPrompt(feedbackStyle: FeedbackStyle, dbPrompts?: DBCoachingPrompts): string {
+  const feedbackPrompt = dbPrompts?.feedback_styles?.[feedbackStyle]
+    ?? FEEDBACK_STYLE_PROMPTS[feedbackStyle];
   return `The user has requested a quick coaching check-in. Briefly:
-${FEEDBACK_STYLE_PROMPTS[feedbackStyle]}
+${feedbackPrompt}
 
 Keep it to 2-3 sentences focused on their most recent exchange. Then ask if they want to continue practicing.`;
 }

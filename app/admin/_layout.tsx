@@ -22,13 +22,28 @@ function BackToAppButton() {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingLeft: 16,
-        paddingRight: 8,
-        paddingVertical: 8,
+        height: '100%',
+        paddingHorizontal: 16,
       }}
     >
       <ArrowLeft size={20} color="#F59E0B" />
       <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 6 }}>App</Text>
+    </Pressable>
+  );
+}
+
+function BackToPersonasButton() {
+  return (
+    <Pressable
+      onPress={() => router.replace('/admin/personas')}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 16,
+      }}
+    >
+      <ArrowLeft size={20} color="#F59E0B" />
+      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 6 }}>Personas</Text>
     </Pressable>
   );
 }
@@ -39,9 +54,11 @@ function MenuButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       hitSlop={12}
       style={{
-        paddingRight: 16,
-        paddingLeft: 8,
-        paddingVertical: 8,
+        marginRight: 4,
+        marginLeft: 2,
+        marginTop: -4,
+        width: 40,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
       }}
@@ -82,6 +99,12 @@ export default function AdminLayout() {
           headerTintColor: '#F59E0B',
           headerTitleStyle: {
             fontWeight: '600',
+          },
+          headerLeftContainerStyle: {
+            justifyContent: 'center',
+          },
+          headerRightContainerStyle: {
+            justifyContent: 'center',
           },
           headerLeft: () => <BackToAppButton />,
           headerRight: () => <MenuButton onPress={openPanel} />,
@@ -124,7 +147,17 @@ export default function AdminLayout() {
         />
         <Stack.Screen
           name="persona/[id]"
-          options={{ headerTitle: 'Edit Persona' }}
+          options={{
+            headerTitle: 'Edit Persona',
+            headerLeft: () => <BackToPersonasButton />,
+          }}
+        />
+        <Stack.Screen
+          name="persona/wizard"
+          options={{
+            headerTitle: 'Create Persona',
+            headerLeft: () => <BackToPersonasButton />,
+          }}
         />
       </Stack>
 

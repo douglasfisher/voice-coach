@@ -13,7 +13,7 @@ interface BadgeProps {
 
 export function Badge({
   label,
-  variant = 'default',
+  variant: _variant = 'default',
   color,
   analysisType,
   size = 'md',

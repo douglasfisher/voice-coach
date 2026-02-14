@@ -18,7 +18,6 @@ import {
   CostPeriod,
   getPeriodDates,
   getPeriodLabel,
-  getBudgetStatusColor,
 } from '../types/costs';
 
 interface AdminCostState {
@@ -140,10 +139,10 @@ export const useAdminCostStore = create<AdminCostState>((set, get) => ({
           .gte('last_session_at', monthStart.toISOString()),
       ]);
 
-      const sumCost = (data: any[] | null) =>
+      const sumCost = (data: { estimated_cost_cents: number }[] | null) =>
         (data || []).reduce((sum, u) => sum + (u.estimated_cost_cents || 0), 0);
 
-      const sumTokens = (data: any[] | null) =>
+      const sumTokens = (data: { total_tokens: number }[] | null) =>
         (data || []).reduce((sum, u) => sum + (u.total_tokens || 0), 0);
 
       const totalAllTime = sumCost(allTimeData);
@@ -357,7 +356,7 @@ export const useAdminCostStore = create<AdminCostState>((set, get) => ({
       const personaMap = new Map<string, CostBreakdown>();
       usage.forEach((u) => {
         if (!u.persona_id) return;
-        const personaName = (u.persona as any)?.name || 'Unknown';
+        const personaName = (u.persona as unknown as { name: string } | null)?.name || 'Unknown';
         const existing = personaMap.get(u.persona_id) || {
           id: u.persona_id,
           name: personaName,
@@ -440,7 +439,7 @@ export const useAdminCostStore = create<AdminCostState>((set, get) => ({
       };
 
       usage.forEach((u) => {
-        const taskType = (u as any).task_type || 'unknown';
+        const taskType = (u as { task_type?: string }).task_type || 'unknown';
         const existing = taskTypeMap.get(taskType) || {
           id: taskType,
           name: taskTypeLabels[taskType] || taskType,

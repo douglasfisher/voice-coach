@@ -296,7 +296,7 @@ cmd_run() {
 
   local count=0 failed=0 skipped=0
 
-  for i in "${!pending_files[@]}"; do
+  for ((i = 1; i <= ${#pending_files[@]}; i++)); do
     local file="${pending_files[$i]}"
     local filename="${pending_names[$i]}"
 
@@ -309,7 +309,7 @@ cmd_run() {
       ((failed++))
       echo ""
       echo -e "${RED}Stopping on failure at: ${filename}${NC}" >&2
-      skipped=$(( ${#pending_files[@]} - i - 1 ))
+      skipped=$(( ${#pending_files[@]} - i ))
       break
     fi
   done

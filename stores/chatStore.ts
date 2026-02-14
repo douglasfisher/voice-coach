@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { Conversation, Message } from '../types/database';
 import { InteractionMode, SessionPhase, SituationVariant, TraitSelection } from '../types/coaching';
 import { ChallengeStyle } from '../types/persona';
+import { useAuthStore } from './authStore';
 
 interface SessionReport {
   tldr: string;
@@ -23,12 +24,15 @@ interface CompletedConversation {
   created_at: string;
 }
 
-interface ChatMessage extends Omit<Message, 'analysis'> {}
+interface ChatMessage extends Omit<Message, 'analysis' | 'metadata'> {
+  metadata?: Record<string, unknown> | null;
+}
 
 interface DailyChallenge {
   question: string;
   topic: string;
   personaId: string;
+  personaName: string;
   generatedAt: string;
 }
 
@@ -56,8 +60,9 @@ interface ChatState {
   scenarioRefreshCount: number;  // For Q&A mode
   isGeneratingPreview: boolean;
 
-  // Daily challenge
-  dailyChallenge: DailyChallenge | null;
+  // Daily challenges (batch of 10)
+  dailyChallenges: DailyChallenge[];
+  activeChallengeIndex: number;
   isLoadingChallenge: boolean;
 
   // Coaching state
@@ -101,7 +106,8 @@ interface ChatState {
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
-  fetchDailyChallenge: (personas: { id: string }[]) => Promise<void>;
+  fetchDailyChallenges: () => Promise<void>;
+  setActiveChallengeIndex: (index: number) => void;
   // Coaching-specific actions
   switchPhase: (phase: SessionPhase) => Promise<{ response: string } | null>;
   requestQuickFeedback: () => Promise<{ response: string } | null>;
@@ -117,6 +123,23 @@ interface ChatState {
 }
 
 const MAX_QUESTION_REFRESHES = 3;
+
+/** Build promptTokens for scenario generation from traits + gender preferences */
+function buildScenarioPromptTokens(selectedTraits: TraitSelection): Record<string, string> {
+  const promptTokens: Record<string, string> = {};
+  for (const [slug, selection] of Object.entries(selectedTraits)) {
+    promptTokens[slug] = selection.promptModifier;
+  }
+  // Add gender/dating preference context as a pseudo-token
+  const prefs = useAuthStore.getState().preferences;
+  if (prefs?.user_gender || prefs?.interested_in) {
+    const parts: string[] = [];
+    if (prefs.user_gender) parts.push(`The user is ${prefs.user_gender}`);
+    if (prefs.interested_in) parts.push(`interested in ${prefs.interested_in}`);
+    promptTokens['_user_context'] = `${parts.join(', ')}. Use appropriate gender pronouns for the person they encounter.`;
+  }
+  return promptTokens;
+}
 
 export const useChatStore = create<ChatState>()(
   persist(
@@ -137,8 +160,9 @@ export const useChatStore = create<ChatState>()(
   scenarioRefreshCount: 0,
   isGeneratingPreview: false,
 
-  // Daily challenge
-  dailyChallenge: null,
+  // Daily challenges (batch of 10)
+  dailyChallenges: [],
+  activeChallengeIndex: 0,
   isLoadingChallenge: false,
 
   // Coaching state
@@ -193,7 +217,7 @@ export const useChatStore = create<ChatState>()(
 
       if (savedTraits && savedTraits.length > 0) {
         const restoredTraits: TraitSelection = {};
-        for (const row of savedTraits as any[]) {
+        for (const row of savedTraits as unknown as { trait_option_id: string; trait_options: { category_id: string; slug: string; prompt_modifier: string; trait_categories: { slug: string } } }[]) {
           const opt = row.trait_options;
           const catSlug = opt.trait_categories.slug;
           restoredTraits[catSlug] = {
@@ -235,6 +259,7 @@ export const useChatStore = create<ChatState>()(
       audio_duration_ms: msg.audio_duration_ms as number | null,
       sequence: msg.sequence as number,
       response_time_ms: msg.response_time_ms as number | null,
+      metadata: msg.metadata as Record<string, unknown> | null,
       created_at: msg.created_at as string,
     }));
 
@@ -453,18 +478,12 @@ export const useChatStore = create<ChatState>()(
 
     set({ isSending: true, error: null });
     try {
-      // Use direct fetch to avoid Supabase client auto-attaching potentially invalid JWT
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      // Build request body with coaching options
       const requestBody: Record<string, unknown> = {
         conversationId: activeConversation.id,
         personaId: activeConversation.persona_id,
         generateGreeting: true,
       };
 
-      // Add coaching fields if this is a coaching session
       if (coachingOptions) {
         if (coachingOptions.scenarioId) {
           requestBody.scenarioId = coachingOptions.scenarioId;
@@ -477,7 +496,6 @@ export const useChatStore = create<ChatState>()(
         }
       }
 
-      // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
         const promptTokens: Record<string, string> = {};
         for (const [slug, selection] of Object.entries(selectedTraits)) {
@@ -486,23 +504,11 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = promptTokens;
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify(requestBody),
+      const { error } = await supabase.functions.invoke('chat', {
+        body: requestBody,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Start chat error:', response.status, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      if (error) throw error;
 
       // Refresh messages to show greeting/scene context
       await get().fetchMessages(activeConversation.id);
@@ -517,7 +523,7 @@ export const useChatStore = create<ChatState>()(
   },
 
   generatePreview: async () => {
-    const { activeConversation, globalInteractionMode } = get();
+    const { activeConversation, globalInteractionMode, selectedTraits } = get();
     if (!activeConversation) return;
 
     const isQAMode = globalInteractionMode === 'question';
@@ -530,58 +536,30 @@ export const useChatStore = create<ChatState>()(
 
     set({ isGeneratingPreview: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      // Q&A mode: generate scenario via chat endpoint
       if (isQAMode) {
-        const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey || '',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
+        const { data, error } = await supabase.functions.invoke('chat', {
+          body: {
             personaId: activeConversation.persona_id,
             generateScenario: true,
-          }),
+            promptTokens: buildScenarioPromptTokens(selectedTraits),
+          },
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Generate scenario error:', response.status, errorData);
-          throw new Error(errorData.error || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
+        if (error) throw error;
         set({
           previewScenario: data.scenario,
           scenarioRefreshCount: 0,
         });
       } else {
-        // Practice mode: generate question
-        const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey || '',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
+        const { data, error } = await supabase.functions.invoke('chat', {
+          body: {
             conversationId: activeConversation.id,
             personaId: activeConversation.persona_id,
             previewGreeting: true,
-          }),
+          },
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Generate preview error:', response.status, errorData);
-          throw new Error(errorData.error || `HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
+        if (error) throw error;
         set({
           previewQuestion: data.question,
           questionRefreshCount: 0,
@@ -607,30 +585,15 @@ export const useChatStore = create<ChatState>()(
 
     set({ isGeneratingPreview: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
           conversationId: activeConversation.id,
           personaId: activeConversation.persona_id,
           regenerateQuestion: true,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Regenerate question error:', response.status, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      if (error) throw error;
       set({
         previewQuestion: data.question,
         questionRefreshCount: questionRefreshCount + 1,
@@ -646,7 +609,7 @@ export const useChatStore = create<ChatState>()(
   },
 
   regenerateScenario: async () => {
-    const { activeConversation, scenarioRefreshCount } = get();
+    const { activeConversation, scenarioRefreshCount, selectedTraits } = get();
     if (!activeConversation) return false;
     if (scenarioRefreshCount >= MAX_QUESTION_REFRESHES) return false;
 
@@ -657,30 +620,15 @@ export const useChatStore = create<ChatState>()(
 
     set({ isGeneratingPreview: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      // Call chat endpoint to generate scenario
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
           personaId: activeConversation.persona_id,
           generateScenario: true,
-        }),
+          promptTokens: buildScenarioPromptTokens(selectedTraits),
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Regenerate scenario error:', response.status, errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      if (error) throw error;
       set({
         previewScenario: data.scenario,
         scenarioRefreshCount: scenarioRefreshCount + 1,
@@ -771,25 +719,21 @@ export const useChatStore = create<ChatState>()(
   generateReport: async (conversationId: string) => {
     set({ isGeneratingReport: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({ conversationId, generateReport: true }),
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: { conversationId, generateReport: true },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+      if (error) {
+        // Extract the actual error body from the edge function response
+        let detail = error.message;
+        if (error.context && typeof error.context.json === 'function') {
+          try {
+            const body = await error.context.json();
+            detail = body?.error || JSON.stringify(body);
+          } catch { /* use default message */ }
+        }
+        throw new Error(detail);
       }
-
-      const data = await response.json();
       return data.report as SessionReport;
     } catch (error) {
       console.error('Generate report failed:', error);
@@ -861,9 +805,6 @@ export const useChatStore = create<ChatState>()(
 
     set({ isSending: true, error: null, currentPhase: phase });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
       const requestBody: Record<string, unknown> = {
         conversationId: activeConversation.id,
         personaId: activeConversation.persona_id,
@@ -879,7 +820,6 @@ export const useChatStore = create<ChatState>()(
         }
       }
 
-      // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
         const promptTokens: Record<string, string> = {};
         for (const [slug, selection] of Object.entries(selectedTraits)) {
@@ -888,24 +828,12 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = promptTokens;
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify(requestBody),
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: requestBody,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-
-      // Refresh messages if we got a feedback response
       if (data.response) {
         await get().fetchMessages(activeConversation.id);
       }
@@ -926,9 +854,6 @@ export const useChatStore = create<ChatState>()(
 
     set({ isSending: true, error: null });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
       const requestBody: Record<string, unknown> = {
         conversationId: activeConversation.id,
         personaId: activeConversation.persona_id,
@@ -939,7 +864,6 @@ export const useChatStore = create<ChatState>()(
         requestBody.scenarioId = coachingOptions.scenarioId;
       }
 
-      // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
         const promptTokens: Record<string, string> = {};
         for (const [slug, selection] of Object.entries(selectedTraits)) {
@@ -948,24 +872,12 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = promptTokens;
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify(requestBody),
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: requestBody,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-
-      // Refresh messages to show feedback
       await get().fetchMessages(activeConversation.id);
 
       return { response: data.response };
@@ -1008,59 +920,70 @@ export const useChatStore = create<ChatState>()(
     set({ challengersActiveFilter: filter });
   },
 
-  fetchDailyChallenge: async (personas) => {
-    const { dailyChallenge } = get();
+  setActiveChallengeIndex: (index) => {
+    set({ activeChallengeIndex: index });
+  },
 
-    // Check if we have a valid challenge for today
-    if (dailyChallenge) {
-      const generatedDate = new Date(dailyChallenge.generatedAt).toDateString();
+  fetchDailyChallenges: async () => {
+    const { dailyChallenges } = get();
+
+    // Check if we already have today's challenges
+    if (dailyChallenges.length > 0) {
+      const generatedDate = new Date(dailyChallenges[0].generatedAt).toDateString();
       const today = new Date().toDateString();
       if (generatedDate === today) {
-        return; // Already have today's challenge
+        return; // Already have today's challenges
       }
     }
 
-    if (personas.length === 0) return;
-
     set({ isLoadingChallenge: true });
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+      // Retry logic for edge function cold starts
+      let data: {
+        challenges: { question: string; topic: string; personaId: string; personaName: string }[];
+        generatedAt: string;
+      } | null = null;
 
-      // Pick a random persona for the challenge
-      const randomPersona = personas[Math.floor(Math.random() * personas.length)];
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const result = await supabase.functions.invoke('chat', {
+          body: { generateChallengeBatch: true },
+        });
 
-      // Use the existing chat function with generateChallenge flag
-      const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: JSON.stringify({
-          personaId: randomPersona.id,
-          generateChallenge: true,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        if (!result.error && result.data?.challenges?.length > 0) {
+          data = result.data;
+          break;
+        }
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
       }
 
-      const data = await response.json();
+      if (!data || !data.challenges?.length) {
+        throw new Error('Challenge batch generation failed');
+      }
 
+      const now = new Date().toISOString();
       set({
-        dailyChallenge: {
-          question: data.question,
-          topic: data.topic,
-          personaId: randomPersona.id,
-          generatedAt: new Date().toISOString(),
-        },
+        dailyChallenges: data.challenges.map((c) => ({
+          question: c.question,
+          topic: c.topic,
+          personaId: c.personaId,
+          personaName: c.personaName,
+          generatedAt: data!.generatedAt || now,
+        })),
+        activeChallengeIndex: 0,
       });
     } catch (error) {
-      console.error('Failed to fetch daily challenge:', error);
-      // Fallback - don't crash the app
+      console.error('Failed to fetch daily challenges:', error);
+      // Client-side fallback so the home screen still shows a challenge
+      set({
+        dailyChallenges: [{
+          question: "What belief do you hold that you've never seriously questioned?",
+          topic: 'Self-Reflection',
+          personaId: '',
+          personaName: '',
+          generatedAt: new Date().toISOString(),
+        }],
+        activeChallengeIndex: 0,
+      });
     } finally {
       set({ isLoadingChallenge: false });
     }

@@ -10,6 +10,12 @@ export function AnimatedTabBar(props: BottomTabBarProps) {
   const progress = useScrollHideContext();
   const insets = useSafeAreaInsets();
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: progress.value * (TAB_BAR_HEIGHT + insets.bottom) },
+    ],
+  }));
+
   // Check if focused screen wants the tab bar hidden
   const focusedRoute = props.state.routes[props.state.index];
   const focusedOptions = props.descriptors[focusedRoute.key]?.options;
@@ -17,12 +23,6 @@ export function AnimatedTabBar(props: BottomTabBarProps) {
   if (tabBarStyle?.display === 'none') {
     return null;
   }
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: progress.value * (TAB_BAR_HEIGHT + insets.bottom) },
-    ],
-  }));
 
   return (
     <Animated.View

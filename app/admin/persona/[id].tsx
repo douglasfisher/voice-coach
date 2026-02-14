@@ -8,30 +8,34 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   Pressable,
   Switch,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Slider from '@react-native-community/slider';
+
 import {
   Save,
   Trash2,
-  ChevronDown,
-  Plus,
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
 import { useTraits } from '../../../hooks/useTraits';
-import { Persona } from '../../../types/database';
+
 import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
+import { resolvePersonaAvatarWithUrl, getLocalAvatar } from '../../../lib/personaImages';
+
+import { FormInput } from '../../../components/admin/shared/FormInput';
+import { SliderInput } from '../../../components/admin/shared/SliderInput';
+import { SelectInput } from '../../../components/admin/shared/SelectInput';
+import { TraitTokenBadges, TRAIT_TOKENS, getMissingTokens } from '../../../components/admin/shared/TraitTokenBadges';
+import { AvatarGeneratorSection } from '../../../components/admin/shared/AvatarGeneratorSection';
 
 interface AIModelOption {
   id: string;
@@ -53,175 +57,6 @@ const VOICE_PROVIDERS = [
   { value: 'azure', label: 'Azure' },
 ];
 
-const TRAIT_TOKENS = [
-  'character_demeanor',
-  'conversation_register',
-  'response_length',
-  'response_depth',
-  'humor_style',
-  'challenge_intensity',
-  'emotional_attunement',
-  'directness',
-  'topic_flexibility',
-  'question_frequency',
-  'energy_mirroring',
-  'coaching_method',
-];
-
-interface FormInputProps {
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder?: string;
-  multiline?: boolean;
-  numberOfLines?: number;
-}
-
-function FormInput({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  multiline,
-  numberOfLines,
-}: FormInputProps) {
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 8 }}>
-        {label}
-      </Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="rgba(255,255,255,0.3)"
-        multiline={multiline}
-        numberOfLines={numberOfLines}
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.1)',
-          borderRadius: 12,
-          padding: 14,
-          color: '#fff',
-          fontSize: 15,
-          minHeight: multiline ? 100 : undefined,
-          textAlignVertical: multiline ? 'top' : 'center',
-        }}
-      />
-    </View>
-  );
-}
-
-interface SliderInputProps {
-  label: string;
-  value: number;
-  onValueChange: (value: number) => void;
-  min?: number;
-  max?: number;
-}
-
-function SliderInput({ label, value, onValueChange, min = 0, max = 100 }: SliderInputProps) {
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-          {label}
-        </Text>
-        <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600' }}>
-          {Math.round(value)}
-        </Text>
-      </View>
-      <Slider
-        value={value}
-        onValueChange={onValueChange}
-        minimumValue={min}
-        maximumValue={max}
-        step={1}
-        minimumTrackTintColor="#F59E0B"
-        maximumTrackTintColor="rgba(255,255,255,0.1)"
-        thumbTintColor="#F59E0B"
-      />
-    </View>
-  );
-}
-
-interface SelectInputProps {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onValueChange: (value: string) => void;
-}
-
-function SelectInput({ label, value, options, onValueChange }: SelectInputProps) {
-  const [showOptions, setShowOptions] = useState(false);
-  const selectedOption = options.find((o) => o.value === value);
-
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 8 }}>
-        {label}
-      </Text>
-      <Pressable
-        onPress={() => setShowOptions(!showOptions)}
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.1)',
-          borderRadius: 12,
-          padding: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Text style={{ color: '#fff', fontSize: 15 }}>
-          {selectedOption?.label || 'Select...'}
-        </Text>
-        <ChevronDown size={18} color="rgba(255,255,255,0.5)" />
-      </Pressable>
-
-      {showOptions && (
-        <View
-          style={{
-            marginTop: 8,
-            backgroundColor: '#1A1A1F',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.1)',
-            borderRadius: 12,
-            overflow: 'hidden',
-          }}
-        >
-          {options.map((option) => (
-            <Pressable
-              key={option.value}
-              onPress={() => {
-                onValueChange(option.value);
-                setShowOptions(false);
-              }}
-              style={{
-                padding: 14,
-                backgroundColor:
-                  option.value === value ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-                borderBottomWidth: 1,
-                borderBottomColor: 'rgba(255,255,255,0.05)',
-              }}
-            >
-              <Text
-                style={{
-                  color: option.value === value ? '#F59E0B' : '#fff',
-                  fontSize: 15,
-                }}
-              >
-                {option.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-}
 
 export default function AdminPersonaEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -231,7 +66,7 @@ export default function AdminPersonaEditScreen() {
     selectedPersona,
     isLoading,
     isSaving,
-    error,
+    error: _error,
     fetchPersona,
     createPersona,
     updatePersona,
@@ -281,6 +116,8 @@ export default function AdminPersonaEditScreen() {
     coaching_style: null,
     default_interaction_mode: 'coach_leads',
     feedback_style: 'sandwich',
+    emotional_progression_enabled: false,
+    prompt_sections: null,
   });
 
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
@@ -304,7 +141,7 @@ export default function AdminPersonaEditScreen() {
       fetchPersonaTraitDefaults(id);
     }
     return () => clearSelectedPersona();
-  }, [id, isNew]);
+  }, [id, isNew, clearSelectedPersona, fetchPersona, fetchPersonaTraitDefaults]);
 
   useEffect(() => {
     if (selectedPersona && !isNew) {
@@ -343,6 +180,8 @@ export default function AdminPersonaEditScreen() {
         coaching_style: selectedPersona.coaching_style,
         default_interaction_mode: selectedPersona.default_interaction_mode || 'coach_leads',
         feedback_style: selectedPersona.feedback_style || 'sandwich',
+        emotional_progression_enabled: selectedPersona.emotional_progression_enabled ?? false,
+        prompt_sections: selectedPersona.prompt_sections || null,
       });
     }
   }, [selectedPersona, isNew]);
@@ -420,9 +259,7 @@ export default function AdminPersonaEditScreen() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const missingTokens = TRAIT_TOKENS.filter(
-    (t) => !form.system_prompt.includes(`{{${t}}}`)
-  );
+  const missingTokens = getMissingTokens(form.system_prompt);
 
   const handleInsertMissingTokens = () => {
     if (missingTokens.length === 0) return;
@@ -477,11 +314,33 @@ export default function AdminPersonaEditScreen() {
             placeholder="e.g., The Empathetic Challenger"
           />
 
-          <FormInput
-            label="Avatar URL"
-            value={form.avatar_url}
-            onChangeText={(text) => updateForm('avatar_url', text)}
-            placeholder="https://..."
+          {form.name.trim().length > 0 && (
+            <View
+              style={{
+                marginBottom: 16,
+                borderRadius: 16,
+                overflow: 'hidden',
+                borderWidth: 2,
+                borderColor: 'rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              <Image
+                source={resolvePersonaAvatarWithUrl(form.name, form.avatar_url, form.avatar_thumbnail_url)}
+                style={{ width: '100%', height: 400 }}
+                resizeMode="cover"
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6, textAlign: 'center', paddingBottom: 8 }}>
+                {form.avatar_url === 'local' ? 'Local avatar' : form.avatar_url ? 'Custom avatar' : getLocalAvatar(form.name) ? 'Local avatar' : 'Default avatar'}
+              </Text>
+            </View>
+          )}
+
+          <AvatarGeneratorSection
+            personaId={isNew ? undefined : id}
+            onAvatarApproved={(avatarUrl, thumbnailUrl) => {
+              updateForm('avatar_url', avatarUrl);
+              updateForm('avatar_thumbnail_url', thumbnailUrl);
+            }}
           />
 
           <FormInput
@@ -499,7 +358,7 @@ export default function AdminPersonaEditScreen() {
           />
 
           {/* Toggles */}
-          <View style={{ flexDirection: 'row', gap: 20, marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20, marginBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginRight: 12 }}>
                 Active
@@ -520,6 +379,17 @@ export default function AdminPersonaEditScreen() {
                 onValueChange={(value) => updateForm('is_premium', value)}
                 trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(251, 191, 36, 0.5)' }}
                 thumbColor={form.is_premium ? '#fbbf24' : 'rgba(255,255,255,0.5)'}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, marginRight: 12 }}>
+                Mood Shift
+              </Text>
+              <Switch
+                value={form.emotional_progression_enabled ?? false}
+                onValueChange={(value) => updateForm('emotional_progression_enabled', value)}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(168, 85, 247, 0.5)' }}
+                thumbColor={form.emotional_progression_enabled ? '#a855f7' : 'rgba(255,255,255,0.5)'}
               />
             </View>
           </View>
@@ -656,61 +526,10 @@ export default function AdminPersonaEditScreen() {
           </Text>
 
           {/* Trait Token Status Badges */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-            {TRAIT_TOKENS.map((token) => {
-              const present = form.system_prompt.includes(`{{${token}}}`);
-              return (
-                <View
-                  key={token}
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 6,
-                    backgroundColor: present
-                      ? 'rgba(74, 222, 128, 0.12)'
-                      : 'rgba(239, 68, 68, 0.12)',
-                    borderWidth: 1,
-                    borderColor: present
-                      ? 'rgba(74, 222, 128, 0.3)'
-                      : 'rgba(239, 68, 68, 0.3)',
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: '600',
-                      color: present ? '#4ade80' : '#ef4444',
-                    }}
-                  >
-                    {`{{${token}}}`}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-
-          {missingTokens.length > 0 && (
-            <Pressable
-              onPress={handleInsertMissingTokens}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                alignSelf: 'flex-start',
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 8,
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                borderWidth: 1,
-                borderColor: 'rgba(245, 158, 11, 0.25)',
-                marginBottom: 12,
-              }}
-            >
-              <Plus size={14} color="#F59E0B" />
-              <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
-                Insert Missing Tokens ({missingTokens.length})
-              </Text>
-            </Pressable>
-          )}
+          <TraitTokenBadges
+            systemPrompt={form.system_prompt}
+            onInsertMissing={handleInsertMissingTokens}
+          />
 
           {/* Trait Defaults Section */}
           {!isNew && allTraitCategories.length > 0 && (

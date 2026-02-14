@@ -1,5 +1,4 @@
 import { View, Text, Pressable, Image, ImageSourcePropType } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Info, Sparkles, Zap, Brain, Heart, Scale, Eye } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 

@@ -5,7 +5,7 @@
  * usage tracking, and app settings.
  */
 
-import { UserProfile, Persona, AIUsage, AppSettings } from './database';
+import { UserProfile, Persona } from './database';
 
 // =============================================================================
 // MODEL COSTS (Configured in database per-persona ai_config)
@@ -115,7 +115,25 @@ export type AppSettingKey =
   | 'daily_token_limit_premium'
   | 'maintenance_mode'
   | 'featured_persona_id'
-  | 'cost_markup_percent';
+  | 'cost_markup_percent'
+  | 'unified_card_gradient'
+  | 'challenge_show_persona_image'
+  | 'daily_challenges_batch'
+  | 'fullscreen_card_mode'
+  | 'focus_mode_chat';
+
+export interface DailyChallengeItem {
+  question: string;
+  topic: string;
+  personaId: string;
+  personaName: string;
+}
+
+export interface DailyChallengesBatch {
+  challenges: DailyChallengeItem[];
+  generatedAt: string | null;
+  generatedDate: string | null;
+}
 
 export interface AppSettingsMap {
   default_model: string;
@@ -125,6 +143,11 @@ export interface AppSettingsMap {
   maintenance_mode: boolean;
   featured_persona_id: string | null;
   cost_markup_percent: number;
+  unified_card_gradient: boolean;
+  challenge_show_persona_image: boolean;
+  daily_challenges_batch: DailyChallengesBatch | null;
+  fullscreen_card_mode: boolean;
+  focus_mode_chat: boolean;
 }
 
 // =============================================================================

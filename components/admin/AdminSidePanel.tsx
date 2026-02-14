@@ -20,7 +20,7 @@ import Animated, {
   SlideInRight,
   SlideOutRight,
 } from 'react-native-reanimated';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import {
   X,
   LayoutDashboard,
@@ -95,7 +95,7 @@ export function AdminSidePanel({ visible, onClose, currentPath }: AdminSidePanel
   const handleNavigate = useCallback(
     (route: string) => {
       onClose();
-      router.push(route as any);
+      router.push(route as Href);
     },
     [onClose],
   );

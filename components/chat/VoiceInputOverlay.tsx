@@ -1,9 +1,6 @@
 import { View, Text } from 'react-native';
 import Animated, {
-  useAnimatedStyle,
-  withTiming,
   FadeIn,
-  FadeOut,
   SlideInDown,
   SlideOutDown,
 } from 'react-native-reanimated';

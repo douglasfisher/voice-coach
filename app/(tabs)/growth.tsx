@@ -1,15 +1,14 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TrendingUp, Award, ChevronRight, Clock, Sparkles } from 'lucide-react-native';
+import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { router } from 'expo-router';
 import { useGrowthMetrics } from '../../hooks/useGrowthMetrics';
 import { SegmentControl } from '../../components/ui/SegmentControl';
 import {
-  ScoreCard,
   TrendGraph,
-  PatternList,
   PotentialScoreCard,
   LevelProgressBar,
   MomentumStats,
@@ -21,7 +20,9 @@ import {
   InsightChip,
   FocusAreaList,
 } from '../../components/growth';
-import { useChatStore, usePersonaStore } from '../../stores';
+import { useAuthStore, useChatStore, usePersonaStore } from '../../stores';
+import { Achievement, DimensionProjections, UserAchievement, UserInsight, FocusArea, Milestone } from '../../types/gamification';
+import { PersonaDisplay } from '../../types/persona';
 
 // Dimension colors matching the BiasRadar
 const DIMENSION_COLORS = {
@@ -50,12 +51,12 @@ export default function GrowthScreen() {
     velocity,
     projectedScore,
     optimalPotential,
-    trend,
+    trend: _trend,
     history,
     achievements,
     allAchievements,
     recentAchievements,
-    nextMilestone,
+    nextMilestone: _nextMilestone,
     focusAreas,
     currentInsight,
     insights,
@@ -67,8 +68,15 @@ export default function GrowthScreen() {
     dismissInsight,
   } = useGrowthMetrics();
 
-  const { completedConversations } = useChatStore();
+  const { completedConversations, fetchCompletedConversations } = useChatStore();
   const { getPersonaById } = usePersonaStore();
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchCompletedConversations(user.id);
+    }
+  }, [user?.id, fetchCompletedConversations]);
 
   // Build session data for streak calendar
   const calendarSessions = useMemo(() => {
@@ -145,10 +153,17 @@ export default function GrowthScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: HEADER_TOP_PADDING, paddingBottom: 20 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refresh} tintColor="#F59E0B" />
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={() => {
+              refresh();
+              if (user?.id) fetchCompletedConversations(user.id);
+            }}
+            tintColor="#F59E0B"
+          />
         }
       >
         {/* Header */}
@@ -256,12 +271,12 @@ interface OverviewTabProps {
   velocity: { overall: number; trend: 'accelerating' | 'stable' | 'decelerating' } | null;
   projectedScore: number | null;
   optimalPotential: number | null;
-  dimensionProjections: any;
+  dimensionProjections: DimensionProjections | null;
   sessionsThisWeek: number;
   percentileRank: number;
-  currentInsight: any;
-  recentAchievements: any[];
-  allAchievements: any[];
+  currentInsight: UserInsight | null;
+  recentAchievements: UserAchievement[];
+  allAchievements: Achievement[];
   unlockedIds: Set<string>;
   onInsightDismiss?: () => void;
   onInsightAction?: () => void;
@@ -281,12 +296,12 @@ function OverviewTab({
   currentInsight,
   recentAchievements,
   allAchievements,
-  unlockedIds,
+  unlockedIds: _unlockedIds,
   onInsightDismiss,
   onInsightAction,
 }: OverviewTabProps) {
   return (
-    <View style={{ gap: 20 }}>
+    <View style={{ gap: 16 }}>
       {/* Hero: Potential Score Card */}
       <PotentialScoreCard
         currentScore={scores.overall}
@@ -392,12 +407,12 @@ interface JourneyTabProps {
   history: { date: string; score: number | null }[];
   calendarSessions: { date: string; score: number | null; count: number }[];
   currentStreak: number;
-  milestones: any[];
-  allAchievements: any[];
+  milestones: Milestone[];
+  allAchievements: Achievement[];
   unlockedIds: Set<string>;
   unlockedDates: Map<string, string>;
-  completedConversations: any[];
-  getPersonaById: (id: string) => any;
+  completedConversations: { id: string; persona_id: string; overall_score: number | null; ended_at: string | null; created_at: string }[];
+  getPersonaById: (id: string) => PersonaDisplay | undefined;
   getScoreColor: (score: number | null) => string;
   formatDate: (dateStr: string | null) => string;
 }
@@ -437,18 +452,23 @@ function JourneyTab({
       {/* Past Sessions */}
       {completedConversations.length > 0 && (
         <View>
-          <Text
-            style={{
-              color: 'rgba(255,255,255,0.5)',
-              fontSize: 12,
-              fontWeight: '600',
-              letterSpacing: 1,
-              marginBottom: 12,
-              marginLeft: 4,
-            }}
-          >
-            PAST SESSIONS
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginLeft: 4 }}>
+            <Text
+              style={{
+                color: 'rgba(255,255,255,0.5)',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 1,
+              }}
+            >
+              PAST SESSIONS
+            </Text>
+            <Pressable onPress={() => router.push('/(tabs)/chat/sessions')}>
+              <Text style={{ color: '#F59E0B', fontSize: 13, fontWeight: '600' }}>
+                View All
+              </Text>
+            </Pressable>
+          </View>
 
           <View
             style={{
@@ -556,10 +576,10 @@ function JourneyTab({
 // =============================================================================
 
 interface InsightsTabProps {
-  currentInsight: any;
-  insights: any[];
-  focusAreas: any[];
-  patterns: any[];
+  currentInsight: UserInsight | null;
+  insights: UserInsight[];
+  focusAreas: FocusArea[];
+  patterns: string[];
   scores: {
     overall: number | null;
     logical: number | null;
@@ -568,14 +588,14 @@ interface InsightsTabProps {
     emotional: number | null;
   };
   onInsightDismiss: (id: string) => void;
-  onInsightAction: (insight: any) => void;
+  onInsightAction: (insight: UserInsight) => void;
 }
 
 function InsightsTab({
   currentInsight,
   insights,
   focusAreas,
-  patterns,
+  patterns: _patterns,
   scores,
   onInsightDismiss,
   onInsightAction,

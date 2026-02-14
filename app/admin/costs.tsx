@@ -207,10 +207,10 @@ export default function AdminCostsScreen() {
     isLoadingTrend,
     isLoadingBreakdown,
     isSavingBudget,
-    fetchMetrics,
-    fetchBudgets,
-    fetchTrendData,
-    fetchBreakdowns,
+    fetchMetrics: _fetchMetrics,
+    fetchBudgets: _fetchBudgets,
+    fetchTrendData: _fetchTrendData,
+    fetchBreakdowns: _fetchBreakdowns,
     createBudget,
     updateBudget,
     deleteBudget,
@@ -223,7 +223,7 @@ export default function AdminCostsScreen() {
 
   useEffect(() => {
     refreshAll();
-  }, []);
+  }, [refreshAll]);
 
   const onRefresh = async () => {
     setRefreshing(true);

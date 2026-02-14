@@ -1,9 +1,10 @@
-import { Tabs } from 'expo-router';
-import { View } from 'react-native';
+import { Tabs, Redirect } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
 import { Home, Users, GraduationCap, TrendingUp, Settings } from 'lucide-react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { ScrollHideContext } from '../../hooks/useScrollHideAnimation';
 import { AnimatedTabBar } from '../../components/navigation/AnimatedTabBar';
+import { useAuthStore } from '../../stores/authStore';
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const color = focused ? '#F59E0B' : '#6E6E73';
@@ -27,7 +28,20 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 }
 
 export default function TabsLayout() {
+  const { session, isInitialized } = useAuthStore();
   const tabBarProgress = useSharedValue(0);
+
+  if (!isInitialized) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0F0F12', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#F59E0B" />
+      </View>
+    );
+  }
+
+  if (!session) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
     <ScrollHideContext.Provider value={tabBarProgress}>

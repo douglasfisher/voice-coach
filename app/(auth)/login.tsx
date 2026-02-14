@@ -42,7 +42,7 @@ export default function LoginScreen() {
   const handleAppleLogin = async () => {
     setError('');
     try {
-      const credential = await AppleAuthentication.signInAsync({
+      const _credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
@@ -87,14 +87,13 @@ export default function LoginScreen() {
             style={{ flex: 1 }}
             contentContainerStyle={{
               padding: 24,
-              justifyContent: 'center',
-              minHeight: '100%',
+              paddingTop: 16,
             }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             {/* Logo Section */}
-            <View style={{ alignItems: 'center', marginBottom: 48 }}>
+            <View style={{ alignItems: 'center', marginBottom: 32 }}>
               <View
                 style={{
                   width: 100,
@@ -283,20 +282,7 @@ export default function LoginScreen() {
               </LinearGradient>
             </Pressable>
 
-            {/* Divider */}
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginVertical: 28,
-              }}
-            >
-              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              <Text style={{ color: 'rgba(255,255,255,0.4)', marginHorizontal: 16, fontSize: 14 }}>
-                or continue with
-              </Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-            </View>
+            <View style={{ height: 16 }} />
 
             {/* Apple Sign In */}
             {Platform.OS === 'ios' && (
