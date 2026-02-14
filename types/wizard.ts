@@ -143,7 +143,7 @@ export const CAMERA_OPTIONS = [
   'Canon 85mm f/1.4',
   'Sony 50mm f/1.2',
   'Nikon 105mm f/2.8',
-  'Hasselblad medium format',
+  'Hasselblad medium format 150mm f2.8',
 ];
 
 // =============================================================================
