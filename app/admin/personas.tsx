@@ -421,62 +421,65 @@ function PersonaListItem({
           style={{
             flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'space-between',
             marginTop: 12,
             paddingTop: 10,
             borderTopWidth: 1,
             borderTopColor: 'rgba(255,255,255,0.06)',
           }}
         >
-          {/* Active toggle */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
-            <Switch
-              value={persona.is_active}
-              onValueChange={() => onToggleActive(persona.id)}
-              disabled={isSaving}
-              trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(74, 222, 128, 0.5)' }}
-              thumbColor={persona.is_active ? '#4ade80' : 'rgba(255,255,255,0.5)'}
-              ios_backgroundColor="rgba(255,255,255,0.1)"
-              style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-            />
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 4 }}>
-              Active
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+            {/* Active toggle */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Switch
+                value={persona.is_active}
+                onValueChange={() => onToggleActive(persona.id)}
+                disabled={isSaving}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(74, 222, 128, 0.5)' }}
+                thumbColor={persona.is_active ? '#4ade80' : 'rgba(255,255,255,0.5)'}
+                ios_backgroundColor="rgba(255,255,255,0.1)"
+                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
+                Active
+              </Text>
+            </View>
+
+            {/* Mood toggle */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Switch
+                value={persona.emotional_progression_enabled ?? false}
+                onValueChange={() => onToggleMoodShift(persona.id)}
+                disabled={isSaving}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(168, 85, 247, 0.5)' }}
+                thumbColor={persona.emotional_progression_enabled ? '#a855f7' : 'rgba(255,255,255,0.5)'}
+                ios_backgroundColor="rgba(255,255,255,0.1)"
+                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
+                Mood
+              </Text>
+            </View>
+
+            {/* Premium toggle */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Switch
+                value={persona.is_premium}
+                onValueChange={() => onTogglePremium(persona.id)}
+                disabled={isSaving}
+                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(251, 191, 36, 0.5)' }}
+                thumbColor={persona.is_premium ? '#fbbf24' : 'rgba(255,255,255,0.5)'}
+                ios_backgroundColor="rgba(255,255,255,0.1)"
+                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
+                Premium
+              </Text>
+            </View>
           </View>
 
-          {/* Mood toggle */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
-            <Switch
-              value={persona.emotional_progression_enabled ?? false}
-              onValueChange={() => onToggleMoodShift(persona.id)}
-              disabled={isSaving}
-              trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(168, 85, 247, 0.5)' }}
-              thumbColor={persona.emotional_progression_enabled ? '#a855f7' : 'rgba(255,255,255,0.5)'}
-              ios_backgroundColor="rgba(255,255,255,0.1)"
-              style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-            />
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 4 }}>
-              Mood
-            </Text>
-          </View>
-
-          {/* Premium toggle */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
-            <Switch
-              value={persona.is_premium}
-              onValueChange={() => onTogglePremium(persona.id)}
-              disabled={isSaving}
-              trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(251, 191, 36, 0.5)' }}
-              thumbColor={persona.is_premium ? '#fbbf24' : 'rgba(255,255,255,0.5)'}
-              ios_backgroundColor="rgba(255,255,255,0.1)"
-              style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-            />
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginLeft: 4 }}>
-              Premium
-            </Text>
-          </View>
-
-          {/* Sort order - right aligned */}
-          <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginLeft: 'auto' }}>
+          {/* Sort order - right aligned, no shrink */}
+          <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>
             #{persona.sort_order}
           </Text>
         </View>
