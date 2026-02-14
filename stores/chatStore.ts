@@ -241,16 +241,18 @@ export const useChatStore = create<ChatState>()(
   fetchMessages: async (conversationId) => {
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
+      .select('id, conversation_id, role, content, audio_url, audio_duration_ms, sequence, response_time_ms, metadata, created_at')
       .eq('conversation_id', conversationId)
-      .order('sequence', { ascending: true });
+      .order('sequence', { ascending: false })
+      .limit(50);
 
     if (error) {
       set({ error: error.message });
       return;
     }
 
-    const messages: ChatMessage[] = (data ?? []).map((msg: Record<string, unknown>) => ({
+    // Reverse to display oldest-first (fetched newest-first for limit)
+    const messages: ChatMessage[] = (data ?? []).reverse().map((msg: Record<string, unknown>) => ({
       id: msg.id as string,
       conversation_id: msg.conversation_id as string,
       role: msg.role as 'user' | 'assistant' | 'system',

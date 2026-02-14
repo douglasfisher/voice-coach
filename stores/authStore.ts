@@ -47,6 +47,9 @@ const MOCK_PREFERENCES: UserPreferences = {
   updated_at: new Date().toISOString(),
 };
 
+// Track auth subscription outside store to avoid serialization issues
+let _authSubscription: { unsubscribe: () => void } | null = null;
+
 interface AuthState {
   session: Session | null;
   user: User | null;
@@ -116,7 +119,10 @@ export const useAuthStore = create<AuthState>()(
         set({ session: null, user: null, profile: null, preferences: null });
       }
 
-      supabase.auth.onAuthStateChange(async (event, session) => {
+      // Unsubscribe previous listener to prevent memory leaks on re-init
+      _authSubscription?.unsubscribe();
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         // Handle token refresh errors
         if (event === 'TOKEN_REFRESHED' && !session) {
           console.warn('Token refresh failed, signing out');
@@ -131,6 +137,8 @@ export const useAuthStore = create<AuthState>()(
           set({ profile: null, preferences: null });
         }
       });
+
+      _authSubscription = subscription;
     } finally {
       set({ isLoading: false, isInitialized: true });
     }

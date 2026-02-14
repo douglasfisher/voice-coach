@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ import { useVoiceInput } from '../../../hooks/useVoiceInput';
 import { useTraits } from '../../../hooks/useTraits';
 import { useAuthStore } from '../../../stores/authStore';
 import { useChatStore } from '../../../stores/chatStore';
+import { useShallow } from 'zustand/react/shallow';
 import {
   PersonaHeader,
   MessageBubble,
@@ -142,7 +143,26 @@ export default function ChatScreen() {
     globalInteractionMode,
     selectedTraits,
     setTrait,
-  } = useChatStore();
+  } = useChatStore(useShallow((s) => ({
+    fetchMessages: s.fetchMessages,
+    clearMessages: s.clearMessages,
+    startChat: s.startChat,
+    generatePreview: s.generatePreview,
+    regenerateQuestion: s.regenerateQuestion,
+    regenerateScenario: s.regenerateScenario,
+    startChatWithPreview: s.startChatWithPreview,
+    clearPreview: s.clearPreview,
+    generateReport: s.generateReport,
+    previewQuestion: s.previewQuestion,
+    previewScenario: s.previewScenario,
+    questionRefreshCount: s.questionRefreshCount,
+    scenarioRefreshCount: s.scenarioRefreshCount,
+    isGeneratingPreview: s.isGeneratingPreview,
+    isGeneratingReport: s.isGeneratingReport,
+    globalInteractionMode: s.globalInteractionMode,
+    selectedTraits: s.selectedTraits,
+    setTrait: s.setTrait,
+  })));
   const chatStarted = messages.length > 0;
 
   // Focus mode setting
@@ -184,7 +204,7 @@ export default function ChatScreen() {
     }
   };
 
-  const handlePlayAudio = async (audioUrl: string | null, content: string) => {
+  const handlePlayAudio = useCallback(async (audioUrl: string | null, content: string) => {
     if (isPlaying) {
       await stop();
       return;
@@ -195,7 +215,7 @@ export default function ChatScreen() {
     } else if (persona?.voiceConfig) {
       await generateAndPlay(content, persona.voiceConfig);
     }
-  };
+  }, [isPlaying, stop, play, generateAndPlay, persona?.voiceConfig]);
 
   const handleEndConversation = () => {
     setShowEndModal(true);
@@ -487,6 +507,9 @@ export default function ChatScreen() {
               }}
               showsVerticalScrollIndicator={false}
               style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
+              windowSize={11}
+              maxToRenderPerBatch={10}
+              initialNumToRender={15}
               renderItem={({ item }) => (
                 <MessageBubble
                   content={item.content}

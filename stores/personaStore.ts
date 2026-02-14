@@ -161,7 +161,7 @@ interface PersonaState {
   getCoaches: () => PersonaDisplay[];
 }
 
-function transformPersona(persona: Persona): PersonaDisplay {
+function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'challenge_style' | 'specialty_areas' | 'cultural_background' | 'warmth' | 'directness' | 'patience' | 'humor' | 'formality' | 'voice_provider' | 'voice_id' | 'voice_speed' | 'voice_pitch' | 'voice_stability' | 'persona_type' | 'domain_id' | 'coaching_style' | 'default_interaction_mode' | 'feedback_style'>): PersonaDisplay {
   return {
     id: persona.id,
     name: persona.name,
@@ -210,7 +210,7 @@ export const usePersonaStore = create<PersonaState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('personas')
-        .select('*')
+        .select('id, name, tagline, challenge_style, specialty_areas, cultural_background, warmth, directness, patience, humor, formality, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style, sort_order')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 

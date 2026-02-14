@@ -81,7 +81,7 @@ export default function CoachesScreen() {
   }, []);
 
   // Filter to only show coaches
-  const coaches = personas.filter(p => p.personaType === 'coach');
+  const coaches = useMemo(() => personas.filter(p => p.personaType === 'coach'), [personas]);
 
   // Auto-open persona modal when navigated with openPersonaId param
   useEffect(() => {

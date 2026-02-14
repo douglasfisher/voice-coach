@@ -1,3 +1,4 @@
+import React from 'react';
 import { View, Text, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Pause, Volume2, Sparkles, Zap, Brain, Heart, Scale, Eye, Clock, MessageSquare, Clapperboard, Activity } from 'lucide-react-native';
@@ -85,7 +86,7 @@ interface MessageBubbleProps {
   isAdmin?: boolean;
 }
 
-export function MessageBubble({
+export const MessageBubble = React.memo(function MessageBubble({
   content,
   role,
   persona,
@@ -375,4 +376,4 @@ export function MessageBubble({
       </View>
     </View>
   );
-}
+});

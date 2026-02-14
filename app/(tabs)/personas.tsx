@@ -56,7 +56,7 @@ export default function PersonasScreen() {
   }));
 
   // Filter to only show challengers (not coaches)
-  const challengers = personas.filter(p => p.personaType === 'challenger');
+  const challengers = useMemo(() => personas.filter(p => p.personaType === 'challenger'), [personas]);
 
   // Auto-open persona modal when navigated with openPersonaId param
   useEffect(() => {
