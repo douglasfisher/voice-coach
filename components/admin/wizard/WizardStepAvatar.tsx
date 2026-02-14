@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { View, Text, ScrollView, TextInput, Pressable, Image, ActivityIndicator } from 'react-native';
-import { Wand2, ZoomIn, Library, Shuffle, Sparkles, X } from 'lucide-react-native';
+import { Wand2, ZoomIn, Library, Shuffle, Sparkles, X, Check } from 'lucide-react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { AvatarGrid } from './AvatarGrid';
 import { AvatarLibraryModal } from './AvatarLibraryModal';
@@ -81,9 +81,12 @@ export function WizardStepAvatar() {
     selectFromLibrary,
     generatePersonaDetails,
     isGeneratingDetails,
+    nextStep,
   } = useWizardStore();
 
   const [libraryVisible, setLibraryVisible] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const hiResYRef = useRef(0);
 
   const handleAccessoryToggle = (acc: string) => {
     const current = avatar.params.accessories;
@@ -98,14 +101,27 @@ export function WizardStepAvatar() {
     }
   };
 
+  const handleRejectHiRes = () => {
+    useWizardStore.setState((state) => ({
+      avatar: { ...state.avatar, hiResUrl: null, hiResStoragePath: null },
+      formData: { ...state.formData, avatar_url: '', avatar_thumbnail_url: null },
+    }));
+  };
+
+  const handleApproveAndContinue = () => {
+    generatePersonaDetails();
+    nextStep();
+  };
+
   return (
     <ScrollView
+      ref={scrollRef}
       style={{ flex: 1 }}
       contentContainerStyle={{ padding: 16 }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      {/* Hi-res preview — shown after upscale, portrait ratio */}
+      {/* Approved hi-res at top — full width */}
       {avatar.hiResUrl && (
         <View style={{ marginBottom: 20 }}>
           <Text
@@ -118,35 +134,28 @@ export function WizardStepAvatar() {
               textAlign: 'center',
             }}
           >
-            HI-RES RESULT
+            SELECTED AVATAR
           </Text>
-          <View style={{ alignItems: 'center' }}>
-            <Image
-              source={{ uri: avatar.hiResUrl }}
-              style={{
-                width: '70%',
-                aspectRatio: IMAGE_ASPECT_RATIO,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: '#4ade80',
-              }}
-              resizeMode="cover"
-            />
-          </View>
+          <Image
+            source={{ uri: avatar.hiResUrl }}
+            style={{
+              width: '100%',
+              aspectRatio: IMAGE_ASPECT_RATIO,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: '#4ade80',
+            }}
+            resizeMode="cover"
+          />
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 12 }}>
             <Pressable
-              onPress={() => {
-                // Clear hi-res to go back to draft selection
-                useWizardStore.setState((state) => ({
-                  avatar: { ...state.avatar, hiResUrl: null, hiResStoragePath: null },
-                  formData: { ...state.formData, avatar_url: '', avatar_thumbnail_url: null },
-                }));
-              }}
+              onPress={handleRejectHiRes}
               style={{
+                flex: 1,
                 flexDirection: 'row',
                 alignItems: 'center',
-                paddingVertical: 8,
-                paddingHorizontal: 14,
+                justifyContent: 'center',
+                paddingVertical: 10,
                 borderRadius: 8,
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                 borderWidth: 1,
@@ -154,35 +163,33 @@ export function WizardStepAvatar() {
               }}
             >
               <X size={14} color="#ef4444" />
-              <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
-                Reject
+              <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+                Reject & Redo
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => {
-                // Use AI to generate persona details from avatar
-                generatePersonaDetails();
-              }}
+              onPress={handleApproveAndContinue}
               disabled={isGeneratingDetails}
               style={{
+                flex: 1,
                 flexDirection: 'row',
                 alignItems: 'center',
-                paddingVertical: 8,
-                paddingHorizontal: 14,
+                justifyContent: 'center',
+                paddingVertical: 10,
                 borderRadius: 8,
-                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                backgroundColor: 'rgba(74, 222, 128, 0.15)',
                 borderWidth: 1,
-                borderColor: 'rgba(168, 85, 247, 0.3)',
+                borderColor: 'rgba(74, 222, 128, 0.4)',
                 opacity: isGeneratingDetails ? 0.5 : 1,
               }}
             >
               {isGeneratingDetails ? (
-                <ActivityIndicator size="small" color="#a855f7" />
+                <ActivityIndicator size="small" color="#4ade80" />
               ) : (
-                <Sparkles size={14} color="#a855f7" />
+                <Check size={14} color="#4ade80" />
               )}
-              <Text style={{ color: '#a855f7', fontSize: 12, fontWeight: '600', marginLeft: 6 }}>
-                {isGeneratingDetails ? 'Generating...' : 'AI Fill Details'}
+              <Text style={{ color: '#4ade80', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+                {isGeneratingDetails ? 'Generating...' : 'Approve & Continue'}
               </Text>
             </Pressable>
           </View>
@@ -343,7 +350,13 @@ export function WizardStepAvatar() {
       {/* Upscale button — only when a draft is selected and no hi-res yet */}
       {avatar.selectedDraftId && !avatar.hiResUrl && (
         <Pressable
-          onPress={upscaleSelected}
+          onPress={async () => {
+            await upscaleSelected();
+            // Scroll to hi-res result after upscale
+            setTimeout(() => {
+              scrollRef.current?.scrollTo({ y: hiResYRef.current, animated: true });
+            }, 300);
+          }}
           disabled={avatar.isUpscaling}
           style={{
             flexDirection: 'row',
@@ -374,6 +387,86 @@ export function WizardStepAvatar() {
             </>
           )}
         </Pressable>
+      )}
+
+      {/* Hi-res result BELOW drafts — full width */}
+      {avatar.hiResUrl && avatar.drafts.length > 0 && (
+        <View
+          style={{ marginTop: 20 }}
+          onLayout={(e) => {
+            hiResYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <Text
+            style={{
+              color: '#4ade80',
+              fontSize: 12,
+              fontWeight: '600',
+              letterSpacing: 1,
+              marginBottom: 10,
+              textAlign: 'center',
+            }}
+          >
+            HI-RES RESULT
+          </Text>
+          <Image
+            source={{ uri: avatar.hiResUrl }}
+            style={{
+              width: '100%',
+              aspectRatio: IMAGE_ASPECT_RATIO,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: '#4ade80',
+            }}
+            resizeMode="cover"
+          />
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            <Pressable
+              onPress={handleRejectHiRes}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 12,
+                borderRadius: 10,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(239, 68, 68, 0.3)',
+              }}
+            >
+              <X size={16} color="#ef4444" />
+              <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+                Reject
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={handleApproveAndContinue}
+              disabled={isGeneratingDetails}
+              style={{
+                flex: 2,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 12,
+                borderRadius: 10,
+                backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                borderWidth: 1,
+                borderColor: 'rgba(74, 222, 128, 0.4)',
+                opacity: isGeneratingDetails ? 0.5 : 1,
+              }}
+            >
+              {isGeneratingDetails ? (
+                <ActivityIndicator size="small" color="#4ade80" />
+              ) : (
+                <Sparkles size={16} color="#4ade80" />
+              )}
+              <Text style={{ color: '#4ade80', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+                {isGeneratingDetails ? 'AI Generating...' : 'Approve & AI Fill Details'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
       )}
 
       <View style={{ height: 40 }} />

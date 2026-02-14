@@ -1,8 +1,10 @@
-import { View, Text, ScrollView, Switch } from 'react-native';
+import { View, Text, ScrollView, Switch, Pressable, ActivityIndicator } from 'react-native';
 import { useEffect, useState } from 'react';
+import { Sparkles } from 'lucide-react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { FormInput } from '../shared/FormInput';
 import { SelectInput } from '../shared/SelectInput';
+import { AvatarPreviewHeader } from './AvatarPreviewHeader';
 import { supabase } from '../../../lib/supabase';
 
 const PERSONA_TYPES = [
@@ -42,7 +44,7 @@ const FEEDBACK_STYLES = [
 ];
 
 export function WizardStepDetails() {
-  const { formData, updateFormField } = useWizardStore();
+  const { formData, updateFormField, generatePersonaDetails, isGeneratingDetails } = useWizardStore();
   const [domains, setDomains] = useState<{ value: string; label: string }[]>([]);
 
   useEffect(() => {
@@ -64,6 +66,35 @@ export function WizardStepDetails() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      <AvatarPreviewHeader />
+
+      {/* AI Fill button */}
+      <Pressable
+        onPress={generatePersonaDetails}
+        disabled={isGeneratingDetails}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 10,
+          borderRadius: 10,
+          backgroundColor: 'rgba(168, 85, 247, 0.1)',
+          borderWidth: 1,
+          borderColor: 'rgba(168, 85, 247, 0.3)',
+          marginBottom: 16,
+          opacity: isGeneratingDetails ? 0.5 : 1,
+        }}
+      >
+        {isGeneratingDetails ? (
+          <ActivityIndicator size="small" color="#a855f7" />
+        ) : (
+          <Sparkles size={16} color="#a855f7" />
+        )}
+        <Text style={{ color: '#a855f7', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+          {isGeneratingDetails ? 'AI Generating...' : 'AI Fill All Details'}
+        </Text>
+      </Pressable>
+
       <FormInput
         label="Name"
         value={formData.name}

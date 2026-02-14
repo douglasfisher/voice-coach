@@ -3,6 +3,7 @@ import { ScrollView } from 'react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { SelectInput } from '../shared/SelectInput';
 import { SliderInput } from '../shared/SliderInput';
+import { AvatarPreviewHeader } from './AvatarPreviewHeader';
 import { supabase } from '../../../lib/supabase';
 
 export function WizardStepModel() {
@@ -31,6 +32,8 @@ export function WizardStepModel() {
       contentContainerStyle={{ padding: 16 }}
       showsVerticalScrollIndicator={false}
     >
+      <AvatarPreviewHeader />
+
       <SelectInput
         label="Primary AI Model"
         value={formData.ai_config?.model || ''}

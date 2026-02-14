@@ -3,6 +3,7 @@ import { useWizardStore } from '../../../stores/wizardStore';
 import { FormInput } from '../shared/FormInput';
 import { SelectInput } from '../shared/SelectInput';
 import { SliderInput } from '../shared/SliderInput';
+import { AvatarPreviewHeader } from './AvatarPreviewHeader';
 
 const VOICE_PROVIDERS = [
   { value: 'elevenlabs', label: 'ElevenLabs' },
@@ -20,6 +21,8 @@ export function WizardStepVoice() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
+      <AvatarPreviewHeader />
+
       <SelectInput
         label="Voice Provider"
         value={formData.voice_provider}

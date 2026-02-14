@@ -31,6 +31,11 @@ interface ChatRequest {
   refreshChallengeBatch?: boolean;
   generateScenario?: boolean;
   generateReport?: boolean;
+  // Generic completion (no conversation context needed)
+  action?: 'complete';
+  systemPrompt?: string;
+  userPrompt?: string;
+  settings?: { model?: string; temperature?: number; max_completion_tokens?: number };
   // Coaching-specific fields
   scenarioId?: string;
   interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
@@ -181,6 +186,11 @@ serve(async (req) => {
       refreshChallengeBatch,
       generateScenario,
       generateReport,
+      // Generic completion
+      action,
+      systemPrompt,
+      userPrompt,
+      settings,
       // Coaching fields
       scenarioId,
       interactionMode,
@@ -190,6 +200,46 @@ serve(async (req) => {
       switchPhase,
       promptTokens,
     } = await req.json() as ChatRequest;
+
+    // =========================================================================
+    // Generic completion — lightweight AI call, no conversation context
+    // =========================================================================
+    if (action === 'complete' && systemPrompt && userPrompt) {
+      const model = settings?.model || 'llama-3.1-8b-instant';
+      const groqResponse = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: settings?.temperature ?? 0.7,
+          max_completion_tokens: settings?.max_completion_tokens ?? 1024,
+        }),
+      });
+
+      if (!groqResponse.ok) {
+        const errText = await groqResponse.text();
+        console.error('Groq completion error:', errText);
+        return new Response(JSON.stringify({ error: 'AI completion failed' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const groqData = await groqResponse.json();
+      const content = groqData.choices?.[0]?.message?.content || '';
+
+      return new Response(JSON.stringify({ content }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Handle challenge generation (doesn't require conversationId)
     if (generateChallenge) {

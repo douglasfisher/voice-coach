@@ -1,6 +1,8 @@
 import { View, Text, ScrollView, Image } from 'react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 
+const IMAGE_ASPECT_RATIO = 896 / 1152;
+
 function ReviewCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View
@@ -49,19 +51,28 @@ export function WizardStepReview() {
       contentContainerStyle={{ padding: 16 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Avatar preview */}
+      {/* Avatar preview — portrait ratio */}
       {(avatar.hiResUrl || formData.avatar_url) && (
         <View style={{ alignItems: 'center', marginBottom: 20 }}>
           <Image
             source={{ uri: avatar.hiResUrl || formData.avatar_url }}
             style={{
-              width: 120,
-              height: 120,
-              borderRadius: 60,
+              width: '60%',
+              aspectRatio: IMAGE_ASPECT_RATIO,
+              borderRadius: 12,
               borderWidth: 2,
               borderColor: 'rgba(245, 158, 11, 0.3)',
             }}
+            resizeMode="cover"
           />
+          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', marginTop: 12 }}>
+            {formData.name || 'Unnamed'}
+          </Text>
+          {formData.tagline ? (
+            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4 }}>
+              {formData.tagline}
+            </Text>
+          ) : null}
         </View>
       )}
 

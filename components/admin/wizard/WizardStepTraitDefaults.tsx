@@ -2,6 +2,7 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useTraits } from '../../../hooks/useTraits';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { useState } from 'react';
+import { AvatarPreviewHeader } from './AvatarPreviewHeader';
 
 export function WizardStepTraitDefaults() {
   const { formData } = useWizardStore();
@@ -31,6 +32,8 @@ export function WizardStepTraitDefaults() {
       contentContainerStyle={{ padding: 16 }}
       showsVerticalScrollIndicator={false}
     >
+      <AvatarPreviewHeader />
+
       <Text
         style={{
           color: 'rgba(255,255,255,0.35)',

@@ -154,9 +154,12 @@ interface WizardState {
   saveUnusedToLibrary: () => Promise<void>;
   selectFromLibrary: (publicUrl: string, storagePath: string) => void;
 
-  // AI-assisted persona details
+  // AI-assisted generation
   generatePersonaDetails: () => Promise<void>;
+  generateSystemPrompt: () => Promise<void>;
+  aiComplete: (systemPrompt: string, userPrompt: string) => Promise<string>;
   isGeneratingDetails: boolean;
+  isGeneratingPrompt: boolean;
 
   // Save
   savePersona: () => Promise<{ id: string | null; error: Error | null }>;
@@ -427,13 +430,27 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   },
 
   // =========================================================================
-  // AI-ASSISTED PERSONA DETAILS
+  // AI-ASSISTED GENERATION
   // =========================================================================
 
   isGeneratingDetails: false,
+  isGeneratingPrompt: false,
+
+  aiComplete: async (sysPrompt: string, userPrompt: string): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke('chat', {
+      body: {
+        action: 'complete',
+        systemPrompt: sysPrompt,
+        userPrompt,
+        settings: { temperature: 0.9, max_completion_tokens: 1024 },
+      },
+    });
+    if (error) throw error;
+    return (data?.content || data?.message || '') as string;
+  },
 
   generatePersonaDetails: async () => {
-    const { avatar } = get();
+    const { avatar, aiComplete } = get();
     set({ isGeneratingDetails: true });
 
     try {
@@ -456,19 +473,11 @@ Generate a JSON object with these fields:
 
 Return ONLY valid JSON, no markdown or explanation.`;
 
-      const { data, error } = await supabase.functions.invoke('chat', {
-        body: {
-          action: 'complete',
-          systemPrompt: 'You are a creative character designer for a coaching app. Return only valid JSON.',
-          userPrompt: prompt,
-          settings: { temperature: 0.9, max_completion_tokens: 500 },
-        },
-      });
+      const responseText = await aiComplete(
+        'You are a creative character designer for a coaching app. Return only valid JSON.',
+        prompt,
+      );
 
-      if (error) throw error;
-
-      const responseText = data?.content || data?.message || '';
-      // Extract JSON from response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON in response');
 
@@ -493,6 +502,50 @@ Return ONLY valid JSON, no markdown or explanation.`;
     } catch (err) {
       console.error('Generate persona details error:', err);
       set({ isGeneratingDetails: false });
+    }
+  },
+
+  generateSystemPrompt: async () => {
+    const { formData, avatar, aiComplete } = get();
+    set({ isGeneratingPrompt: true });
+
+    try {
+      const prompt = `Create a system prompt for an AI coaching persona with these characteristics:
+
+Name: ${formData.name || 'Unknown'}
+Tagline: ${formData.tagline || 'None'}
+Cultural Background: ${formData.cultural_background || 'None'}
+Type: ${formData.persona_type}
+Coaching Style: ${formData.coaching_style || 'Not set'}
+Challenge Style: ${formData.challenge_style}
+Feedback Style: ${formData.feedback_style}
+Personality: Warmth ${formData.warmth}/100, Directness ${formData.directness}/100, Patience ${formData.patience}/100, Humor ${formData.humor}/100, Formality ${formData.formality}/100
+Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}
+
+Write a detailed system prompt (200-400 words) that:
+1. Establishes the persona's voice and communication style
+2. Defines how they coach/challenge users
+3. Sets boundaries and personality traits
+4. Includes these trait token placeholders where appropriate: {{character_demeanor}}, {{conversation_register}}, {{vocabulary_complexity}}, {{emotional_tone}}, {{response_pacing}}, {{cultural_context}}
+
+Return ONLY the system prompt text, no explanation or markdown.`;
+
+      const responseText = await aiComplete(
+        'You are an expert prompt engineer designing AI coaching personas. Write natural, engaging system prompts.',
+        prompt,
+      );
+
+      if (responseText.trim()) {
+        set((state) => ({
+          formData: { ...state.formData, system_prompt: responseText.trim() },
+          isGeneratingPrompt: false,
+        }));
+      } else {
+        throw new Error('Empty response');
+      }
+    } catch (err) {
+      console.error('Generate system prompt error:', err);
+      set({ isGeneratingPrompt: false });
     }
   },
 
