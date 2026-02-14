@@ -272,8 +272,12 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         // Persist profile and preferences locally so they survive app restarts
-        // even before the DB fetch completes
-        profile: state.profile,
+        // even before the DB fetch completes.
+        // SECURITY: Strip is_admin from persisted state to prevent device-level
+        // tampering. The real value is always fetched from DB on initialize().
+        profile: state.profile
+          ? { ...state.profile, is_admin: false }
+          : null,
         preferences: state.preferences,
       }),
     },

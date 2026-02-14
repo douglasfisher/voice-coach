@@ -13,11 +13,33 @@ import { recordAIUsage, calculateAICost } from '../_shared/cost-calculator.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_USER_MESSAGE_LENGTH = 10_000;
+const MAX_PROMPT_TOKEN_LENGTH = 200;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+/** Validate UUID format */
+function isValidUUID(value: string | undefined | null): boolean {
+  return !!value && UUID_REGEX.test(value);
+}
+
+/** Sanitize prompt token values to prevent injection */
+function sanitizePromptTokens(tokens: Record<string, string>): Record<string, string> {
+  const sanitized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(tokens)) {
+    if (typeof value !== 'string') continue;
+    // Truncate to max length
+    let clean = value.slice(0, MAX_PROMPT_TOKEN_LENGTH);
+    // Strip instruction-like patterns
+    clean = clean.replace(/\b(ignore\s+(all|previous|above)|you\s+are\s+now|system\s*:\s*|<\/?system>|<\/?instruction>)\b/gi, '');
+    sanitized[key] = clean.trim();
+  }
+  return sanitized;
+}
 
 interface ChatRequest {
   conversationId?: string;
@@ -174,6 +196,56 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // =========================================================================
+    // AUTH: Extract and verify caller identity
+    // =========================================================================
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    let callerUserId: string | null = null;
+
+    if (token) {
+      const { data: { user: authUser } } = await supabase.auth.getUser(token);
+      callerUserId = authUser?.id ?? null;
+    }
+
+    const body = await req.json() as ChatRequest;
+
+    // =========================================================================
+    // INPUT VALIDATION
+    // =========================================================================
+    if (body.userMessage && body.userMessage.length > MAX_USER_MESSAGE_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: 'Message too long' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.conversationId && !isValidUUID(body.conversationId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid conversationId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.personaId && !isValidUUID(body.personaId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid personaId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.scenarioId && !isValidUUID(body.scenarioId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid scenarioId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Sanitize prompt tokens if present
+    if (body.promptTokens) {
+      body.promptTokens = sanitizePromptTokens(body.promptTokens);
+    }
+
     const {
       conversationId,
       userMessage,
@@ -199,7 +271,25 @@ serve(async (req) => {
       requestQuickFeedback,
       switchPhase,
       promptTokens,
-    } = await req.json() as ChatRequest;
+    } = body;
+
+    // =========================================================================
+    // CONVERSATION OWNERSHIP CHECK — verify caller owns the conversation
+    // =========================================================================
+    if (conversationId && callerUserId) {
+      const { data: convOwnership } = await supabase
+        .from('conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .single();
+
+      if (convOwnership && convOwnership.user_id !== callerUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // =========================================================================
     // Generic completion — lightweight AI call, no conversation context
@@ -1292,7 +1382,7 @@ Generate a comprehensive session report.`;
   } catch (error) {
     console.error('Chat error:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'An error occurred processing your request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -207,6 +207,14 @@ export const useChatStore = create<ChatState>()(
         .single();
 
       if (error) throw error;
+
+      // Verify conversation belongs to the current user
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (data.user_id !== currentUserId) {
+        set({ error: 'Unauthorized', isLoading: false });
+        return;
+      }
+
       set({ activeConversation: data });
 
       // Load saved trait selections for this conversation
