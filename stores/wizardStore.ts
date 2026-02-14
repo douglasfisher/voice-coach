@@ -9,6 +9,14 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useAdminPersonaStore } from './adminPersonaStore';
 import { useAuthStore } from './authStore';
+
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 import {
   AvatarParams,
   AvatarGenerationState,
@@ -202,7 +210,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       const payload = [
         {
           taskType: 'imageInference',
-          taskUUID: crypto.randomUUID(),
+          taskUUID: generateUUID(),
           positivePrompt: avatar.editablePrompt,
           negativePrompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
           width: 512,
@@ -292,7 +300,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       const payload = [
         {
           taskType: 'imageInference',
-          taskUUID: crypto.randomUUID(),
+          taskUUID: generateUUID(),
           positivePrompt: avatar.editablePrompt,
           negativePrompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
           width: 1024,
