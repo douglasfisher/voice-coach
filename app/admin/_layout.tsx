@@ -56,6 +56,7 @@ function MenuButton({ onPress }: { onPress: () => void }) {
       style={{
         marginRight: 4,
         marginLeft: 2,
+        marginTop: -4,
         width: 40,
         height: 40,
         justifyContent: 'center',
