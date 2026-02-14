@@ -398,6 +398,12 @@ export const useChatStore = create<ChatState>()(
     const { activeConversation, messages, coachingOptions, currentPhase, selectedTraits } = get();
     if (!activeConversation) return null;
 
+    const trimmed = content.trim();
+    if (!trimmed || trimmed.length > 5000) {
+      set({ error: trimmed ? 'Message is too long (max 5000 characters)' : 'Message cannot be empty' });
+      return null;
+    }
+
     set({ isSending: true, error: null });
     try {
       const sequence = messages.length + 1;
@@ -472,12 +478,6 @@ export const useChatStore = create<ChatState>()(
     const { activeConversation, coachingOptions, selectedTraits } = get();
     if (!activeConversation) return false;
 
-    console.log('Starting chat with:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      coachingOptions,
-    });
-
     set({ isSending: true, error: null });
     try {
       const requestBody: Record<string, unknown> = {
@@ -530,12 +530,6 @@ export const useChatStore = create<ChatState>()(
 
     const isQAMode = globalInteractionMode === 'question';
 
-    console.log('Generating preview for:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      isQAMode,
-    });
-
     set({ isGeneratingPreview: true, error: null });
     try {
       if (isQAMode) {
@@ -580,11 +574,6 @@ export const useChatStore = create<ChatState>()(
     if (!activeConversation) return false;
     if (questionRefreshCount >= MAX_QUESTION_REFRESHES) return false;
 
-    console.log('Regenerating question:', {
-      conversationId: activeConversation.id,
-      refreshCount: questionRefreshCount + 1,
-    });
-
     set({ isGeneratingPreview: true, error: null });
     try {
       const { data, error } = await supabase.functions.invoke('chat', {
@@ -614,11 +603,6 @@ export const useChatStore = create<ChatState>()(
     const { activeConversation, scenarioRefreshCount, selectedTraits } = get();
     if (!activeConversation) return false;
     if (scenarioRefreshCount >= MAX_QUESTION_REFRESHES) return false;
-
-    console.log('Regenerating scenario:', {
-      personaId: activeConversation.persona_id,
-      refreshCount: scenarioRefreshCount + 1,
-    });
 
     set({ isGeneratingPreview: true, error: null });
     try {
@@ -653,12 +637,6 @@ export const useChatStore = create<ChatState>()(
     if (!activeConversation) return false;
     if (isQAMode && !previewScenario) return false;
     if (!isQAMode && !previewQuestion) return false;
-
-    console.log('Starting chat with preview:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      isQAMode,
-    });
 
     set({ isSending: true, error: null });
     try {
