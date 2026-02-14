@@ -57,7 +57,7 @@ export function WizardStepReview() {
           <Image
             source={{ uri: avatar.hiResUrl || formData.avatar_url }}
             style={{
-              width: '60%',
+              width: '100%',
               aspectRatio: IMAGE_ASPECT_RATIO,
               borderRadius: 12,
               borderWidth: 2,
