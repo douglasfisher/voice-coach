@@ -160,7 +160,7 @@ interface WizardState {
   generateDrafts: () => Promise<void>;
   selectDraft: (id: string) => void;
   upscaleSelected: () => Promise<void>;
-  saveUnusedToLibrary: () => Promise<void>;
+  saveDraftsToLibrary: (personaId?: string) => Promise<void>;
   selectFromLibrary: (publicUrl: string, storagePath: string) => void;
 
   // Trait defaults
@@ -417,12 +417,17 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     }
   },
 
-  saveUnusedToLibrary: async () => {
+  saveDraftsToLibrary: async (personaId?: string) => {
     const { avatar } = get();
     const userId = useAuthStore.getState().user?.id;
-    const unused = avatar.drafts.filter((d) => d.id !== avatar.selectedDraftId);
+    if (avatar.drafts.length === 0) return;
 
-    for (const draft of unused) {
+    // Generate a batch ID to link all drafts from this generation
+    const batchId = crypto.randomUUID();
+
+    // Save ALL drafts (selected + unused) with batch tracking
+    for (const draft of avatar.drafts) {
+      const isSelected = draft.id === avatar.selectedDraftId;
       await supabase.from('avatar_library').insert({
         storage_path: draft.storagePath,
         public_url: draft.url,
@@ -431,6 +436,24 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         gender: avatar.params.gender,
         ethnicity: avatar.params.ethnicity,
         created_by: userId,
+        generation_batch_id: batchId,
+        used_by_persona_id: isSelected && personaId ? personaId : null,
+      });
+    }
+
+    // Save hi-res version too if available
+    if (avatar.hiResUrl && avatar.hiResStoragePath && personaId) {
+      await supabase.from('avatar_library').insert({
+        storage_path: avatar.hiResStoragePath,
+        public_url: avatar.hiResUrl,
+        prompt: avatar.editablePrompt,
+        params: avatar.params as unknown as Record<string, unknown>,
+        gender: avatar.params.gender,
+        ethnicity: avatar.params.ethnicity,
+        created_by: userId,
+        generation_batch_id: batchId,
+        used_by_persona_id: personaId,
+        is_hi_res: true,
       });
     }
   },
@@ -674,7 +697,7 @@ Return ONLY the system prompt text, no explanation or markdown.`;
   // =========================================================================
 
   savePersona: async () => {
-    const { formData, avatar, saveUnusedToLibrary, traitDefaults, promptSections } = get();
+    const { formData, avatar, saveDraftsToLibrary, traitDefaults, promptSections } = get();
     const store = useAdminPersonaStore.getState();
 
     // Include prompt_sections in the form data
@@ -701,12 +724,12 @@ Return ONLY the system prompt text, no explanation or markdown.`;
         }
       }
 
-      // Save unused drafts to library if storage is available
+      // Save all drafts to library with batch tracking (selected one marked as used)
       if (avatar.drafts.length > 0) {
         try {
-          await saveUnusedToLibrary();
+          await saveDraftsToLibrary(result.id);
         } catch (err) {
-          console.warn('Failed to save unused drafts to library:', err);
+          console.warn('Failed to save drafts to library:', err);
         }
       }
     }

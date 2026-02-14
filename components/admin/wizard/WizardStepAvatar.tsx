@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { View, Text, ScrollView, TextInput, Pressable, Image, ActivityIndicator } from 'react-native';
-import { Wand2, ZoomIn, Library, Shuffle, Sparkles, X, Check } from 'lucide-react-native';
+import { Wand2, ZoomIn, Library, Shuffle, Sparkles, X, Check, CheckCircle } from 'lucide-react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { AvatarGrid } from './AvatarGrid';
 import { AvatarLibraryModal } from './AvatarLibraryModal';
@@ -355,6 +355,26 @@ export function WizardStepAvatar() {
         isGenerating={avatar.isGenerating}
       />
 
+      {/* Storage confirmation for drafts */}
+      {avatar.drafts.length > 0 && !avatar.isGenerating && (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(74, 222, 128, 0.08)',
+            borderRadius: 8,
+            padding: 10,
+            marginTop: 8,
+            gap: 8,
+          }}
+        >
+          <CheckCircle size={14} color="#4ade80" />
+          <Text style={{ color: 'rgba(74, 222, 128, 0.8)', fontSize: 12 }}>
+            {avatar.drafts.length} drafts stored in Supabase Storage
+          </Text>
+        </View>
+      )}
+
       {/* Upscale button — only when a draft is selected and no hi-res yet */}
       {avatar.selectedDraftId && !avatar.hiResUrl && (
         <Pressable
@@ -428,6 +448,24 @@ export function WizardStepAvatar() {
             }}
             resizeMode="cover"
           />
+          {/* Storage confirmation for hi-res */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: 'rgba(74, 222, 128, 0.08)',
+              borderRadius: 8,
+              padding: 10,
+              marginTop: 10,
+              gap: 8,
+            }}
+          >
+            <CheckCircle size={14} color="#4ade80" />
+            <Text style={{ color: 'rgba(74, 222, 128, 0.8)', fontSize: 12 }}>
+              Hi-res image (1792×2400) stored in Supabase Storage
+            </Text>
+          </View>
+
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
             <Pressable
               onPress={handleRejectHiRes}

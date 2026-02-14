@@ -53,6 +53,8 @@ export interface AvatarLibraryItem {
   gender: string | null;
   ethnicity: string | null;
   used_by_persona_id: string | null;
+  generation_batch_id: string | null;
+  is_hi_res: boolean;
   created_at: string;
 }
 
