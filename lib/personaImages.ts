@@ -147,16 +147,17 @@ export function resolvePersonaAvatar(name: string): number {
 
 /**
  * Returns the best avatar source for a persona.
- * Prefers local asset, falls back to DB URL, then default.
+ * Prefers custom DB URL (generated avatar), falls back to local asset, then default.
  */
 export function resolvePersonaAvatarWithUrl(
   name: string,
   avatarUrl?: string | null,
   thumbnailUrl?: string | null,
 ): number | { uri: string } {
+  // Custom generated avatar takes priority over local fallback
+  const url = thumbnailUrl || avatarUrl;
+  if (url && url !== 'local') return { uri: url };
   const local = getLocalAvatar(name);
   if (local) return local;
-  const url = thumbnailUrl || avatarUrl;
-  if (url) return { uri: url };
   return DEFAULT_AVATAR;
 }

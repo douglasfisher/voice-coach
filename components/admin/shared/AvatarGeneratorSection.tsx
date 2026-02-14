@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
+import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
 import { AvatarGrid } from '../wizard/AvatarGrid';
 import { AvatarLibraryModal } from '../wizard/AvatarLibraryModal';
 import { OptionChips } from './OptionChips';
@@ -107,19 +108,30 @@ export function AvatarGeneratorSection({ personaId, onAvatarApproved }: AvatarGe
     }));
   };
 
+  const saveAvatarToPersona = async (avatarUrl: string, thumbnailUrl: string) => {
+    onAvatarApproved(avatarUrl, thumbnailUrl);
+    // Auto-save to DB if editing an existing persona
+    if (personaId) {
+      await useAdminPersonaStore.getState().updatePersona(personaId, {
+        avatar_url: avatarUrl,
+        avatar_thumbnail_url: thumbnailUrl,
+      });
+    }
+  };
+
   const handleApprove = async () => {
     if (!avatar.hiResUrl) return;
     const thumbnailUrl = avatar.drafts.find((d) => d.id === avatar.selectedDraftId)?.url || avatar.hiResUrl;
-    onAvatarApproved(avatar.hiResUrl, thumbnailUrl);
+    await saveAvatarToPersona(avatar.hiResUrl, thumbnailUrl);
     if (avatar.drafts.length > 0) {
       await saveDraftsToLibrary(personaId);
     }
     setExpanded(false);
   };
 
-  const handleLibrarySelect = (publicUrl: string, storagePath: string) => {
+  const handleLibrarySelect = async (publicUrl: string, storagePath: string) => {
     selectFromLibrary(publicUrl, storagePath);
-    onAvatarApproved(publicUrl, publicUrl);
+    await saveAvatarToPersona(publicUrl, publicUrl);
     setExpanded(false);
   };
 
