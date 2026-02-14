@@ -31,7 +31,7 @@ import { useTraits } from '../../../hooks/useTraits';
 
 import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
-import { resolvePersonaAvatarWithUrl } from '../../../lib/personaImages';
+import { resolvePersonaAvatarWithUrl, getLocalAvatar } from '../../../lib/personaImages';
 import { ALL_PERSONA_IMAGES } from '../../../lib/allPersonaImages';
 
 import { FormInput } from '../../../components/admin/shared/FormInput';
@@ -426,7 +426,7 @@ export default function AdminPersonaEditScreen() {
                 resizeMode="cover"
               />
               <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6, textAlign: 'center', paddingBottom: 8 }}>
-                {form.avatar_url === 'local' ? 'Local avatar' : form.avatar_url ? 'Custom avatar' : 'No avatar set'}
+                {form.avatar_url === 'local' ? 'Local avatar' : form.avatar_url ? 'Custom avatar' : getLocalAvatar(form.name) ? 'Local avatar' : 'Default avatar'}
               </Text>
             </View>
           )}
