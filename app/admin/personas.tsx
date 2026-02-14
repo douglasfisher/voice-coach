@@ -27,7 +27,12 @@ import {
   Search,
   X,
   Trash2,
+  Pencil,
+  Archive,
 } from 'lucide-react-native';
+import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { RectButton } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { AdminPersonaView } from '../../types/admin';
 import { resolvePersonaAvatarWithUrl } from '../../lib/personaImages';
@@ -57,8 +62,9 @@ interface PersonaListItemProps {
   onToggleActive: (id: string) => void;
   onToggleMoodShift: (id: string) => void;
   onTogglePremium: (id: string) => void;
-  onDelete: (id: string, name: string) => void;
   onEdit: (id: string) => void;
+  onArchive: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
   isSaving: boolean;
 }
 
@@ -314,14 +320,44 @@ function FilterBar({
 // Persona List Item
 // =============================================================================
 
+function SwipeAction({
+  color,
+  icon,
+  label,
+  onPress,
+}: {
+  color: string;
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <RectButton
+      onPress={onPress}
+      style={{
+        backgroundColor: color,
+        justifyContent: 'center',
+        alignItems: 'center',
+        width: 72,
+      }}
+    >
+      {icon}
+      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '600', marginTop: 4 }}>
+        {label}
+      </Text>
+    </RectButton>
+  );
+}
+
 function PersonaListItem({
   persona,
   domainName,
   onToggleActive,
   onToggleMoodShift,
   onTogglePremium,
-  onDelete,
   onEdit,
+  onArchive,
+  onDelete,
   isSaving,
 }: PersonaListItemProps) {
   const avatarSource = resolvePersonaAvatarWithUrl(persona.name, persona.avatar_url, persona.avatar_thumbnail_url);
@@ -335,10 +371,34 @@ function PersonaListItem({
     ? persona.coaching_style.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
     : null;
 
+  const renderRightActions = () => (
+    <View style={{ flexDirection: 'row' }}>
+      <SwipeAction
+        color="#3b82f6"
+        icon={<Pencil size={18} color="#fff" />}
+        label="Edit"
+        onPress={() => onEdit(persona.id)}
+      />
+      <SwipeAction
+        color="#f59e0b"
+        icon={<Archive size={18} color="#fff" />}
+        label="Archive"
+        onPress={() => onArchive(persona.id)}
+      />
+      <SwipeAction
+        color="#ef4444"
+        icon={<Trash2 size={18} color="#fff" />}
+        label="Delete"
+        onPress={() => onDelete(persona.id, persona.name)}
+      />
+    </View>
+  );
+
   return (
-    <Pressable
-      onPress={() => onEdit(persona.id)}
-      style={{
+    <Swipeable
+      renderRightActions={renderRightActions}
+      overshootRight={false}
+      containerStyle={{
         borderRadius: 16,
         overflow: 'hidden',
         marginBottom: 12,
@@ -346,157 +406,151 @@ function PersonaListItem({
         borderColor: persona.is_active ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255,255,255,0.08)',
       }}
     >
-      <LinearGradient
-        colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ padding: 14 }}
-      >
-        {/* Top row: Avatar + Info + Chevron */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          {/* Avatar - 3:4 portrait ratio */}
-          <View
-            style={{
-              width: 60,
-              height: 80,
-              borderRadius: 10,
-              backgroundColor: 'rgba(245, 158, 11, 0.15)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 14,
-              borderWidth: 2,
-              borderColor: persona.is_active ? 'rgba(74, 222, 128, 0.4)' : 'rgba(255,255,255,0.15)',
-              overflow: 'hidden',
-            }}
-          >
-            {avatarSource ? (
-              <Image
-                source={avatarSource}
-                style={{ width: 56, height: 76, borderRadius: 8 }}
-              />
-            ) : (
-              <User size={28} color="#F59E0B" />
-            )}
+      <Pressable onPress={() => onEdit(persona.id)}>
+        <LinearGradient
+          colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ padding: 14 }}
+        >
+          {/* Top row: Avatar + Info + Chevron */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+            {/* Avatar - 3:4 portrait ratio */}
+            <View
+              style={{
+                width: 60,
+                height: 80,
+                borderRadius: 10,
+                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 14,
+                borderWidth: 2,
+                borderColor: persona.is_active ? 'rgba(74, 222, 128, 0.4)' : 'rgba(255,255,255,0.15)',
+                overflow: 'hidden',
+              }}
+            >
+              {avatarSource ? (
+                <Image
+                  source={avatarSource}
+                  style={{ width: 56, height: 76, borderRadius: 8 }}
+                />
+              ) : (
+                <User size={28} color="#F59E0B" />
+              )}
+            </View>
+
+            {/* Info */}
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{ color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 3 }}
+                numberOfLines={1}
+              >
+                {persona.name}
+              </Text>
+              <Text
+                style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 6 }}
+                numberOfLines={1}
+              >
+                {persona.tagline}
+              </Text>
+
+              {/* Type badge */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <View
+                  style={{
+                    backgroundColor: typeBadgeBg,
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: typeBadgeColor, fontSize: 11, fontWeight: '600' }}>
+                    {typeLabel}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Domain + Style */}
+              <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }} numberOfLines={1}>
+                {[domainName, styleLabel].filter(Boolean).join(' · ')}
+              </Text>
+            </View>
+
+            {/* Chevron */}
+            <ChevronRight size={20} color="rgba(255,255,255,0.25)" style={{ marginTop: 4 }} />
           </View>
 
-          {/* Info */}
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{ color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 3 }}
-              numberOfLines={1}
-            >
-              {persona.name}
-            </Text>
-            <Text
-              style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 6 }}
-              numberOfLines={1}
-            >
-              {persona.tagline}
-            </Text>
+          {/* Bottom row: Toggles + Sort order */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: 12,
+              paddingTop: 10,
+              borderTopWidth: 1,
+              borderTopColor: 'rgba(255,255,255,0.06)',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
+              {/* Active toggle */}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Switch
+                  value={persona.is_active}
+                  onValueChange={() => onToggleActive(persona.id)}
+                  disabled={isSaving}
+                  trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(74, 222, 128, 0.5)' }}
+                  thumbColor={persona.is_active ? '#4ade80' : 'rgba(255,255,255,0.5)'}
+                  ios_backgroundColor="rgba(255,255,255,0.1)"
+                  style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                />
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
+                  Active
+                </Text>
+              </View>
 
-            {/* Type badge */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <View
-                style={{
-                  backgroundColor: typeBadgeBg,
-                  paddingHorizontal: 8,
-                  paddingVertical: 2,
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: typeBadgeColor, fontSize: 11, fontWeight: '600' }}>
-                  {typeLabel}
+              {/* Mood toggle */}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Switch
+                  value={persona.emotional_progression_enabled ?? false}
+                  onValueChange={() => onToggleMoodShift(persona.id)}
+                  disabled={isSaving}
+                  trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(168, 85, 247, 0.5)' }}
+                  thumbColor={persona.emotional_progression_enabled ? '#a855f7' : 'rgba(255,255,255,0.5)'}
+                  ios_backgroundColor="rgba(255,255,255,0.1)"
+                  style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                />
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
+                  Mood
+                </Text>
+              </View>
+
+              {/* Premium toggle */}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Switch
+                  value={persona.is_premium}
+                  onValueChange={() => onTogglePremium(persona.id)}
+                  disabled={isSaving}
+                  trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(251, 191, 36, 0.5)' }}
+                  thumbColor={persona.is_premium ? '#fbbf24' : 'rgba(255,255,255,0.5)'}
+                  ios_backgroundColor="rgba(255,255,255,0.1)"
+                  style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
+                />
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
+                  Premium
                 </Text>
               </View>
             </View>
 
-            {/* Domain + Style */}
-            <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }} numberOfLines={1}>
-              {[domainName, styleLabel].filter(Boolean).join(' · ')}
+            {/* Sort order - right aligned, no shrink */}
+            <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>
+              #{persona.sort_order}
             </Text>
           </View>
-
-          {/* Actions */}
-          <View style={{ alignItems: 'center', gap: 12, marginTop: 4 }}>
-            <Pressable
-              onPress={(e) => { e.stopPropagation(); onDelete(persona.id, persona.name); }}
-              hitSlop={8}
-            >
-              <Trash2 size={16} color="rgba(239, 68, 68, 0.5)" />
-            </Pressable>
-            <ChevronRight size={20} color="rgba(255,255,255,0.25)" />
-          </View>
-        </View>
-
-        {/* Bottom row: Toggles + Sort order */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: 12,
-            paddingTop: 10,
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(255,255,255,0.06)',
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}>
-            {/* Active toggle */}
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Switch
-                value={persona.is_active}
-                onValueChange={() => onToggleActive(persona.id)}
-                disabled={isSaving}
-                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(74, 222, 128, 0.5)' }}
-                thumbColor={persona.is_active ? '#4ade80' : 'rgba(255,255,255,0.5)'}
-                ios_backgroundColor="rgba(255,255,255,0.1)"
-                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
-              />
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
-                Active
-              </Text>
-            </View>
-
-            {/* Mood toggle */}
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Switch
-                value={persona.emotional_progression_enabled ?? false}
-                onValueChange={() => onToggleMoodShift(persona.id)}
-                disabled={isSaving}
-                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(168, 85, 247, 0.5)' }}
-                thumbColor={persona.emotional_progression_enabled ? '#a855f7' : 'rgba(255,255,255,0.5)'}
-                ios_backgroundColor="rgba(255,255,255,0.1)"
-                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
-              />
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
-                Mood
-              </Text>
-            </View>
-
-            {/* Premium toggle */}
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Switch
-                value={persona.is_premium}
-                onValueChange={() => onTogglePremium(persona.id)}
-                disabled={isSaving}
-                trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(251, 191, 36, 0.5)' }}
-                thumbColor={persona.is_premium ? '#fbbf24' : 'rgba(255,255,255,0.5)'}
-                ios_backgroundColor="rgba(255,255,255,0.1)"
-                style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
-              />
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginLeft: 2 }}>
-                Premium
-              </Text>
-            </View>
-          </View>
-
-          {/* Sort order - right aligned, no shrink */}
-          <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>
-            #{persona.sort_order}
-          </Text>
-        </View>
-      </LinearGradient>
-    </Pressable>
+        </LinearGradient>
+      </Pressable>
+    </Swipeable>
   );
 }
 
@@ -513,6 +567,7 @@ export default function AdminPersonasScreen() {
     toggleActive,
     togglePremium,
     toggleEmotionalProgression,
+    deletePersona,
     hardDeletePersona,
   } = useAdminPersonaStore();
 
@@ -644,6 +699,10 @@ export default function AdminPersonasScreen() {
     router.push('/admin/persona/wizard');
   };
 
+  const handleArchive = async (id: string) => {
+    await deletePersona(id);
+  };
+
   const handleDeleteRequest = (id: string, name: string) => {
     setDeleteTarget({ id, name });
   };
@@ -663,8 +722,9 @@ export default function AdminPersonasScreen() {
         onToggleActive={handleToggleActive}
         onToggleMoodShift={handleToggleMoodShift}
         onTogglePremium={handleTogglePremium}
-        onDelete={handleDeleteRequest}
         onEdit={handleEdit}
+        onArchive={handleArchive}
+        onDelete={handleDeleteRequest}
         isSaving={isSaving}
       />
     ));
