@@ -33,6 +33,24 @@ function BackToAppButton() {
   );
 }
 
+function BackToPersonasButton() {
+  return (
+    <Pressable
+      onPress={() => router.replace('/admin/personas')}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingLeft: 16,
+        paddingRight: 8,
+        paddingVertical: 8,
+      }}
+    >
+      <ArrowLeft size={20} color="#F59E0B" />
+      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 6 }}>Personas</Text>
+    </Pressable>
+  );
+}
+
 function MenuButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
@@ -124,11 +142,17 @@ export default function AdminLayout() {
         />
         <Stack.Screen
           name="persona/[id]"
-          options={{ headerTitle: 'Edit Persona' }}
+          options={{
+            headerTitle: 'Edit Persona',
+            headerLeft: () => <BackToPersonasButton />,
+          }}
         />
         <Stack.Screen
           name="persona/wizard"
-          options={{ headerTitle: 'Create Persona' }}
+          options={{
+            headerTitle: 'Create Persona',
+            headerLeft: () => <BackToPersonasButton />,
+          }}
         />
       </Stack>
 
