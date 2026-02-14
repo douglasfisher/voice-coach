@@ -14,6 +14,7 @@ import {
   Image,
   ActivityIndicator,
   TextInput,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useState, useMemo, useCallback } from 'react';
@@ -25,6 +26,7 @@ import {
   User,
   Search,
   X,
+  Trash2,
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { AdminPersonaView } from '../../types/admin';
@@ -55,6 +57,7 @@ interface PersonaListItemProps {
   onToggleActive: (id: string) => void;
   onToggleMoodShift: (id: string) => void;
   onTogglePremium: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
   onEdit: (id: string) => void;
   isSaving: boolean;
 }
@@ -317,6 +320,7 @@ function PersonaListItem({
   onToggleActive,
   onToggleMoodShift,
   onTogglePremium,
+  onDelete,
   onEdit,
   isSaving,
 }: PersonaListItemProps) {
@@ -412,8 +416,16 @@ function PersonaListItem({
             </Text>
           </View>
 
-          {/* Chevron */}
-          <ChevronRight size={20} color="rgba(255,255,255,0.25)" style={{ marginTop: 4 }} />
+          {/* Actions */}
+          <View style={{ alignItems: 'center', gap: 12, marginTop: 4 }}>
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); onDelete(persona.id, persona.name); }}
+              hitSlop={8}
+            >
+              <Trash2 size={16} color="rgba(239, 68, 68, 0.5)" />
+            </Pressable>
+            <ChevronRight size={20} color="rgba(255,255,255,0.25)" />
+          </View>
         </View>
 
         {/* Bottom row: Toggles + Sort order */}
@@ -501,6 +513,7 @@ export default function AdminPersonasScreen() {
     toggleActive,
     togglePremium,
     toggleEmotionalProgression,
+    hardDeletePersona,
   } = useAdminPersonaStore();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -511,6 +524,7 @@ export default function AdminPersonasScreen() {
   const [domainFilter, setDomainFilter] = useState<string | null>(null);
   const [domainMap, setDomainMap] = useState<Record<string, string>>({});
   const [domainList, setDomainList] = useState<{ id: string; name: string }[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchPersonas();
@@ -630,6 +644,16 @@ export default function AdminPersonasScreen() {
     router.push('/admin/persona/wizard');
   };
 
+  const handleDeleteRequest = (id: string, name: string) => {
+    setDeleteTarget({ id, name });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    await hardDeletePersona(deleteTarget.id);
+    setDeleteTarget(null);
+  };
+
   const renderPersonaList = (list: AdminPersonaView[]) =>
     list.map((persona) => (
       <PersonaListItem
@@ -639,6 +663,7 @@ export default function AdminPersonasScreen() {
         onToggleActive={handleToggleActive}
         onToggleMoodShift={handleToggleMoodShift}
         onTogglePremium={handleTogglePremium}
+        onDelete={handleDeleteRequest}
         onEdit={handleEdit}
         isSaving={isSaving}
       />
@@ -756,6 +781,79 @@ export default function AdminPersonasScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={deleteTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteTarget(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 32,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#1a1a2e',
+              borderRadius: 20,
+              padding: 24,
+              width: '100%',
+              maxWidth: 340,
+              borderWidth: 1,
+              borderColor: 'rgba(239, 68, 68, 0.3)',
+            }}
+          >
+            <Trash2 size={32} color="#ef4444" style={{ alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 8 }}>
+              Delete Persona
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', marginBottom: 24 }}>
+              Permanently delete{' '}
+              <Text style={{ color: '#fff', fontWeight: '600' }}>{deleteTarget?.name}</Text>
+              ? This cannot be undone.
+            </Text>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable
+                onPress={() => setDeleteTarget(null)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '600' }}>
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={handleDeleteConfirm}
+                disabled={isSaving}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                  alignItems: 'center',
+                  opacity: isSaving ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>
+                  {isSaving ? 'Deleting...' : 'Delete'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

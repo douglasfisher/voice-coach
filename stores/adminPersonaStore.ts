@@ -32,6 +32,7 @@ interface AdminPersonaState {
   createPersona: (data: PersonaFormData) => Promise<{ id: string | null; error: Error | null }>;
   updatePersona: (id: string, data: Partial<Persona>) => Promise<{ error: Error | null }>;
   deletePersona: (id: string) => Promise<{ error: Error | null }>;
+  hardDeletePersona: (id: string) => Promise<{ error: Error | null }>;
   toggleActive: (id: string) => Promise<{ error: Error | null }>;
   togglePremium: (id: string) => Promise<{ error: Error | null }>;
   toggleEmotionalProgression: (id: string) => Promise<{ error: Error | null }>;
@@ -225,6 +226,31 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
         personas: personas.map((p) =>
           p.id === id ? { ...p, is_active: false } : p
         ),
+      });
+
+      return { error: null };
+    } catch (error) {
+      set({ error: (error as Error).message });
+      return { error: error as Error };
+    } finally {
+      set({ isSaving: false });
+    }
+  },
+
+  hardDeletePersona: async (id: string) => {
+    set({ isSaving: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('personas')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      const { personas, selectedPersona } = get();
+      set({
+        personas: personas.filter((p) => p.id !== id),
+        selectedPersona: selectedPersona?.id === id ? null : selectedPersona,
       });
 
       return { error: null };
