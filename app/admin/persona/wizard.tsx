@@ -69,8 +69,11 @@ export default function PersonaWizardScreen() {
     if (error) {
       Alert.alert('Error', error.message);
     } else {
-      reset();
-      router.replace('/admin/personas');
+      Alert.alert(
+        'Persona Created',
+        `${formData.name} has been created successfully.`,
+        [{ text: 'OK', onPress: () => { reset(); router.replace('/admin/personas'); } }],
+      );
     }
   };
 

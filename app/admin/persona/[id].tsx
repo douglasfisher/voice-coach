@@ -31,7 +31,7 @@ import { useTraits } from '../../../hooks/useTraits';
 
 import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
-import { resolvePersonaAvatar } from '../../../lib/personaImages';
+import { resolvePersonaAvatarWithUrl } from '../../../lib/personaImages';
 import { ALL_PERSONA_IMAGES } from '../../../lib/allPersonaImages';
 
 import { FormInput } from '../../../components/admin/shared/FormInput';
@@ -413,7 +413,7 @@ export default function AdminPersonaEditScreen() {
           {form.name.trim().length > 0 && (
             <View style={{ alignItems: 'center', marginBottom: 16 }}>
               <Image
-                source={resolvePersonaAvatar(form.name)}
+                source={resolvePersonaAvatarWithUrl(form.name, form.avatar_url, form.avatar_thumbnail_url)}
                 style={{
                   width: 160,
                   height: 160,

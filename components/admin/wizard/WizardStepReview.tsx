@@ -33,9 +33,9 @@ function ReviewCard({ title, children }: { title: string; children: React.ReactN
 
 function ReviewField({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>{label}</Text>
-      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500' }}>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4, gap: 12 }}>
+      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, flexShrink: 0 }}>{label}</Text>
+      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '500', flexShrink: 1, textAlign: 'right' }}>
         {value || 'Not set'}
       </Text>
     </View>

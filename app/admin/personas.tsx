@@ -25,7 +25,7 @@ import {
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { AdminPersonaView } from '../../types/admin';
-import { resolvePersonaAvatar } from '../../lib/personaImages';
+import { resolvePersonaAvatarWithUrl } from '../../lib/personaImages';
 
 interface PersonaListItemProps {
   persona: AdminPersonaView;
@@ -36,7 +36,7 @@ interface PersonaListItemProps {
 }
 
 function PersonaListItem({ persona, onToggleActive, onToggleMoodShift, onEdit, isSaving }: PersonaListItemProps) {
-  const avatarSource = resolvePersonaAvatar(persona.name);
+  const avatarSource = resolvePersonaAvatarWithUrl(persona.name, persona.avatar_url, persona.avatar_thumbnail_url);
 
   return (
     <Pressable
