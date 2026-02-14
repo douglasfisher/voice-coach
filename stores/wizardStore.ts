@@ -187,6 +187,7 @@ interface WizardState {
 
   // Reset
   reset: () => void;
+  resetAvatar: () => void;
 }
 
 export const useWizardStore = create<WizardState>((set, get) => ({
@@ -754,6 +755,21 @@ Return ONLY the system prompt text, no explanation or markdown.`;
         coaching_approach: '',
       },
       isGeneratingSection: null,
+      avatar: {
+        params: { ...DEFAULT_AVATAR_PARAMS },
+        editablePrompt: buildPromptFromParams(DEFAULT_AVATAR_PARAMS),
+        drafts: [],
+        selectedDraftId: null,
+        hiResUrl: null,
+        hiResStoragePath: null,
+        isGenerating: false,
+        isUpscaling: false,
+      },
+    });
+  },
+
+  resetAvatar: () => {
+    set({
       avatar: {
         params: { ...DEFAULT_AVATAR_PARAMS },
         editablePrompt: buildPromptFromParams(DEFAULT_AVATAR_PARAMS),

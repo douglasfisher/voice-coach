@@ -23,8 +23,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import {
   Save,
   Trash2,
-  ChevronDown,
-  ImageIcon,
 } from 'lucide-react-native';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
 import { useTraits } from '../../../hooks/useTraits';
@@ -32,12 +30,12 @@ import { useTraits } from '../../../hooks/useTraits';
 import { PersonaFormData } from '../../../types/admin';
 import { supabase } from '../../../lib/supabase';
 import { resolvePersonaAvatarWithUrl, getLocalAvatar } from '../../../lib/personaImages';
-import { ALL_PERSONA_IMAGES } from '../../../lib/allPersonaImages';
 
 import { FormInput } from '../../../components/admin/shared/FormInput';
 import { SliderInput } from '../../../components/admin/shared/SliderInput';
 import { SelectInput } from '../../../components/admin/shared/SelectInput';
 import { TraitTokenBadges, TRAIT_TOKENS, getMissingTokens } from '../../../components/admin/shared/TraitTokenBadges';
+import { AvatarGeneratorSection } from '../../../components/admin/shared/AvatarGeneratorSection';
 
 interface AIModelOption {
   id: string;
@@ -59,100 +57,6 @@ const VOICE_PROVIDERS = [
   { value: 'azure', label: 'Azure' },
 ];
 
-
-type ImageFilter = 'all' | 'men' | 'women';
-
-function AvatarPicker() {
-  const [expanded, setExpanded] = useState(false);
-  const [filter, setFilter] = useState<ImageFilter>('all');
-
-  const filtered = filter === 'all'
-    ? ALL_PERSONA_IMAGES
-    : ALL_PERSONA_IMAGES.filter((img) => img.folder === filter);
-
-  return (
-    <View style={{ marginBottom: 16 }}>
-      <Pressable
-        onPress={() => setExpanded(!expanded)}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingVertical: 10,
-          paddingHorizontal: 14,
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.1)',
-          borderRadius: 12,
-        }}
-      >
-        <ImageIcon size={16} color="rgba(255,255,255,0.5)" />
-        <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginLeft: 8, flex: 1 }}>
-          Browse Available Avatars ({ALL_PERSONA_IMAGES.length})
-        </Text>
-        <ChevronDown
-          size={16}
-          color="rgba(255,255,255,0.4)"
-          style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
-        />
-      </Pressable>
-
-      {expanded && (
-        <View style={{ marginTop: 10 }}>
-          {/* Filter Tabs */}
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-            {(['all', 'men', 'women'] as ImageFilter[]).map((f) => (
-              <Pressable
-                key={f}
-                onPress={() => setFilter(f)}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 6,
-                  borderRadius: 8,
-                  backgroundColor: filter === f ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255,255,255,0.05)',
-                  borderWidth: 1,
-                  borderColor: filter === f ? 'rgba(245, 158, 11, 0.4)' : 'rgba(255,255,255,0.08)',
-                }}
-              >
-                <Text style={{
-                  color: filter === f ? '#F59E0B' : 'rgba(255,255,255,0.5)',
-                  fontSize: 12,
-                  fontWeight: filter === f ? '600' : '400',
-                  textTransform: 'capitalize',
-                }}>
-                  {f} ({f === 'all' ? ALL_PERSONA_IMAGES.length : ALL_PERSONA_IMAGES.filter((i) => i.folder === f).length})
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {/* Image Grid */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {filtered.map((img) => (
-              <View key={img.key} style={{ alignItems: 'center', width: 70 }}>
-                <Image
-                  source={img.source}
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 32,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.1)',
-                  }}
-                />
-                <Text
-                  numberOfLines={1}
-                  style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, marginTop: 3, textAlign: 'center' }}
-                >
-                  {img.displayName}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
 
 export default function AdminPersonaEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -431,7 +335,13 @@ export default function AdminPersonaEditScreen() {
             </View>
           )}
 
-          <AvatarPicker />
+          <AvatarGeneratorSection
+            personaId={isNew ? undefined : id}
+            onAvatarApproved={(avatarUrl, thumbnailUrl) => {
+              updateForm('avatar_url', avatarUrl);
+              updateForm('avatar_thumbnail_url', thumbnailUrl);
+            }}
+          />
 
           <FormInput
             label="Cultural Background"
