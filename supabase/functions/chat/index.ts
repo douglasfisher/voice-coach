@@ -276,7 +276,15 @@ serve(async (req) => {
     // =========================================================================
     // CONVERSATION OWNERSHIP CHECK — verify caller owns the conversation
     // =========================================================================
-    if (conversationId && callerUserId) {
+    if (conversationId) {
+      // Require a valid auth token for any conversation-scoped operation
+      if (!callerUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const { data: convOwnership } = await supabase
         .from('conversations')
         .select('user_id')
