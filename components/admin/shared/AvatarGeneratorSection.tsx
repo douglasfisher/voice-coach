@@ -16,6 +16,7 @@ import { AvatarGrid } from '../wizard/AvatarGrid';
 import { AvatarLibraryModal } from '../wizard/AvatarLibraryModal';
 import { OptionChips } from './OptionChips';
 import {
+  AvatarParams,
   ETHNICITY_OPTIONS,
   GENDER_OPTIONS,
   LIGHTING_OPTIONS,
@@ -26,6 +27,7 @@ import {
   CAMERA_OPTIONS,
   APPEARANCE_OPTIONS,
 } from '../../../types/wizard';
+import { supabase } from '../../../lib/supabase';
 
 const IMAGE_ASPECT_RATIO = 896 / 1152;
 
@@ -37,6 +39,7 @@ interface AvatarGeneratorSectionProps {
 export function AvatarGeneratorSection({ personaId, onAvatarApproved }: AvatarGeneratorSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const [libraryVisible, setLibraryVisible] = useState(false);
+  const [paramsLoaded, setParamsLoaded] = useState<'loading' | 'from_library' | 'defaults'>('loading');
 
   const {
     avatar,
@@ -51,14 +54,39 @@ export function AvatarGeneratorSection({ personaId, onAvatarApproved }: AvatarGe
     resetAvatar,
   } = useWizardStore();
 
-  // Reset avatar state on mount to clear stale wizard state
-  const hasReset = useRef(false);
+  // On mount: reset avatar state and load original params from avatar_library if available
+  const hasInitialized = useRef(false);
   useEffect(() => {
-    if (!hasReset.current) {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    if (!personaId) {
       resetAvatar();
-      hasReset.current = true;
+      setParamsLoaded('defaults');
+      return;
     }
-  }, [resetAvatar]);
+
+    // Fetch the original generation params for this persona's avatar
+    (async () => {
+      const { data } = await supabase
+        .from('avatar_library')
+        .select('params')
+        .eq('used_by_persona_id', personaId)
+        .eq('is_hi_res', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const savedParams = data?.params as AvatarParams | null;
+      if (savedParams?.gender && savedParams?.ethnicity) {
+        resetAvatar(savedParams);
+        setParamsLoaded('from_library');
+      } else {
+        resetAvatar();
+        setParamsLoaded('defaults');
+      }
+    })();
+  }, [personaId, resetAvatar]);
 
   const handleAccessoryToggle = (acc: string) => {
     const current = avatar.params.accessories;
@@ -123,6 +151,24 @@ export function AvatarGeneratorSection({ personaId, onAvatarApproved }: AvatarGe
 
       {expanded && (
         <View style={{ marginTop: 12 }}>
+          {/* Params source indicator */}
+          {paramsLoaded === 'loading' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+              <ActivityIndicator size="small" color="rgba(255,255,255,0.4)" />
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                Loading original avatar settings...
+              </Text>
+            </View>
+          ) : paramsLoaded === 'from_library' ? (
+            <Text style={{ color: 'rgba(74, 222, 128, 0.7)', fontSize: 12, marginBottom: 12 }}>
+              Loaded original generation settings ({avatar.params.gender}, {avatar.params.ethnicity})
+            </Text>
+          ) : personaId ? (
+            <Text style={{ color: 'rgba(245, 158, 11, 0.6)', fontSize: 12, marginBottom: 12 }}>
+              No saved settings found — using defaults. Adjust gender &amp; ethnicity before generating.
+            </Text>
+          ) : null}
+
           {/* Hi-res result at top if approved */}
           {avatar.hiResUrl && (
             <View style={{ marginBottom: 20 }}>
