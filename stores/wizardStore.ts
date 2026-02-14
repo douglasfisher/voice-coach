@@ -211,14 +211,18 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         {
           taskType: 'imageInference',
           taskUUID: generateUUID(),
+          model: 'runware:400@1',
           positivePrompt: avatar.editablePrompt,
           negativePrompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
-          width: 512,
-          height: 512,
+          width: 896,
+          height: 1152,
           numberResults: 4,
-          outputFormat: 'WEBP',
-          steps: 25,
-          CFGScale: 7,
+          outputFormat: 'JPEG',
+          CFGScale: 3.5,
+          scheduler: 'FlowMatchEulerDiscreteScheduler',
+          includeCost: true,
+          outputType: ['dataURI', 'URL'],
+          acceleration: 'high',
         },
       ];
 
@@ -259,10 +263,10 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         const imageResponse = await fetch(imageUrl);
         const blob = await imageResponse.blob();
 
-        const fileName = `drafts/${Date.now()}_${i}.webp`;
+        const fileName = `drafts/${Date.now()}_${i}.jpg`;
         const { error: uploadError } = await supabase.storage
           .from('persona-avatars')
-          .upload(fileName, blob, { contentType: 'image/webp' });
+          .upload(fileName, blob, { contentType: 'image/jpeg' });
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
@@ -317,15 +321,15 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         {
           taskType: 'imageInference',
           taskUUID: generateUUID(),
-          positivePrompt: avatar.editablePrompt,
-          negativePrompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
-          width: 1024,
-          height: 1024,
+          model: 'google:4@2',
+          positivePrompt: 'make this is more photorealistic, with full ultra photorealistic details but keep the same pose and position in the frame',
+          referenceImages: [selected.url],
+          width: 1792,
+          height: 2400,
           numberResults: 1,
-          outputFormat: 'WEBP',
-          steps: 30,
-          CFGScale: 7,
-          referenceImages: [{ imageURL: selected.url, weight: 0.85 }],
+          outputFormat: 'JPEG',
+          includeCost: true,
+          outputType: ['dataURI', 'URL'],
         },
       ];
 
@@ -344,11 +348,11 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       // Upload hi-res
       const imageResponse = await fetch(hiResImageUrl);
       const blob = await imageResponse.blob();
-      const fileName = `hires/${Date.now()}.webp`;
+      const fileName = `hires/${Date.now()}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('persona-avatars')
-        .upload(fileName, blob, { contentType: 'image/webp' });
+        .upload(fileName, blob, { contentType: 'image/jpeg' });
 
       if (uploadError) throw uploadError;
 
