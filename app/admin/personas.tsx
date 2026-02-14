@@ -36,7 +36,18 @@ import { supabase } from '../../lib/supabase';
 // =============================================================================
 
 type TypeFilter = 'all' | 'coach' | 'challenger';
-type QuickFilter = 'active' | 'inactive' | 'premium' | 'mood' | 'new';
+type QuickFilter = 'active' | 'inactive' | 'premium' | 'mood';
+type RecencyFilter = '1h' | '3h' | '8h' | '24h' | '48h' | '1w' | '1m' | null;
+
+const RECENCY_OPTIONS: { key: NonNullable<RecencyFilter>; label: string; hours: number }[] = [
+  { key: '1h', label: '1hr', hours: 1 },
+  { key: '3h', label: '3hrs', hours: 3 },
+  { key: '8h', label: '8hrs', hours: 8 },
+  { key: '24h', label: '24hrs', hours: 24 },
+  { key: '48h', label: '48hrs', hours: 48 },
+  { key: '1w', label: 'Week', hours: 168 },
+  { key: '1m', label: 'Month', hours: 720 },
+];
 
 interface PersonaListItemProps {
   persona: AdminPersonaView;
@@ -59,6 +70,8 @@ function FilterBar({
   onTypeFilterChange,
   quickFilters,
   onQuickFilterToggle,
+  recencyFilter,
+  onRecencyFilterChange,
 }: {
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -66,6 +79,8 @@ function FilterBar({
   onTypeFilterChange: (t: TypeFilter) => void;
   quickFilters: Set<QuickFilter>;
   onQuickFilterToggle: (f: QuickFilter) => void;
+  recencyFilter: RecencyFilter;
+  onRecencyFilterChange: (f: RecencyFilter) => void;
 }) {
   const typeOptions: { key: TypeFilter; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -78,7 +93,6 @@ function FilterBar({
     { key: 'inactive', label: 'Inactive', color: '#ef4444' },
     { key: 'premium', label: 'Premium', color: '#fbbf24' },
     { key: 'mood', label: 'Mood Shift', color: '#a855f7' },
-    { key: 'new', label: 'New', color: '#38bdf8' },
   ];
 
   return (
@@ -192,6 +206,46 @@ function FilterBar({
           );
         })}
       </ScrollView>
+
+      {/* Created within */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginRight: 2 }}>
+          Created:
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+          {RECENCY_OPTIONS.map((opt) => {
+            const isActive = recencyFilter === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                onPress={() => onRecencyFilterChange(isActive ? null : opt.key)}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 14,
+                  backgroundColor: isActive
+                    ? 'rgba(56, 189, 248, 0.2)'
+                    : 'rgba(255,255,255,0.04)',
+                  borderWidth: 1,
+                  borderColor: isActive
+                    ? 'rgba(56, 189, 248, 0.5)'
+                    : 'rgba(255,255,255,0.08)',
+                }}
+              >
+                <Text
+                  style={{
+                    color: isActive ? '#38bdf8' : 'rgba(255,255,255,0.4)',
+                    fontSize: 11,
+                    fontWeight: isActive ? '600' : '400',
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -393,6 +447,7 @@ export default function AdminPersonasScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [quickFilters, setQuickFilters] = useState<Set<QuickFilter>>(new Set());
+  const [recencyFilter, setRecencyFilter] = useState<RecencyFilter>(null);
   const [domainMap, setDomainMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -431,13 +486,7 @@ export default function AdminPersonasScreen() {
     });
   }, []);
 
-  const isFiltered = searchQuery.length > 0 || typeFilter !== 'all' || quickFilters.size > 0;
-
-  const sevenDaysAgo = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString();
-  }, []);
+  const isFiltered = searchQuery.length > 0 || typeFilter !== 'all' || quickFilters.size > 0 || recencyFilter !== null;
 
   const filteredPersonas = useMemo(() => {
     let result = personas;
@@ -470,12 +519,18 @@ export default function AdminPersonasScreen() {
     if (quickFilters.has('mood')) {
       result = result.filter((p) => p.emotional_progression_enabled);
     }
-    if (quickFilters.has('new')) {
-      result = result.filter((p) => p.created_at >= sevenDaysAgo);
+
+    // Recency filter
+    if (recencyFilter) {
+      const opt = RECENCY_OPTIONS.find((o) => o.key === recencyFilter);
+      if (opt) {
+        const cutoff = new Date(Date.now() - opt.hours * 60 * 60 * 1000).toISOString();
+        result = result.filter((p) => p.created_at >= cutoff);
+      }
     }
 
     return result;
-  }, [personas, searchQuery, typeFilter, quickFilters, sevenDaysAgo]);
+  }, [personas, searchQuery, typeFilter, quickFilters, recencyFilter]);
 
   const activePersonas = useMemo(
     () => filteredPersonas.filter((p) => p.is_active),
@@ -564,6 +619,8 @@ export default function AdminPersonasScreen() {
           onTypeFilterChange={setTypeFilter}
           quickFilters={quickFilters}
           onQuickFilterToggle={toggleQuickFilter}
+          recencyFilter={recencyFilter}
+          onRecencyFilterChange={setRecencyFilter}
         />
 
         {isLoading && personas.length === 0 ? (
