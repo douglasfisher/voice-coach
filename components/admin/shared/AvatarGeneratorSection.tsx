@@ -169,91 +169,6 @@ export function AvatarGeneratorSection({ personaId, onAvatarApproved }: AvatarGe
             </Text>
           ) : null}
 
-          {/* Hi-res result at top if approved */}
-          {avatar.hiResUrl && (
-            <View style={{ marginBottom: 20 }}>
-              <Text
-                style={{
-                  color: '#4ade80',
-                  fontSize: 12,
-                  fontWeight: '600',
-                  letterSpacing: 1,
-                  marginBottom: 10,
-                  textAlign: 'center',
-                }}
-              >
-                HI-RES RESULT
-              </Text>
-              <Image
-                source={{ uri: avatar.hiResUrl }}
-                style={{
-                  width: '100%',
-                  aspectRatio: IMAGE_ASPECT_RATIO,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: '#4ade80',
-                }}
-                resizeMode="cover"
-              />
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: 'rgba(74, 222, 128, 0.08)',
-                  borderRadius: 8,
-                  padding: 10,
-                  marginTop: 10,
-                  gap: 8,
-                }}
-              >
-                <CheckCircle size={14} color="#4ade80" />
-                <Text style={{ color: 'rgba(74, 222, 128, 0.8)', fontSize: 12 }}>
-                  Hi-res image stored in Supabase Storage
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-                <Pressable
-                  onPress={handleRejectHiRes}
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingVertical: 10,
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderWidth: 1,
-                    borderColor: 'rgba(239, 68, 68, 0.3)',
-                  }}
-                >
-                  <X size={14} color="#ef4444" />
-                  <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
-                    Reject
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleApprove}
-                  style={{
-                    flex: 2,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingVertical: 10,
-                    borderRadius: 8,
-                    backgroundColor: 'rgba(74, 222, 128, 0.15)',
-                    borderWidth: 1,
-                    borderColor: 'rgba(74, 222, 128, 0.4)',
-                  }}
-                >
-                  <Check size={14} color="#4ade80" />
-                  <Text style={{ color: '#4ade80', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
-                    Approve & Apply
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-
           {/* Option selectors */}
           <OptionChips
             label="Gender"
@@ -455,6 +370,91 @@ export function AvatarGeneratorSection({ personaId, onAvatarApproved }: AvatarGe
                 </>
               )}
             </Pressable>
+          )}
+
+          {/* Hi-res result below drafts */}
+          {avatar.hiResUrl && avatar.drafts.length > 0 && (
+            <View style={{ marginTop: 20 }}>
+              <Text
+                style={{
+                  color: '#4ade80',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  letterSpacing: 1,
+                  marginBottom: 10,
+                  textAlign: 'center',
+                }}
+              >
+                HI-RES RESULT
+              </Text>
+              <Image
+                source={{ uri: avatar.hiResUrl }}
+                style={{
+                  width: '100%',
+                  aspectRatio: IMAGE_ASPECT_RATIO,
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: '#4ade80',
+                }}
+                resizeMode="cover"
+              />
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(74, 222, 128, 0.08)',
+                  borderRadius: 8,
+                  padding: 10,
+                  marginTop: 10,
+                  gap: 8,
+                }}
+              >
+                <CheckCircle size={14} color="#4ade80" />
+                <Text style={{ color: 'rgba(74, 222, 128, 0.8)', fontSize: 12 }}>
+                  Hi-res image (1792x2400) stored in Supabase Storage
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                <Pressable
+                  onPress={handleRejectHiRes}
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 12,
+                    borderRadius: 10,
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  <X size={16} color="#ef4444" />
+                  <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+                    Reject
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleApprove}
+                  style={{
+                    flex: 2,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 12,
+                    borderRadius: 10,
+                    backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(74, 222, 128, 0.4)',
+                  }}
+                >
+                  <Check size={16} color="#4ade80" />
+                  <Text style={{ color: '#4ade80', fontSize: 13, fontWeight: '600', marginLeft: 6 }}>
+                    Approve & Apply
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           )}
 
           <AvatarLibraryModal
