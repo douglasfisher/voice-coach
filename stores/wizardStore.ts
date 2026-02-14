@@ -278,7 +278,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
           .getPublicUrl(fileName);
 
         drafts.push({
-          id: img.taskUUID || `draft_${i}`,
+          id: img.imageUUID || `draft_${i}`,
           url: urlData.publicUrl,
           storagePath: fileName,
           selected: false,
