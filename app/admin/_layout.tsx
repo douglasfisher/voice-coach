@@ -55,7 +55,7 @@ function MenuButton({ onPress }: { onPress: () => void }) {
       hitSlop={12}
       style={{
         marginRight: 4,
-        marginLeft: 8,
+        marginLeft: 2,
         width: 40,
         height: 40,
         justifyContent: 'center',
