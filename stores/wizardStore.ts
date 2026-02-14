@@ -424,7 +424,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     if (avatar.drafts.length === 0) return;
 
     // Generate a batch ID to link all drafts from this generation
-    const batchId = crypto.randomUUID();
+    const batchId = generateUUID();
 
     // Save ALL drafts (selected + unused) with batch tracking
     for (const draft of avatar.drafts) {
