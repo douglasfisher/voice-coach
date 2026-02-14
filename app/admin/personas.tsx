@@ -239,12 +239,12 @@ function PersonaListItem({
       >
         {/* Top row: Avatar + Info + Chevron */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          {/* Avatar - rounded rectangle */}
+          {/* Avatar - 3:4 portrait ratio */}
           <View
             style={{
-              width: 80,
+              width: 60,
               height: 80,
-              borderRadius: 12,
+              borderRadius: 10,
               backgroundColor: 'rgba(245, 158, 11, 0.15)',
               alignItems: 'center',
               justifyContent: 'center',
@@ -257,10 +257,10 @@ function PersonaListItem({
             {avatarSource ? (
               <Image
                 source={avatarSource}
-                style={{ width: 76, height: 76, borderRadius: 10 }}
+                style={{ width: 56, height: 76, borderRadius: 8 }}
               />
             ) : (
-              <User size={32} color="#F59E0B" />
+              <User size={28} color="#F59E0B" />
             )}
           </View>
 
@@ -524,7 +524,7 @@ export default function AdminPersonasScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }} edges={['bottom']}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 16 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
