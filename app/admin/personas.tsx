@@ -72,6 +72,11 @@ function FilterBar({
   onQuickFilterToggle,
   recencyFilter,
   onRecencyFilterChange,
+  domainFilter,
+  onDomainFilterChange,
+  domains,
+  filteredCount,
+  totalCount,
 }: {
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -81,6 +86,11 @@ function FilterBar({
   onQuickFilterToggle: (f: QuickFilter) => void;
   recencyFilter: RecencyFilter;
   onRecencyFilterChange: (f: RecencyFilter) => void;
+  domainFilter: string | null;
+  onDomainFilterChange: (id: string | null) => void;
+  domains: { id: string; name: string }[];
+  filteredCount: number;
+  totalCount: number;
 }) {
   const typeOptions: { key: TypeFilter; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -246,6 +256,53 @@ function FilterBar({
           })}
         </ScrollView>
       </View>
+
+      {/* Domain filter */}
+      {domains.length > 0 && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginRight: 2 }}>
+            Domain:
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+            {domains.map((d) => {
+              const isActive = domainFilter === d.id;
+              return (
+                <Pressable
+                  key={d.id}
+                  onPress={() => onDomainFilterChange(isActive ? null : d.id)}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 14,
+                    backgroundColor: isActive
+                      ? 'rgba(16, 185, 129, 0.2)'
+                      : 'rgba(255,255,255,0.04)',
+                    borderWidth: 1,
+                    borderColor: isActive
+                      ? 'rgba(16, 185, 129, 0.5)'
+                      : 'rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isActive ? '#10b981' : 'rgba(255,255,255,0.4)',
+                      fontSize: 11,
+                      fontWeight: isActive ? '600' : '400',
+                    }}
+                  >
+                    {d.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Count */}
+      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '600', marginLeft: 2 }}>
+        {filteredCount}/{totalCount} personas
+      </Text>
     </View>
   );
 }
@@ -448,7 +505,9 @@ export default function AdminPersonasScreen() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [quickFilters, setQuickFilters] = useState<Set<QuickFilter>>(new Set());
   const [recencyFilter, setRecencyFilter] = useState<RecencyFilter>(null);
+  const [domainFilter, setDomainFilter] = useState<string | null>(null);
   const [domainMap, setDomainMap] = useState<Record<string, string>>({});
+  const [domainList, setDomainList] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     fetchPersonas();
@@ -456,11 +515,13 @@ export default function AdminPersonasScreen() {
     supabase
       .from('coaching_domains')
       .select('id, name')
+      .order('sort_order', { ascending: true })
       .then(({ data }) => {
         if (data) {
           const map: Record<string, string> = {};
           data.forEach((d) => { map[d.id] = d.name; });
           setDomainMap(map);
+          setDomainList(data.map((d) => ({ id: d.id, name: d.name })));
         }
       });
   }, [fetchPersonas]);
@@ -486,7 +547,7 @@ export default function AdminPersonasScreen() {
     });
   }, []);
 
-  const isFiltered = searchQuery.length > 0 || typeFilter !== 'all' || quickFilters.size > 0 || recencyFilter !== null;
+  const isFiltered = searchQuery.length > 0 || typeFilter !== 'all' || quickFilters.size > 0 || recencyFilter !== null || domainFilter !== null;
 
   const filteredPersonas = useMemo(() => {
     let result = personas;
@@ -504,6 +565,11 @@ export default function AdminPersonasScreen() {
     // Type filter
     if (typeFilter !== 'all') {
       result = result.filter((p) => p.persona_type === typeFilter);
+    }
+
+    // Domain filter
+    if (domainFilter) {
+      result = result.filter((p) => p.domain_id === domainFilter);
     }
 
     // Quick filters (AND logic)
@@ -530,7 +596,7 @@ export default function AdminPersonasScreen() {
     }
 
     return result;
-  }, [personas, searchQuery, typeFilter, quickFilters, recencyFilter]);
+  }, [personas, searchQuery, typeFilter, domainFilter, quickFilters, recencyFilter]);
 
   const activePersonas = useMemo(
     () => filteredPersonas.filter((p) => p.is_active),
@@ -621,6 +687,11 @@ export default function AdminPersonasScreen() {
           onQuickFilterToggle={toggleQuickFilter}
           recencyFilter={recencyFilter}
           onRecencyFilterChange={setRecencyFilter}
+          domainFilter={domainFilter}
+          onDomainFilterChange={setDomainFilter}
+          domains={domainList}
+          filteredCount={filteredPersonas.length}
+          totalCount={personas.length}
         />
 
         {isLoading && personas.length === 0 ? (
@@ -629,22 +700,6 @@ export default function AdminPersonasScreen() {
           </View>
         ) : (
           <>
-            {/* Section Header */}
-            {isFiltered ? (
-              <Text
-                style={{
-                  color: 'rgba(255,255,255,0.5)',
-                  fontSize: 12,
-                  fontWeight: '600',
-                  letterSpacing: 1,
-                  marginBottom: 12,
-                  marginLeft: 4,
-                }}
-              >
-                SHOWING {filteredPersonas.length} OF {personas.length} PERSONAS
-              </Text>
-            ) : null}
-
             {/* Active Personas */}
             {activePersonas.length > 0 && (
               <>
