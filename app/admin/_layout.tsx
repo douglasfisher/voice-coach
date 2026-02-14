@@ -22,9 +22,7 @@ function BackToAppButton() {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingLeft: 16,
-        paddingRight: 8,
-        paddingVertical: 8,
+        marginLeft: 16,
       }}
     >
       <ArrowLeft size={20} color="#F59E0B" />
@@ -40,9 +38,7 @@ function BackToPersonasButton() {
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        paddingLeft: 16,
-        paddingRight: 8,
-        paddingVertical: 8,
+        marginLeft: 16,
       }}
     >
       <ArrowLeft size={20} color="#F59E0B" />
@@ -57,8 +53,7 @@ function MenuButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       hitSlop={12}
       style={{
-        marginRight: 12,
-        padding: 6,
+        marginRight: 16,
         justifyContent: 'center',
         alignItems: 'center',
       }}
@@ -99,6 +94,12 @@ export default function AdminLayout() {
           headerTintColor: '#F59E0B',
           headerTitleStyle: {
             fontWeight: '600',
+          },
+          headerLeftContainerStyle: {
+            justifyContent: 'center',
+          },
+          headerRightContainerStyle: {
+            justifyContent: 'center',
           },
           headerLeft: () => <BackToAppButton />,
           headerRight: () => <MenuButton onPress={openPanel} />,
