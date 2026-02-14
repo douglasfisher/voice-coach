@@ -251,7 +251,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       // Runware returns { data: [...images] }
       const images = runwareResponse?.data || runwareResponse || [];
 
-      // Upload each image to Supabase storage
+      // Use Runware URLs directly for display; upload to storage on save
       const drafts: DraftImage[] = [];
 
       for (let i = 0; i < images.length; i++) {
@@ -259,28 +259,10 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         const imageUrl = img.imageURL || img.imageUrl || img.image_url;
         if (!imageUrl) continue;
 
-        // Fetch the image
-        const imageResponse = await fetch(imageUrl);
-        const blob = await imageResponse.blob();
-
-        const fileName = `drafts/${Date.now()}_${i}.jpg`;
-        const { error: uploadError } = await supabase.storage
-          .from('persona-avatars')
-          .upload(fileName, blob, { contentType: 'image/jpeg' });
-
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          continue;
-        }
-
-        const { data: urlData } = supabase.storage
-          .from('persona-avatars')
-          .getPublicUrl(fileName);
-
         drafts.push({
           id: img.imageUUID || `draft_${i}`,
-          url: urlData.publicUrl,
-          storagePath: fileName,
+          url: imageUrl,
+          storagePath: '', // Will be set when uploading to storage on save
           selected: false,
         });
       }
@@ -345,32 +327,17 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
       if (!hiResImageUrl) throw new Error('No hi-res image returned');
 
-      // Upload hi-res
-      const imageResponse = await fetch(hiResImageUrl);
-      const blob = await imageResponse.blob();
-      const fileName = `hires/${Date.now()}.jpg`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('persona-avatars')
-        .upload(fileName, blob, { contentType: 'image/jpeg' });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('persona-avatars')
-        .getPublicUrl(fileName);
-
-      // Set avatar URL on formData too
+      // Use Runware URL directly; upload to storage on save
       set((state) => ({
         avatar: {
           ...state.avatar,
-          hiResUrl: urlData.publicUrl,
-          hiResStoragePath: fileName,
+          hiResUrl: hiResImageUrl,
+          hiResStoragePath: '',
           isUpscaling: false,
         },
         formData: {
           ...state.formData,
-          avatar_url: urlData.publicUrl,
+          avatar_url: hiResImageUrl,
           avatar_thumbnail_url: selected.url,
         },
       }));
@@ -421,24 +388,60 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     const { formData, avatar, saveUnusedToLibrary } = get();
     const store = useAdminPersonaStore.getState();
 
-    const result = await store.createPersona(formData);
+    // Upload avatar to storage if we have a Runware URL
+    let finalFormData = { ...formData };
+    if (avatar.hiResUrl && avatar.hiResUrl.includes('runware.ai')) {
+      try {
+        const imageResponse = await fetch(avatar.hiResUrl);
+        const blob = await imageResponse.blob();
+        const fileName = `avatars/${Date.now()}_hires.jpg`;
 
-    // If successful and we have drafts, save unused to library and mark selected as used
+        const { error: uploadError } = await supabase.storage
+          .from('persona-avatars')
+          .upload(fileName, blob, { contentType: 'image/jpeg' });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('persona-avatars')
+            .getPublicUrl(fileName);
+          finalFormData.avatar_url = urlData.publicUrl;
+        }
+      } catch (err) {
+        console.warn('Failed to upload avatar to storage, using Runware URL:', err);
+      }
+    }
+
+    // Upload thumbnail too
+    const selectedDraft = avatar.drafts.find((d) => d.id === avatar.selectedDraftId);
+    if (selectedDraft && selectedDraft.url.includes('runware.ai')) {
+      try {
+        const imageResponse = await fetch(selectedDraft.url);
+        const blob = await imageResponse.blob();
+        const fileName = `avatars/${Date.now()}_thumb.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('persona-avatars')
+          .upload(fileName, blob, { contentType: 'image/jpeg' });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('persona-avatars')
+            .getPublicUrl(fileName);
+          finalFormData.avatar_thumbnail_url = urlData.publicUrl;
+        }
+      } catch (err) {
+        console.warn('Failed to upload thumbnail to storage, using Runware URL:', err);
+      }
+    }
+
+    const result = await store.createPersona(finalFormData);
+
+    // Save unused drafts to library if storage is available
     if (result.id && avatar.drafts.length > 0) {
-      await saveUnusedToLibrary();
-
-      // Mark the selected image as used by this persona
-      if (avatar.hiResStoragePath) {
-        await supabase.from('avatar_library').insert({
-          storage_path: avatar.hiResStoragePath,
-          public_url: avatar.hiResUrl || formData.avatar_url,
-          prompt: avatar.editablePrompt,
-          params: avatar.params as unknown as Record<string, unknown>,
-          gender: avatar.params.gender,
-          ethnicity: avatar.params.ethnicity,
-          created_by: useAuthStore.getState().user?.id,
-          used_by_persona_id: result.id,
-        });
+      try {
+        await saveUnusedToLibrary();
+      } catch (err) {
+        console.warn('Failed to save unused drafts to library:', err);
       }
     }
 
