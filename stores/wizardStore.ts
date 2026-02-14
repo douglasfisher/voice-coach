@@ -226,7 +226,13 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         body: payload,
       });
 
-      if (invokeError) throw invokeError;
+      if (invokeError) {
+        console.error('Runware invoke error:', invokeError);
+        console.error('Runware response data:', runwareResponse);
+        throw invokeError;
+      }
+
+      console.log('Runware response:', JSON.stringify(runwareResponse).slice(0, 500));
 
       // Runware returns { data: [...images] }
       const images = runwareResponse?.data || runwareResponse || [];
