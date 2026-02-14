@@ -17,7 +17,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -29,6 +29,7 @@ import {
   Trash2,
   Pencil,
   Archive,
+  XCircle,
 } from 'lucide-react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
@@ -320,35 +321,6 @@ function FilterBar({
 // Persona List Item
 // =============================================================================
 
-function SwipeAction({
-  color,
-  icon,
-  label,
-  onPress,
-}: {
-  color: string;
-  icon: React.ReactNode;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <RectButton
-      onPress={onPress}
-      style={{
-        backgroundColor: color,
-        justifyContent: 'center',
-        alignItems: 'center',
-        width: 72,
-      }}
-    >
-      {icon}
-      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '600', marginTop: 4 }}>
-        {label}
-      </Text>
-    </RectButton>
-  );
-}
-
 function PersonaListItem({
   persona,
   domainName,
@@ -360,6 +332,7 @@ function PersonaListItem({
   onDelete,
   isSaving,
 }: PersonaListItemProps) {
+  const swipeableRef = useRef<Swipeable>(null);
   const avatarSource = resolvePersonaAvatarWithUrl(persona.name, persona.avatar_url, persona.avatar_thumbnail_url);
 
   const isCoach = persona.persona_type === 'coach';
@@ -371,32 +344,46 @@ function PersonaListItem({
     ? persona.coaching_style.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
     : null;
 
+  const closeSwipeable = () => swipeableRef.current?.close();
+
   const renderRightActions = () => (
-    <View style={{ flexDirection: 'row' }}>
-      <SwipeAction
-        color="#3b82f6"
-        icon={<Pencil size={18} color="#fff" />}
-        label="Edit"
-        onPress={() => onEdit(persona.id)}
-      />
-      <SwipeAction
-        color="#f59e0b"
-        icon={<Archive size={18} color="#fff" />}
-        label="Archive"
-        onPress={() => onArchive(persona.id)}
-      />
-      <SwipeAction
-        color="#ef4444"
-        icon={<Trash2 size={18} color="#fff" />}
-        label="Delete"
-        onPress={() => onDelete(persona.id, persona.name)}
-      />
+    <View style={{ flexDirection: 'row', flex: 1 }}>
+      <RectButton
+        onPress={() => { closeSwipeable(); onEdit(persona.id); }}
+        style={{ backgroundColor: '#3b82f6', flex: 1, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <Pencil size={22} color="#fff" />
+        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600', marginTop: 4 }}>Edit</Text>
+      </RectButton>
+      <RectButton
+        onPress={() => { closeSwipeable(); onArchive(persona.id); }}
+        style={{ backgroundColor: '#f59e0b', flex: 1, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <Archive size={22} color="#fff" />
+        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600', marginTop: 4 }}>Archive</Text>
+      </RectButton>
+      <RectButton
+        onPress={() => { closeSwipeable(); onDelete(persona.id, persona.name); }}
+        style={{ backgroundColor: '#ef4444', flex: 1, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <Trash2 size={22} color="#fff" />
+        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600', marginTop: 4 }}>Delete</Text>
+      </RectButton>
+      <RectButton
+        onPress={closeSwipeable}
+        style={{ backgroundColor: '#6b7280', flex: 1, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <XCircle size={22} color="#fff" />
+        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600', marginTop: 4 }}>Cancel</Text>
+      </RectButton>
     </View>
   );
 
   return (
     <Swipeable
+      ref={swipeableRef}
       renderRightActions={renderRightActions}
+      rightThreshold={40}
       overshootRight={false}
       containerStyle={{
         borderRadius: 16,
@@ -406,7 +393,7 @@ function PersonaListItem({
         borderColor: persona.is_active ? 'rgba(74, 222, 128, 0.2)' : 'rgba(255,255,255,0.08)',
       }}
     >
-      <Pressable onPress={() => onEdit(persona.id)}>
+      <RectButton onPress={() => onEdit(persona.id)}>
         <LinearGradient
           colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
           start={{ x: 0, y: 0 }}
@@ -549,7 +536,7 @@ function PersonaListItem({
             </Text>
           </View>
         </LinearGradient>
-      </Pressable>
+      </RectButton>
     </Swipeable>
   );
 }
