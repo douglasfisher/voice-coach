@@ -13,6 +13,7 @@ import {
   ACCESSORY_OPTIONS,
   POSE_OPTIONS,
   CAMERA_OPTIONS,
+  APPEARANCE_OPTIONS,
 } from '../../../types/wizard';
 
 // Match generated image ratio: 896x1152
@@ -209,6 +210,13 @@ export function WizardStepAvatar() {
         options={ETHNICITY_OPTIONS}
         selected={avatar.params.ethnicity}
         onSelect={(val) => updateAvatarParams({ ethnicity: val })}
+      />
+
+      <OptionChips
+        label="Appearance"
+        options={APPEARANCE_OPTIONS}
+        selected={avatar.params.appearance}
+        onSelect={(val) => updateAvatarParams({ appearance: val })}
       />
 
       <OptionChips

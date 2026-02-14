@@ -31,6 +31,7 @@ import {
   ACCESSORY_OPTIONS,
   POSE_OPTIONS,
   CAMERA_OPTIONS,
+  APPEARANCE_OPTIONS,
   PROMPT_SECTION_KEYS,
   PromptSectionKey,
 } from '../types/wizard';
@@ -43,6 +44,7 @@ import { TRAIT_TOKENS } from '../components/admin/shared/TraitTokenBadges';
 const DEFAULT_AVATAR_PARAMS: AvatarParams = {
   ethnicity: 'Northern European',
   gender: 'male',
+  appearance: 'classically attractive',
   lighting: 'soft studio',
   clothing: 'business casual',
   expression: 'warm smile',
@@ -110,6 +112,7 @@ function randomizeParams(): AvatarParams {
   return {
     ethnicity: pickRandom(ETHNICITY_OPTIONS),
     gender: pickRandom(GENDER_OPTIONS),
+    appearance: pickRandom(APPEARANCE_OPTIONS),
     lighting: pickRandom(LIGHTING_OPTIONS),
     clothing: pickRandom(CLOTHING_OPTIONS),
     expression: pickRandom(EXPRESSION_OPTIONS),
@@ -124,7 +127,7 @@ function buildPromptFromParams(params: AvatarParams): string {
   const accessoriesPart = accessoriesText ? `wearing ${accessoriesText}` : 'no accessories';
 
   return [
-    `A classic mid-length head and shoulders portrait of a ${params.ethnicity} ${params.gender},`,
+    `A classic mid-length head and shoulders portrait of a ${params.appearance} ${params.ethnicity} ${params.gender},`,
     `${params.expression},`,
     `wearing ${params.clothing} attire,`,
     `${accessoriesPart},`,

@@ -13,6 +13,7 @@ import { PersonaFormData } from './admin';
 export interface AvatarParams {
   ethnicity: string;
   gender: string;
+  appearance: string;
   lighting: string;
   clothing: string;
   expression: string;
@@ -96,6 +97,23 @@ export const ETHNICITY_OPTIONS = [
 ];
 
 export const GENDER_OPTIONS = ['male', 'female'];
+
+export const APPEARANCE_OPTIONS = [
+  'classically attractive',
+  'ruggedly handsome',
+  'striking features',
+  'warm and approachable',
+  'youthful and fresh-faced',
+  'distinguished and mature',
+  'quirky and unique',
+  'sharp and angular',
+  'soft and gentle',
+  'bold and commanding',
+  'girl-next-door',
+  'boy-next-door',
+  'elegant and refined',
+  'athletic and toned',
+];
 
 export const LIGHTING_OPTIONS = [
   'soft studio',
