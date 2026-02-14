@@ -416,7 +416,7 @@ export default function AdminPersonaEditScreen() {
                 source={resolvePersonaAvatarWithUrl(form.name, form.avatar_url, form.avatar_thumbnail_url)}
                 style={{
                   width: '100%',
-                  aspectRatio: 896 / 1152,
+                  height: 220,
                   borderRadius: 12,
                   borderWidth: 2,
                   borderColor: 'rgba(245, 158, 11, 0.3)',
