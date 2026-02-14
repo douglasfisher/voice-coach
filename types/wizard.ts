@@ -82,19 +82,50 @@ export type WizardFormData = PersonaFormData;
 // =============================================================================
 
 export const ETHNICITY_OPTIONS = [
-  'East Asian',
-  'South Asian',
-  'Southeast Asian',
-  'Middle Eastern',
-  'North African',
-  'Sub-Saharan African',
+  // Americas
+  'American',
   'African American',
-  'Northern European',
-  'Southern European',
-  'Eastern European',
-  'Latin American',
+  'Brazilian',
+  'Mexican',
+  'Colombian',
   'Indigenous American',
+  // Northern Europe
+  'English',
+  'Irish',
+  'Scottish',
+  'Scandinavian',
+  'Norwegian',
+  'Icelandic',
+  'German',
+  'Dutch',
+  // Southern & Eastern Europe
+  'Italian',
+  'Spanish',
+  'Greek',
+  'French',
+  'Eastern European',
+  'Russian',
+  // Middle East & North Africa
+  'Arab',
+  'Turkish',
+  'Persian',
+  'North African',
+  // Sub-Saharan Africa
+  'West African',
+  'East African',
+  'South African',
+  // South & East Asia
+  'Indian',
+  'Japanese',
+  'Korean',
+  'Chinese',
+  'Filipino',
+  'Thai',
+  'Vietnamese',
+  // Oceania
   'Pacific Islander',
+  'Australian Aboriginal',
+  // Mixed
   'Mixed Heritage',
 ];
 
