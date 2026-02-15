@@ -151,10 +151,10 @@ export interface AvatarHiresConfig {
   prompt_template: string;
   style: string;
   grading: string;
-  lighting: string;
+  film: string;
   skin: string;
-  dof: string;
-  camera: string;
+  retouching: string;
+  mood: string;
   detail: string;
   negative_prompt: string;
   model: string;

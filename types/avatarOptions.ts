@@ -2,6 +2,8 @@
  * Avatar Hi-Res Option Maps & Prompt Builder
  *
  * Composable creative controls for hi-res avatar generation.
+ * These controls ENHANCE the draft image's look/feel — they don't
+ * change fundamental photography (lighting direction, lens, DoF).
  * Each map: UI label → prompt fragment.
  */
 
@@ -24,13 +26,12 @@ export const COLOR_GRADING_OPTIONS: Record<string, string> = {
   'Rich & saturated': 'rich saturated colour grading with vibrant hues',
 };
 
-export const LIGHTING_SETUP_OPTIONS: Record<string, string> = {
-  'Three-point studio': 'three-point studio lighting — defined key light with natural falloff, subtle fill preserving shadow detail, and rim/hair light for subject-background separation',
-  'Dramatic rim': 'dramatic rim lighting with strong backlight edge separation and moody shadows',
-  'Soft diffused': 'soft diffused lighting with even illumination and minimal shadows',
-  'High key': 'high key lighting with bright, even exposure and minimal shadow',
-  'Natural window': 'natural window lighting with soft directional quality and gentle falloff',
-  'Rembrandt': 'Rembrandt lighting with characteristic triangle of light under the eye and rich shadows',
+export const FILM_EMULATION_OPTIONS: Record<string, string> = {
+  'Digital clean': 'clean digital capture with neutral colour science',
+  'Kodak Portra 400': 'Kodak Portra 400 film emulation with warm skin tones and soft pastel highlights',
+  'Fuji Pro 400H': 'Fuji Pro 400H film emulation with cool greens and muted warmth',
+  'Cinematic film': 'cinematic film stock with rich shadows, lifted blacks and filmic grain',
+  'Kodachrome': 'Kodachrome film emulation with saturated reds, deep blues and vintage warmth',
 };
 
 export const SKIN_RENDERING_OPTIONS: Record<string, string> = {
@@ -40,18 +41,18 @@ export const SKIN_RENDERING_OPTIONS: Record<string, string> = {
   'Magazine retouched': 'magazine-grade retouched skin with smooth even complexion',
 };
 
-export const DEPTH_OF_FIELD_OPTIONS: Record<string, string> = {
-  'Shallow f/1.4': 'f/1.4 ultra-shallow depth of field with creamy bokeh',
-  'Portrait f/2.8': 'f/2.8 shallow depth of field',
-  'Moderate f/4': 'f/4 moderate depth of field with subtle background separation',
-  'Deep f/8': 'f/8 deep depth of field with sharp background detail',
+export const RETOUCHING_OPTIONS: Record<string, string> = {
+  'Raw': 'minimal post-processing, preserving all natural detail as-shot',
+  'Light editorial': 'light editorial retouching with subtle colour correction and sharpening',
+  'Full editorial': 'full editorial retouching with colour-corrected tones, dodged highlights and refined details',
+  'Beauty': 'beauty-grade retouching with frequency separation, skin smoothing and enhanced definition',
 };
 
-export const CAMERA_FORMAT_OPTIONS: Record<string, string> = {
-  'Medium format 80mm': 'shot on medium format digital, 80mm lens',
-  '85mm portrait': 'shot on 85mm portrait lens',
-  '50mm standard': 'shot on 50mm standard lens',
-  '105mm telephoto': 'shot on 105mm telephoto lens',
+export const MOOD_OPTIONS: Record<string, string> = {
+  'Clean & polished': 'clean polished atmosphere with crisp detail and professional finish',
+  'Warm & intimate': 'warm intimate atmosphere with soft golden tones and gentle contrast',
+  'Cool & refined': 'cool refined atmosphere with silvery undertones and elegant restraint',
+  'Dramatic & bold': 'dramatic bold atmosphere with deep shadows, strong contrast and cinematic tension',
 };
 
 export const DETAIL_LEVEL_OPTIONS: Record<string, string> = {
@@ -70,10 +71,10 @@ export const NEGATIVE_STYLE_OPTIONS: Record<string, string> = {
 export const HIRES_OPTION_MAPS = {
   style: PHOTOGRAPHY_STYLE_OPTIONS,
   grading: COLOR_GRADING_OPTIONS,
-  lighting: LIGHTING_SETUP_OPTIONS,
+  film: FILM_EMULATION_OPTIONS,
   skin: SKIN_RENDERING_OPTIONS,
-  dof: DEPTH_OF_FIELD_OPTIONS,
-  camera: CAMERA_FORMAT_OPTIONS,
+  retouching: RETOUCHING_OPTIONS,
+  mood: MOOD_OPTIONS,
   detail: DETAIL_LEVEL_OPTIONS,
   negative_prompt: NEGATIVE_STYLE_OPTIONS,
 } as const;
@@ -82,10 +83,10 @@ export const HIRES_OPTION_MAPS = {
 export const HIRES_OPTION_LABELS: Record<keyof typeof HIRES_OPTION_MAPS, string> = {
   style: 'Photography Style',
   grading: 'Color Grading',
-  lighting: 'Lighting Setup',
+  film: 'Film Emulation',
   skin: 'Skin Rendering',
-  dof: 'Depth of Field',
-  camera: 'Camera Format',
+  retouching: 'Retouching Level',
+  mood: 'Mood & Atmosphere',
   detail: 'Detail Level',
   negative_prompt: 'Negative Style',
 };
@@ -100,20 +101,20 @@ export function buildHiresPrompt(hires: AvatarHiresConfig): string {
 
   const styleFragment = PHOTOGRAPHY_STYLE_OPTIONS[hires.style] || hires.style;
   const gradingFragment = COLOR_GRADING_OPTIONS[hires.grading] || hires.grading;
-  const lightingFragment = LIGHTING_SETUP_OPTIONS[hires.lighting] || hires.lighting;
+  const filmFragment = FILM_EMULATION_OPTIONS[hires.film] || hires.film;
   const skinFragment = SKIN_RENDERING_OPTIONS[hires.skin] || hires.skin;
-  const dofFragment = DEPTH_OF_FIELD_OPTIONS[hires.dof] || hires.dof;
-  const cameraFragment = CAMERA_FORMAT_OPTIONS[hires.camera] || hires.camera;
+  const retouchingFragment = RETOUCHING_OPTIONS[hires.retouching] || hires.retouching;
+  const moodFragment = MOOD_OPTIONS[hires.mood] || hires.mood;
   const detailFragment = DETAIL_LEVEL_OPTIONS[hires.detail] || hires.detail;
   const negativeFragment = NEGATIVE_STYLE_OPTIONS[hires.negative_prompt] || hires.negative_prompt;
 
   return template
     .replace(/\{\{style\}\}/g, styleFragment)
     .replace(/\{\{grading\}\}/g, gradingFragment)
-    .replace(/\{\{lighting\}\}/g, lightingFragment)
+    .replace(/\{\{film\}\}/g, filmFragment)
     .replace(/\{\{skin\}\}/g, skinFragment)
-    .replace(/\{\{dof\}\}/g, dofFragment)
-    .replace(/\{\{camera\}\}/g, cameraFragment)
+    .replace(/\{\{retouching\}\}/g, retouchingFragment)
+    .replace(/\{\{mood\}\}/g, moodFragment)
     .replace(/\{\{detail\}\}/g, detailFragment)
     .replace(/\{\{negative_prompt\}\}/g, negativeFragment);
 }
