@@ -15,19 +15,19 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { AdminSidePanel } from '../../components/admin/AdminSidePanel';
 
-function BackToAppButton() {
+function BackButton() {
   return (
     <Pressable
-      onPress={() => router.replace('/(tabs)')}
+      onPress={() => router.back()}
+      hitSlop={12}
       style={{
-        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         height: '100%',
         paddingHorizontal: 16,
       }}
     >
       <ArrowLeft size={20} color="#F59E0B" />
-      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 6 }}>App</Text>
     </Pressable>
   );
 }
@@ -107,7 +107,7 @@ export default function AdminLayout() {
           headerRightContainerStyle: {
             justifyContent: 'center',
           },
-          headerLeft: () => <BackToAppButton />,
+          headerLeft: () => <BackButton />,
           headerRight: () => <MenuButton onPress={openPanel} />,
           contentStyle: {
             backgroundColor: '#0a0a0f',
