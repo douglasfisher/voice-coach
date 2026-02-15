@@ -42,7 +42,6 @@ function BackToPersonasButton() {
       }}
     >
       <ChevronLeft size={24} color="#F59E0B" />
-      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 2 }}>Personas</Text>
     </Pressable>
   );
 }
