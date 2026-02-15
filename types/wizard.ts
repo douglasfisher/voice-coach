@@ -152,7 +152,17 @@ export const LIGHTING_OPTIONS = [
   'soft studio',
   'hard studio',
   'classic three point studio lighting',
-  'dramatic Rembrandt',
+  'three-point studio lighting with sharp key, fill and rim separation',
+  'Rembrandt lighting with butterfly kicker and edge-lit hair light',
+  'high-contrast clamshell lighting with specular rim',
+  'split lighting with hot hair light and negative fill',
+  'butterfly beauty lighting with dual strip softbox rim lights',
+  'paramount lighting with wraparound cove fill and backlit hair',
+  'broad key with silver bounce fill and focused snoot hair light',
+  'large octabox key with gridded strip kickers at 45°',
+  'low-key chiaroscuro with single fresnel key and subtle hair kicker',
+  'high-key beauty dish with barn-doored background separation lights',
+  'tungsten-gelled key with cool-fill contrast and hot backlight',
   'natural window',
   'warm golden hour',
 ];
@@ -197,6 +207,10 @@ export const CAMERA_OPTIONS = [
   'Sony 50mm f/1.2',
   'Nikon 105mm f/2.8',
   'Hasselblad medium format 150mm f2.8',
+  'shot on medium format, f/2.8 shallow depth',
+  'editorial grade colour science',
+  'specular catch lights, magazine-quality retouching',
+  'Phase One IQ4 150MP detail'
 ];
 
 // =============================================================================
