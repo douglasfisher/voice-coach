@@ -37,6 +37,7 @@ import {
 } from '../types/wizard';
 import { TRAIT_TOKENS } from '../components/admin/shared/TraitTokenBadges';
 import { AvatarGenerationConfig } from '../types/admin';
+import { buildHiresPrompt } from '../types/avatarOptions';
 
 // =============================================================================
 // AVATAR CONFIG (fetched from DB, with hardcoded fallbacks)
@@ -54,7 +55,15 @@ const DEFAULT_AVATAR_CONFIG: AvatarGenerationConfig = {
     scheduler: 'FlowMatchEulerDiscreteScheduler',
   },
   hires: {
-    prompt: 'Reconstruct this image as an ultra-photorealistic studio photograph, preserving the exact pose, body position, composition and framing precisely as shown. Apply full human-accurate detail: natural skin with visible pores, fine vellus hair, subsurface light scattering, authentic skin imperfections and micro-texture variation. Eyes must have realistic iris detail, moisture reflection and precise specular catch lights. Hair should show individual strand separation, natural flyaways and light-transmissive edges. All fabrics and materials must exhibit true-to-life weave texture, weight, drape and surface response to light. Render with three-point studio lighting — defined key light with natural falloff, subtle fill preserving shadow detail, and rim/hair light for subject-background separation. Accurate specular highlights, contact shadows, ambient occlusion and global illumination throughout. Shot on medium format digital, 80mm lens, f/2.8 shallow depth of field, 150MP resolution, cinematic colour grading with editorial-grade retouching. No AI artifacts, no plastic skin, no uncanny smoothing.',
+    prompt_template: 'Reconstruct this image as an {{style}}, preserving the exact pose, body position, composition and framing precisely as shown. Apply full human-accurate detail: {{skin}}. Eyes must have realistic iris detail, moisture reflection and precise specular catch lights. Hair should show individual strand separation, natural flyaways and light-transmissive edges. All fabrics and materials must exhibit true-to-life weave texture, weight, drape and surface response to light. Render with {{lighting}}. Accurate specular highlights, contact shadows, ambient occlusion and global illumination throughout. {{camera}}, {{dof}}, {{detail}}, {{grading}} with editorial-grade retouching. {{negative_prompt}}.',
+    style: 'Studio portrait',
+    grading: 'Cinematic warm',
+    lighting: 'Three-point studio',
+    skin: 'Hyper-realistic',
+    dof: 'Portrait f/2.8',
+    camera: 'Medium format 80mm',
+    detail: 'Ultra (150MP)',
+    negative_prompt: 'Standard',
     model: 'google:4@2',
     width: 1792,
     height: 2400,
@@ -76,7 +85,12 @@ async function getAvatarConfig(): Promise<AvatarGenerationConfig> {
       .single();
     if (error) throw error;
     const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-    const config = { ...DEFAULT_AVATAR_CONFIG, ...parsed, draft: { ...DEFAULT_AVATAR_CONFIG.draft, ...parsed?.draft }, hires: { ...DEFAULT_AVATAR_CONFIG.hires, ...parsed?.hires } };
+    const hires = { ...DEFAULT_AVATAR_CONFIG.hires, ...parsed?.hires };
+    // Backwards compat: if legacy `prompt` exists but no `prompt_template`, use defaults
+    if (hires.prompt && !hires.prompt_template) {
+      hires.prompt_template = DEFAULT_AVATAR_CONFIG.hires.prompt_template;
+    }
+    const config = { ...DEFAULT_AVATAR_CONFIG, ...parsed, draft: { ...DEFAULT_AVATAR_CONFIG.draft, ...parsed?.draft }, hires };
     _avatarConfigCache = { config, fetchedAt: Date.now() };
     return config;
   } catch (err) {
@@ -568,6 +582,11 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       const config = await getAvatarConfig();
       const { hires } = config;
 
+      // Assemble prompt from composable config; fall back to legacy prompt field
+      const hiresPrompt = hires.prompt_template
+        ? buildHiresPrompt(hires)
+        : (hires.prompt || '');
+
       const { data: runwareResponse, error: invokeError } = await supabase.functions.invoke('runware', {
         body: {
           uploadToStorage: true,
@@ -577,7 +596,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
               taskType: 'imageInference',
               taskUUID: generateUUID(),
               model: hires.model,
-              positivePrompt: hires.prompt,
+              positivePrompt: hiresPrompt,
               referenceImages: [selected.url],
               width: hires.width,
               height: hires.height,

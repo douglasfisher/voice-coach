@@ -146,6 +146,10 @@ export default function AdminLayout() {
           options={{ headerTitle: 'App Settings' }}
         />
         <Stack.Screen
+          name="avatars"
+          options={{ headerTitle: 'Avatar Studio' }}
+        />
+        <Stack.Screen
           name="persona/[id]"
           options={{
             headerTitle: 'Edit Persona',

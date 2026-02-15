@@ -148,10 +148,20 @@ export interface AvatarDraftConfig {
 }
 
 export interface AvatarHiresConfig {
-  prompt: string;
+  prompt_template: string;
+  style: string;
+  grading: string;
+  lighting: string;
+  skin: string;
+  dof: string;
+  camera: string;
+  detail: string;
+  negative_prompt: string;
   model: string;
   width: number;
   height: number;
+  /** @deprecated Legacy field — use prompt_template + composable options instead */
+  prompt?: string;
 }
 
 export interface AvatarGenerationConfig {
