@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType, ActivityIndicator, FlatList, Dimensions } from 'react-native';
+import Animated, { useAnimatedStyle, withRepeat, withSequence, withTiming, withDelay } from 'react-native-reanimated';
 import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,6 +37,36 @@ function shuffle<T>(array: T[]): T[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+function SkeletonBar({ width, height, delay = 0, borderRadius = 6 }: { width: number | `${number}%`; height: number; delay?: number; borderRadius?: number }) {
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(0.28, { duration: 750 }),
+          withTiming(0.12, { duration: 750 }),
+        ),
+        -1,
+        true,
+      ),
+    ),
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          borderRadius,
+          backgroundColor: 'rgba(255,255,255,0.15)',
+        },
+        animatedStyle,
+      ]}
+    />
+  );
 }
 
 export default function HomeScreen() {
@@ -183,24 +214,46 @@ export default function HomeScreen() {
 
           {isLoadingChallenge ? (
             <View style={{ paddingHorizontal: 8 }}>
-              <LinearGradient
-                colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{
-                  borderRadius: 24,
-                  borderWidth: 1,
-                  borderColor: 'rgba(96, 165, 250, 0.3)',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 40,
-                }}
-              >
-                <ActivityIndicator size="small" color="#60a5fa" />
-                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 8 }}>
-                  Generating today's challenges...
-                </Text>
-              </LinearGradient>
+              <View style={{
+                borderRadius: 24,
+                overflow: 'hidden',
+                height: 552,
+                borderWidth: 1,
+                borderColor: 'rgba(96, 165, 250, 0.3)',
+              }}>
+                <LinearGradient
+                  colors={['#1e3a5f', '#1a1a2e', '#0a0a0f']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ flex: 1, justifyContent: 'space-between', padding: 20 }}
+                >
+                  {/* Top row: circle + label + badge */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <SkeletonBar width={40} height={40} borderRadius={20} delay={0} />
+                      <View style={{ marginLeft: 12 }}>
+                        <SkeletonBar width={80} height={12} delay={100} />
+                      </View>
+                    </View>
+                    <SkeletonBar width={40} height={20} borderRadius={12} delay={200} />
+                  </View>
+
+                  {/* Bottom group */}
+                  <View>
+                    <SkeletonBar width="40%" height={12} delay={0} />
+                    <View style={{ marginTop: 10 }}>
+                      <SkeletonBar width="90%" height={20} delay={100} />
+                    </View>
+                    <View style={{ marginTop: 8 }}>
+                      <SkeletonBar width="70%" height={20} delay={200} />
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+                      <SkeletonBar width={80} height={16} delay={300} />
+                      <SkeletonBar width={80} height={40} borderRadius={14} delay={300} />
+                    </View>
+                  </View>
+                </LinearGradient>
+              </View>
             </View>
           ) : dailyChallenges.length > 0 ? (
             <>
