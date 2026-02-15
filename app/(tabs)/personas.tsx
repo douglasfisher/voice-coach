@@ -39,8 +39,10 @@ export default function PersonasScreen() {
   const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
   const { personas, isLoading } = usePersonas();
-  const { user } = useAuthStore();
-  const { createConversation, challengersActiveFilter, setChallengersActiveFilter } = useChatStore();
+  const user = useAuthStore((s) => s.user);
+  const createConversation = useChatStore((s) => s.createConversation);
+  const challengersActiveFilter = useChatStore((s) => s.challengersActiveFilter);
+  const setChallengersActiveFilter = useChatStore((s) => s.setChallengersActiveFilter);
   const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
   const isSnapMode = fullscreenCardMode === true;
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
@@ -214,6 +216,11 @@ export default function PersonasScreen() {
               />
             </View>
           )}
+          getItemLayout={(_data, index) => ({
+            length: snapCardHeight,
+            offset: snapCardHeight * index,
+            index,
+          })}
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: headerHeight,
@@ -222,6 +229,8 @@ export default function PersonasScreen() {
           snapToInterval={snapCardHeight}
           snapToAlignment="start"
           decelerationRate="fast"
+          windowSize={5}
+          maxToRenderPerBatch={3}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" progressViewOffset={headerHeight} />}

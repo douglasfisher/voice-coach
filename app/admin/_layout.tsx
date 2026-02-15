@@ -69,7 +69,8 @@ function MenuButton({ onPress }: { onPress: () => void }) {
 }
 
 export default function AdminLayout() {
-  const { profile, isLoading } = useAuthStore();
+  const profile = useAuthStore((s) => s.profile);
+  const isLoading = useAuthStore((s) => s.isLoading);
   const [panelOpen, setPanelOpen] = useState(false);
   const pathname = usePathname();
 

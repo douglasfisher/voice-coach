@@ -39,19 +39,19 @@ function shuffle<T>(array: T[]): T[] {
 }
 
 export default function HomeScreen() {
-  const { profile, user } = useAuthStore();
-  const {
-    conversations,
-    fetchConversations,
-    createConversation,
-    dailyChallenges,
-    activeChallengeIndex,
-    setActiveChallengeIndex,
-    isLoadingChallenge,
-    fetchDailyChallenges,
-    startChallengeChat,
-  } = useChatStore();
-  const { getPersonaById, personas } = usePersonaStore();
+  const profile = useAuthStore((s) => s.profile);
+  const user = useAuthStore((s) => s.user);
+  const conversations = useChatStore((s) => s.conversations);
+  const fetchConversations = useChatStore((s) => s.fetchConversations);
+  const createConversation = useChatStore((s) => s.createConversation);
+  const dailyChallenges = useChatStore((s) => s.dailyChallenges);
+  const activeChallengeIndex = useChatStore((s) => s.activeChallengeIndex);
+  const setActiveChallengeIndex = useChatStore((s) => s.setActiveChallengeIndex);
+  const isLoadingChallenge = useChatStore((s) => s.isLoadingChallenge);
+  const fetchDailyChallenges = useChatStore((s) => s.fetchDailyChallenges);
+  const startChallengeChat = useChatStore((s) => s.startChallengeChat);
+  const getPersonaById = usePersonaStore((s) => s.getPersonaById);
+  const personas = usePersonaStore((s) => s.personas);
   const { value: showPersonaImage } = useAppSetting('challenge_show_persona_image');
   const [isStartingChallenge, setIsStartingChallenge] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);

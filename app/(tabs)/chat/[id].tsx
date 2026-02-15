@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -90,7 +90,8 @@ const STYLE_THEMES: Record<ChallengeStyle, {
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const flatListRef = useRef<FlatList>(null);
-  const { preferences, profile } = useAuthStore();
+  const preferences = useAuthStore((s) => s.preferences);
+  const profile = useAuthStore((s) => s.profile);
   const insets = useSafeAreaInsets();
 
   const {
@@ -176,13 +177,13 @@ export default function ChatScreen() {
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
 
   // Navigate back to the source tab based on persona type
-  const goBackToSource = () => {
+  const goBackToSource = useCallback(() => {
     if (persona?.personaType === 'coach') {
       router.navigate('/(tabs)/coaches');
     } else {
       router.navigate('/(tabs)/personas');
     }
-  };
+  }, [persona?.personaType]);
 
   // Immersive mode: show full-bleed persona image with messages overlaid
   const immersiveModeEnabled = preferences?.immersive_chat_enabled ?? true;
@@ -343,6 +344,30 @@ export default function ChatScreen() {
       }, 100);
     }
   }, [messages.length, isFocusMode]);
+
+  const renderMessage = useCallback(({ item }: { item: typeof messages[number] }) => (
+    <MessageBubble
+      content={item.content}
+      role={item.role as 'user' | 'assistant'}
+      persona={item.role === 'assistant' ? persona : undefined}
+      audioUrl={item.audio_url}
+      onPlayAudio={
+        item.role === 'assistant' && preferences?.tts_enabled
+          ? () => handlePlayAudio(item.audio_url, item.content)
+          : undefined
+      }
+      isPlaying={isPlaying}
+      timestamp={item.created_at}
+      responseTimeMs={item.response_time_ms}
+      immersiveMode={showImmersiveLayout}
+      metadata={item.metadata}
+      isAdmin={!!profile?.is_admin}
+    />
+  ), [persona, preferences?.tts_enabled, handlePlayAudio, isPlaying, showImmersiveLayout, profile?.is_admin]);
+
+  const listFooter = useMemo(() => (
+    isSending ? <TypingIndicator persona={persona} /> : null
+  ), [isSending, persona]);
 
   if (isLoading && !conversation) {
     return (
@@ -510,28 +535,13 @@ export default function ChatScreen() {
               windowSize={11}
               maxToRenderPerBatch={10}
               initialNumToRender={15}
-              renderItem={({ item }) => (
-                <MessageBubble
-                  content={item.content}
-                  role={item.role as 'user' | 'assistant'}
-                  persona={item.role === 'assistant' ? persona : undefined}
-                  audioUrl={item.audio_url}
-                  onPlayAudio={
-                    item.role === 'assistant' && preferences?.tts_enabled
-                      ? () => handlePlayAudio(item.audio_url, item.content)
-                      : undefined
-                  }
-                  isPlaying={isPlaying}
-                  timestamp={item.created_at}
-                  responseTimeMs={item.response_time_ms}
-                  immersiveMode={showImmersiveLayout}
-                  metadata={item.metadata}
-                  isAdmin={!!profile?.is_admin}
-                />
-              )}
-              ListFooterComponent={
-                isSending ? <TypingIndicator persona={persona} /> : null
-              }
+              renderItem={renderMessage}
+              ListFooterComponent={listFooter}
+              getItemLayout={(_data, index) => ({
+                length: 120,
+                offset: 120 * index,
+                index,
+              })}
             />
           )
         ) : (

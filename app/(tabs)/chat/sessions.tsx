@@ -49,8 +49,9 @@ export default function SessionsScreen() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [scoreSort, setScoreSort] = useState<ScoreSort>('off');
 
-  const { user, profile } = useAuthStore();
-  const { getPersonaById } = usePersonaStore();
+  const user = useAuthStore((s) => s.user);
+  const profile = useAuthStore((s) => s.profile);
+  const getPersonaById = usePersonaStore((s) => s.getPersonaById);
   const isAdmin = !!profile?.is_admin;
 
   const fetchSessions = useCallback(async (showRefresh = false) => {
@@ -393,6 +394,11 @@ export default function SessionsScreen() {
           data={filteredSessions}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          getItemLayout={(_data, index) => ({
+            length: 77,
+            offset: 77 * index,
+            index,
+          })}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}

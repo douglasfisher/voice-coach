@@ -28,7 +28,8 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 }
 
 export default function TabsLayout() {
-  const { session, isInitialized } = useAuthStore();
+  const session = useAuthStore((s) => s.session);
+  const isInitialized = useAuthStore((s) => s.isInitialized);
   const tabBarProgress = useSharedValue(0);
 
   if (!isInitialized) {

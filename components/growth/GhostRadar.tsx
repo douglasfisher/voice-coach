@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
@@ -44,7 +45,7 @@ function polarToCartesian(
   };
 }
 
-export function GhostRadar({
+export const GhostRadar = React.memo(function GhostRadar({
   logical,
   biasAwareness,
   perspective,
@@ -52,34 +53,38 @@ export function GhostRadar({
   projections,
   showProjection = true,
 }: GhostRadarProps) {
-  const currentValues = [logical ?? 0, biasAwareness ?? 0, perspective ?? 0, emotional ?? 0];
+  const currentValues = useMemo(() => [logical ?? 0, biasAwareness ?? 0, perspective ?? 0, emotional ?? 0], [logical, biasAwareness, perspective, emotional]);
   const hasData = currentValues.some((v) => v > 0);
-
-  // Get projected values
-  const projectedValues = projections
-    ? [
-        projections.logical?.projected ?? currentValues[0],
-        projections.biasAwareness?.projected ?? currentValues[1],
-        projections.perspective?.projected ?? currentValues[2],
-        projections.emotional?.projected ?? currentValues[3],
-      ]
-    : currentValues;
 
   const angles = [0, 90, 180, 270];
 
-  // Generate polygon points for current data
-  const currentPoints = angles.map((angle, i) => {
-    const value = (currentValues[i] / 100) * RADIUS;
-    return polarToCartesian(angle, value, CENTER);
-  });
-  const currentPolygon = currentPoints.map((p) => `${p.x},${p.y}`).join(' ');
+  const { currentPoints, currentPolygon, projectedPoints, projectedPolygon, projectedValues } = useMemo(() => {
+    // Get projected values
+    const pv = projections
+      ? [
+          projections.logical?.projected ?? currentValues[0],
+          projections.biasAwareness?.projected ?? currentValues[1],
+          projections.perspective?.projected ?? currentValues[2],
+          projections.emotional?.projected ?? currentValues[3],
+        ]
+      : currentValues;
 
-  // Generate polygon points for projected data (ghost)
-  const projectedPoints = angles.map((angle, i) => {
-    const value = (projectedValues[i] / 100) * RADIUS;
-    return polarToCartesian(angle, value, CENTER);
-  });
-  const projectedPolygon = projectedPoints.map((p) => `${p.x},${p.y}`).join(' ');
+    // Generate polygon points for current data
+    const cp = angles.map((angle, i) => {
+      const value = (currentValues[i] / 100) * RADIUS;
+      return polarToCartesian(angle, value, CENTER);
+    });
+    const cpoly = cp.map((p) => `${p.x},${p.y}`).join(' ');
+
+    // Generate polygon points for projected data (ghost)
+    const pp = angles.map((angle, i) => {
+      const value = (pv[i] / 100) * RADIUS;
+      return polarToCartesian(angle, value, CENTER);
+    });
+    const ppoly = pp.map((p) => `${p.x},${p.y}`).join(' ');
+
+    return { currentPoints: cp, currentPolygon: cpoly, projectedPoints: pp, projectedPolygon: ppoly, projectedValues: pv };
+  }, [currentValues, projections]);
 
   // Grid levels
   const gridLevels = [0.25, 0.5, 0.75, 1];
@@ -329,4 +334,4 @@ export function GhostRadar({
       </LinearGradient>
     </View>
   );
-}
+});

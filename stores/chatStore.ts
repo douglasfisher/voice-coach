@@ -186,12 +186,13 @@ export const useChatStore = create<ChatState>()(
     try {
       const { data, error } = await supabase
         .from('conversations')
-        .select('*')
+        .select('id, user_id, persona_id, status, topic, interaction_mode, created_at, ended_at, overall_score')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
-      set({ conversations: data ?? [] });
+      set({ conversations: (data ?? []) as unknown as Conversation[] });
     } catch (error) {
       set({ error: (error as Error).message });
     } finally {
@@ -456,11 +457,7 @@ export const useChatStore = create<ChatState>()(
 
       // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       // Call Edge Function for AI response
@@ -509,11 +506,7 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       const { error } = await supabase.functions.invoke('chat', {
@@ -811,11 +804,7 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       const { data, error } = await supabase.functions.invoke('chat', {
@@ -855,11 +844,7 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       const { data, error } = await supabase.functions.invoke('chat', {

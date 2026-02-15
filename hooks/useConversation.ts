@@ -2,20 +2,18 @@ import { useCallback, useEffect } from 'react';
 import { useChatStore, useAuthStore, usePersonaStore } from '../stores';
 
 export function useConversation(conversationId?: string) {
-  const {
-    activeConversation,
-    messages,
-    isLoading,
-    isSending,
-    error,
-    fetchConversation,
-    sendMessage,
-    endConversation,
-    clearActiveConversation,
-  } = useChatStore();
+  const activeConversation = useChatStore((s) => s.activeConversation);
+  const messages = useChatStore((s) => s.messages);
+  const isLoading = useChatStore((s) => s.isLoading);
+  const isSending = useChatStore((s) => s.isSending);
+  const error = useChatStore((s) => s.error);
+  const fetchConversation = useChatStore((s) => s.fetchConversation);
+  const sendMessage = useChatStore((s) => s.sendMessage);
+  const endConversation = useChatStore((s) => s.endConversation);
+  const clearActiveConversation = useChatStore((s) => s.clearActiveConversation);
 
-  const { user } = useAuthStore();
-  const { getPersonaById } = usePersonaStore();
+  const user = useAuthStore((s) => s.user);
+  const getPersonaById = usePersonaStore((s) => s.getPersonaById);
 
   useEffect(() => {
     if (conversationId) {

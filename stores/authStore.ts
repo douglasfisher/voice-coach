@@ -8,6 +8,8 @@ import { UserProfile, UserPreferences } from '../types/database';
 
 // Track auth subscription outside store to avoid serialization issues
 let _authSubscription: { unsubscribe: () => void } | null = null;
+// Guard against concurrent initialize() calls (e.g., from StrictMode double-mount)
+let _initializeInProgress = false;
 
 interface AuthState {
   session: Session | null;
@@ -42,6 +44,10 @@ export const useAuthStore = create<AuthState>()(
   isInitialized: false,
 
   initialize: async () => {
+    // Prevent concurrent initialization (e.g., StrictMode double-mount)
+    if (_initializeInProgress) return;
+    _initializeInProgress = true;
+
     try {
       const {
         data: { session },
@@ -90,6 +96,7 @@ export const useAuthStore = create<AuthState>()(
 
       _authSubscription = subscription;
     } finally {
+      _initializeInProgress = false;
       set({ isLoading: false, isInitialized: true });
     }
   },

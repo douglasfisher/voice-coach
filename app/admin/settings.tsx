@@ -197,7 +197,8 @@ export default function AdminSettingsScreen() {
   } = useAdminStatsStore();
 
   const { personas, fetchPersonas } = useAdminPersonaStore();
-  const { profile, signOut } = useAuthStore();
+  const profile = useAuthStore((s) => s.profile);
+  const signOut = useAuthStore((s) => s.signOut);
 
   const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);

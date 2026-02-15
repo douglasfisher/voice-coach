@@ -276,6 +276,10 @@ serve(async (req) => {
     // =========================================================================
     // CONVERSATION OWNERSHIP CHECK — verify caller owns the conversation
     // =========================================================================
+    // Cache conversation metadata from ownership check to avoid duplicate queries
+    let cachedConvUserId: string | null = null;
+    let cachedConvInteractionMode: string | null = null;
+
     if (conversationId) {
       // Require a valid auth token for any conversation-scoped operation
       if (!callerUserId) {
@@ -287,7 +291,7 @@ serve(async (req) => {
 
       const { data: convOwnership } = await supabase
         .from('conversations')
-        .select('user_id')
+        .select('user_id, interaction_mode')
         .eq('id', conversationId)
         .single();
 
@@ -297,6 +301,9 @@ serve(async (req) => {
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      cachedConvUserId = convOwnership?.user_id || null;
+      cachedConvInteractionMode = convOwnership?.interaction_mode || null;
     }
 
     // =========================================================================
@@ -917,19 +924,9 @@ Generate a comprehensive session report.`;
       );
     }
 
-    // Fetch conversation to get stored interaction_mode
-    let conversationInteractionMode: string | null = null;
-    if (conversationId) {
-      const { data: convData } = await supabase
-        .from('conversations')
-        .select('interaction_mode')
-        .eq('id', conversationId)
-        .single();
-      conversationInteractionMode = convData?.interaction_mode || null;
-    }
-
     // Resolve effective interaction mode (request > conversation > scenario > persona default)
-    const effectiveInteractionMode = interactionMode || conversationInteractionMode;
+    // Uses cached data from ownership check to avoid duplicate query
+    const effectiveInteractionMode = interactionMode || cachedConvInteractionMode;
 
     // Fetch scenario context if this is a coaching session
     let coachingContext: CoachingContext | undefined;
@@ -1060,11 +1057,8 @@ Generate a comprehensive session report.`;
 
     // Handle greeting generation (save to DB)
     if (generateGreeting) {
-      const { data: conv } = await supabase
-        .from('conversations')
-        .select('user_id')
-        .eq('id', conversationId)
-        .single();
+      // Use cached conversation user_id from ownership check
+      const conv = cachedConvUserId ? { user_id: cachedConvUserId } : null;
 
       // For user_leads coaching mode, return scene context instead of AI greeting
       if (interactionMode === 'user_leads' && scenarioData) {
@@ -1143,7 +1137,8 @@ Generate a comprehensive session report.`;
           .from('messages')
           .select('role, content')
           .eq('conversation_id', conversationId)
-          .order('sequence', { ascending: true });
+          .order('sequence', { ascending: true })
+          .limit(30);
 
         const history: GroqMessage[] = (messages || []).map((m) => ({
           role: m.role as 'user' | 'assistant',
@@ -1183,14 +1178,8 @@ Generate a comprehensive session report.`;
 
         // Track feedback AI usage
         if (feedbackResponse.usage) {
-          const { data: conv } = await supabase
-            .from('conversations')
-            .select('user_id')
-            .eq('id', conversationId)
-            .single();
-
           await recordAIUsage(supabase, {
-            userId: conv?.user_id || null,
+            userId: cachedConvUserId,
             conversationId: conversationId,
             personaId: personaId,
             model: feedbackConfig.model,
@@ -1228,7 +1217,8 @@ Generate a comprehensive session report.`;
         .from('messages')
         .select('role, content')
         .eq('conversation_id', conversationId)
-        .order('sequence', { ascending: true });
+        .order('sequence', { ascending: true })
+        .limit(30);
 
       const history: GroqMessage[] = (messages || []).map((m) => ({
         role: m.role as 'user' | 'assistant',
@@ -1262,14 +1252,8 @@ Generate a comprehensive session report.`;
 
       // Track quick feedback AI usage
       if (feedbackResponse.usage) {
-        const { data: conv } = await supabase
-          .from('conversations')
-          .select('user_id')
-          .eq('id', conversationId)
-          .single();
-
         await recordAIUsage(supabase, {
-          userId: conv?.user_id || null,
+          userId: cachedConvUserId,
           conversationId: conversationId,
           personaId: personaId,
           model: config.model,
@@ -1293,18 +1277,21 @@ Generate a comprehensive session report.`;
       .eq('conversation_id', conversationId)
       .order('sequence', { ascending: true });
 
-    const history: GroqMessage[] = (messages || []).map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
-
-    const nextSequence = (messages?.length || 0) + 1;
+    const allMessages = messages || [];
+    const nextSequence = allMessages.length + 1;
 
     // Calculate response time since last message
-    const lastMessage = messages?.[messages.length - 1];
+    const lastMessage = allMessages[allMessages.length - 1];
     const userResponseTimeMs = lastMessage?.created_at
       ? Date.now() - new Date(lastMessage.created_at).getTime()
       : null;
+
+    // Sliding window: send only last 20 messages to Groq to reduce token costs
+    const contextWindow = allMessages.slice(-20);
+    const history: GroqMessage[] = contextWindow.map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }));
 
     // Save user message with response time
     const userMessageCreatedAt = new Date().toISOString();
@@ -1362,16 +1349,10 @@ Generate a comprehensive session report.`;
       ...(messageMetadata ? { metadata: messageMetadata } : {}),
     });
 
-    // Log usage
-    const { data: conversation } = await supabase
-      .from('conversations')
-      .select('user_id')
-      .eq('id', conversationId)
-      .single();
-
+    // Log usage (reuse cached conversation user_id from ownership check)
     if (groqResponse.usage) {
       await recordAIUsage(supabase, {
-        userId: conversation?.user_id || null,
+        userId: cachedConvUserId,
         conversationId: conversationId,
         personaId: personaId,
         model: config.model,

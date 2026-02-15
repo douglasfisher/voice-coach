@@ -17,7 +17,9 @@ import {
 import { useAuthStore } from '../../../stores/authStore';
 
 export default function PreferencesScreen() {
-  const { updatePreferences, updateProfile, isLoading } = useAuthStore();
+  const updatePreferences = useAuthStore((s) => s.updatePreferences);
+  const updateProfile = useAuthStore((s) => s.updateProfile);
+  const isLoading = useAuthStore((s) => s.isLoading);
 
   const [intensity, setIntensity] = useState(5);
   const [ttsEnabled, setTtsEnabled] = useState(false);

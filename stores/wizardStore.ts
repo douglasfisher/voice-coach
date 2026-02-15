@@ -71,32 +71,42 @@ const DEFAULT_AVATAR_CONFIG: AvatarGenerationConfig = {
 };
 
 let _avatarConfigCache: { config: AvatarGenerationConfig; fetchedAt: number } | null = null;
+let _avatarConfigPromise: Promise<AvatarGenerationConfig> | null = null;
 const AVATAR_CONFIG_TTL = 60_000; // 60s cache
 
 async function getAvatarConfig(): Promise<AvatarGenerationConfig> {
   if (_avatarConfigCache && Date.now() - _avatarConfigCache.fetchedAt < AVATAR_CONFIG_TTL) {
     return _avatarConfigCache.config;
   }
-  try {
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'ai_avatar_config')
-      .single();
-    if (error) throw error;
-    const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-    const hires = { ...DEFAULT_AVATAR_CONFIG.hires, ...parsed?.hires };
-    // Backwards compat: if legacy `prompt` exists but no `prompt_template`, use defaults
-    if (hires.prompt && !hires.prompt_template) {
-      hires.prompt_template = DEFAULT_AVATAR_CONFIG.hires.prompt_template;
+  // Deduplicate concurrent requests
+  if (_avatarConfigPromise) return _avatarConfigPromise;
+
+  _avatarConfigPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'ai_avatar_config')
+        .single();
+      if (error) throw error;
+      const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      const hires = { ...DEFAULT_AVATAR_CONFIG.hires, ...parsed?.hires };
+      // Backwards compat: if legacy `prompt` exists but no `prompt_template`, use defaults
+      if (hires.prompt && !hires.prompt_template) {
+        hires.prompt_template = DEFAULT_AVATAR_CONFIG.hires.prompt_template;
+      }
+      const config = { ...DEFAULT_AVATAR_CONFIG, ...parsed, draft: { ...DEFAULT_AVATAR_CONFIG.draft, ...parsed?.draft }, hires };
+      _avatarConfigCache = { config, fetchedAt: Date.now() };
+      return config;
+    } catch (err) {
+      console.warn('Failed to fetch avatar config, using defaults:', err);
+      return DEFAULT_AVATAR_CONFIG;
+    } finally {
+      _avatarConfigPromise = null;
     }
-    const config = { ...DEFAULT_AVATAR_CONFIG, ...parsed, draft: { ...DEFAULT_AVATAR_CONFIG.draft, ...parsed?.draft }, hires };
-    _avatarConfigCache = { config, fetchedAt: Date.now() };
-    return config;
-  } catch (err) {
-    console.warn('Failed to fetch avatar config, using defaults:', err);
-    return DEFAULT_AVATAR_CONFIG;
-  }
+  })();
+
+  return _avatarConfigPromise;
 }
 
 // =============================================================================

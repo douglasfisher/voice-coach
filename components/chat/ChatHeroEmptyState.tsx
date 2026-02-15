@@ -116,7 +116,7 @@ export function ChatHeroEmptyState({
   selectedTraits,
   onTraitSelect,
 }: ChatHeroEmptyStateProps) {
-  const { globalInteractionMode } = useChatStore();
+  const globalInteractionMode = useChatStore((s) => s.globalInteractionMode);
   const isQAMode = globalInteractionMode === 'question';
   const isCoach = persona.personaType === 'coach';
   const theme = STYLE_THEMES[persona.challengeStyle];
