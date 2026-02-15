@@ -8,7 +8,7 @@
 import { useEffect } from 'react';
 import { View, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
 import { WizardStep } from '../../../types/wizard';
@@ -58,6 +58,7 @@ export default function PersonaWizardScreen() {
   } = useWizardStore();
 
   const { isSaving } = useAdminPersonaStore();
+  const navigation = useNavigation();
 
   // Load persona for editing or reset for creation
   useEffect(() => {
@@ -67,6 +68,15 @@ export default function PersonaWizardScreen() {
       reset();
     }
   }, [id, loadPersona, reset]);
+
+  // Update header title when editing an existing persona
+  useEffect(() => {
+    if (editingPersonaId && formData.name) {
+      navigation.setOptions({ headerTitle: `Edit: ${formData.name}` });
+    } else if (!editingPersonaId) {
+      navigation.setOptions({ headerTitle: 'Create Persona' });
+    }
+  }, [editingPersonaId, formData.name, navigation]);
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
