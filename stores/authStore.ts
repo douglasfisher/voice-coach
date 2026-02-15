@@ -79,7 +79,10 @@ export const useAuthStore = create<AuthState>()(
 
         set({ session, user: session?.user ?? null });
         if (session) {
-          await get().fetchProfile();
+          // Skip profile fetch for INITIAL_SESSION — initialize() already fetched it above
+          if (event !== 'INITIAL_SESSION') {
+            await get().fetchProfile();
+          }
         } else {
           set({ profile: null, preferences: null });
         }
@@ -94,8 +97,33 @@ export const useAuthStore = create<AuthState>()(
   signInWithEmail: async (email, password) => {
     set({ isLoading: true });
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { error };
+
+      // Safety net: if the auth listener was somehow destroyed, manually
+      // update the store and re-subscribe so the app picks up the session
+      if (!_authSubscription && data.session) {
+        set({ session: data.session, user: data.session.user });
+        await get().fetchProfile();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'TOKEN_REFRESHED' && !session) {
+            console.warn('Token refresh failed, signing out');
+            set({ session: null, user: null, profile: null, preferences: null });
+            return;
+          }
+          set({ session, user: session?.user ?? null });
+          if (session) {
+            if (event !== 'INITIAL_SESSION') {
+              await get().fetchProfile();
+            }
+          } else {
+            set({ profile: null, preferences: null });
+          }
+        });
+        _authSubscription = subscription;
+      }
+
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -147,12 +175,17 @@ export const useAuthStore = create<AuthState>()(
   signOut: async () => {
     set({ isLoading: true });
     try {
-      // Unsubscribe auth listener
-      _authSubscription?.unsubscribe();
-      _authSubscription = null;
+      // Clear chat state to prevent data leakage between users
+      const { useChatStore } = require('./chatStore');
+      useChatStore.getState().clearAllState();
 
+      // Let signOut fire SIGNED_OUT event through the listener naturally
+      // (the listener already handles session=null by clearing profile/preferences)
       await supabase.auth.signOut();
       set({ session: null, user: null, profile: null, preferences: null });
+
+      // Reset isInitialized so initialize() can re-run on layout remount
+      set({ isInitialized: false });
 
       // Clear persisted auth data from AsyncStorage
       await AsyncStorage.multiRemove(['dialectica-auth', 'dialectica-preferences']);

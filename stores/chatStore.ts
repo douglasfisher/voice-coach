@@ -120,6 +120,8 @@ interface ChatState {
   // Filter actions
   setCoachesActiveDomain: (domain: string) => void;
   setChallengersActiveFilter: (filter: ChallengeStyle | 'all') => void;
+  // Logout cleanup
+  clearAllState: () => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
@@ -906,6 +908,30 @@ export const useChatStore = create<ChatState>()(
 
   setChallengersActiveFilter: (filter) => {
     set({ challengersActiveFilter: filter });
+  },
+
+  clearAllState: () => {
+    set({
+      conversations: [],
+      activeConversation: null,
+      messages: [],
+      completedConversations: [],
+      isLoading: false,
+      isSending: false,
+      isGeneratingReport: false,
+      error: null,
+      previewQuestion: null,
+      previewScenario: null,
+      questionRefreshCount: 0,
+      scenarioRefreshCount: 0,
+      isGeneratingPreview: false,
+      dailyChallenges: [],
+      activeChallengeIndex: 0,
+      isLoadingChallenge: false,
+      currentPhase: 'roleplay',
+      coachingOptions: null,
+      selectedTraits: {},
+    });
   },
 
   setActiveChallengeIndex: (index) => {
