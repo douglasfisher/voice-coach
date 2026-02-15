@@ -42,7 +42,7 @@ import { TRAIT_TOKENS } from '../components/admin/shared/TraitTokenBadges';
 // =============================================================================
 
 const DEFAULT_AVATAR_PARAMS: AvatarParams = {
-  ethnicity: 'Northern European',
+  ethnicity: 'English',
   gender: 'male',
   appearance: 'classically attractive',
   lighting: 'soft studio',
@@ -106,8 +106,8 @@ function randomizeParams(): AvatarParams {
   const accessories = numAccessories === 0
     ? ['none']
     : Array.from({ length: numAccessories }, () =>
-        pickRandom(ACCESSORY_OPTIONS.filter((a) => a !== 'none'))
-      );
+      pickRandom(ACCESSORY_OPTIONS.filter((a) => a !== 'none'))
+    );
 
   return {
     ethnicity: pickRandom(ETHNICITY_OPTIONS),

@@ -150,6 +150,8 @@ export const APPEARANCE_OPTIONS = [
 
 export const LIGHTING_OPTIONS = [
   'soft studio',
+  'hard studio',
+  'classic three point studio lighting',
   'dramatic Rembrandt',
   'natural window',
   'warm golden hour',
