@@ -120,7 +120,8 @@ export type AppSettingKey =
   | 'challenge_show_persona_image'
   | 'daily_challenges_batch'
   | 'fullscreen_card_mode'
-  | 'focus_mode_chat';
+  | 'focus_mode_chat'
+  | 'ai_avatar_config';
 
 export interface DailyChallengeItem {
   question: string;
@@ -133,6 +134,29 @@ export interface DailyChallengesBatch {
   challenges: DailyChallengeItem[];
   generatedAt: string | null;
   generatedDate: string | null;
+}
+
+export interface AvatarDraftConfig {
+  prompt_template: string;
+  negative_prompt: string;
+  model: string;
+  width: number;
+  height: number;
+  number_results: number;
+  cfg_scale: number;
+  scheduler: string;
+}
+
+export interface AvatarHiresConfig {
+  prompt: string;
+  model: string;
+  width: number;
+  height: number;
+}
+
+export interface AvatarGenerationConfig {
+  draft: AvatarDraftConfig;
+  hires: AvatarHiresConfig;
 }
 
 export interface AppSettingsMap {
@@ -148,6 +172,7 @@ export interface AppSettingsMap {
   daily_challenges_batch: DailyChallengesBatch | null;
   fullscreen_card_mode: boolean;
   focus_mode_chat: boolean;
+  ai_avatar_config: AvatarGenerationConfig | null;
 }
 
 // =============================================================================

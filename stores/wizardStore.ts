@@ -36,6 +36,54 @@ import {
   PromptSectionKey,
 } from '../types/wizard';
 import { TRAIT_TOKENS } from '../components/admin/shared/TraitTokenBadges';
+import { AvatarGenerationConfig } from '../types/admin';
+
+// =============================================================================
+// AVATAR CONFIG (fetched from DB, with hardcoded fallbacks)
+// =============================================================================
+
+const DEFAULT_AVATAR_CONFIG: AvatarGenerationConfig = {
+  draft: {
+    prompt_template: 'A classic mid-length head and shoulders portrait of a {{appearance}} {{ethnicity}} {{gender}}, {{expression}}, wearing {{clothing}} attire, {{accessories}}, {{pose}} composition, lit with {{lighting}} lighting on a dark charcoal background with space around. Shot on {{camera}}.',
+    negative_prompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
+    model: 'runware:400@1',
+    width: 896,
+    height: 1152,
+    number_results: 4,
+    cfg_scale: 3.5,
+    scheduler: 'FlowMatchEulerDiscreteScheduler',
+  },
+  hires: {
+    prompt: 'Reconstruct this image as an ultra-photorealistic studio photograph, preserving the exact pose, body position, composition and framing precisely as shown. Apply full human-accurate detail: natural skin with visible pores, fine vellus hair, subsurface light scattering, authentic skin imperfections and micro-texture variation. Eyes must have realistic iris detail, moisture reflection and precise specular catch lights. Hair should show individual strand separation, natural flyaways and light-transmissive edges. All fabrics and materials must exhibit true-to-life weave texture, weight, drape and surface response to light. Render with three-point studio lighting — defined key light with natural falloff, subtle fill preserving shadow detail, and rim/hair light for subject-background separation. Accurate specular highlights, contact shadows, ambient occlusion and global illumination throughout. Shot on medium format digital, 80mm lens, f/2.8 shallow depth of field, 150MP resolution, cinematic colour grading with editorial-grade retouching. No AI artifacts, no plastic skin, no uncanny smoothing.',
+    model: 'google:4@2',
+    width: 1792,
+    height: 2400,
+  },
+};
+
+let _avatarConfigCache: { config: AvatarGenerationConfig; fetchedAt: number } | null = null;
+const AVATAR_CONFIG_TTL = 60_000; // 60s cache
+
+async function getAvatarConfig(): Promise<AvatarGenerationConfig> {
+  if (_avatarConfigCache && Date.now() - _avatarConfigCache.fetchedAt < AVATAR_CONFIG_TTL) {
+    return _avatarConfigCache.config;
+  }
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'ai_avatar_config')
+      .single();
+    if (error) throw error;
+    const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    const config = { ...DEFAULT_AVATAR_CONFIG, ...parsed, draft: { ...DEFAULT_AVATAR_CONFIG.draft, ...parsed?.draft }, hires: { ...DEFAULT_AVATAR_CONFIG.hires, ...parsed?.hires } };
+    _avatarConfigCache = { config, fetchedAt: Date.now() };
+    return config;
+  } catch (err) {
+    console.warn('Failed to fetch avatar config, using defaults:', err);
+    return DEFAULT_AVATAR_CONFIG;
+  }
+}
 
 // =============================================================================
 // DEFAULTS
@@ -122,9 +170,22 @@ function randomizeParams(): AvatarParams {
   };
 }
 
-function buildPromptFromParams(params: AvatarParams): string {
+function buildPromptFromParams(params: AvatarParams, template?: string): string {
   const accessoriesText = params.accessories.filter((a) => a !== 'none').join(', ');
   const accessoriesPart = accessoriesText ? `wearing ${accessoriesText}` : 'no accessories';
+
+  if (template) {
+    return template
+      .replace(/\{\{appearance\}\}/g, params.appearance)
+      .replace(/\{\{ethnicity\}\}/g, params.ethnicity)
+      .replace(/\{\{gender\}\}/g, params.gender)
+      .replace(/\{\{expression\}\}/g, params.expression)
+      .replace(/\{\{clothing\}\}/g, params.clothing)
+      .replace(/\{\{accessories\}\}/g, accessoriesPart)
+      .replace(/\{\{pose\}\}/g, params.pose)
+      .replace(/\{\{lighting\}\}/g, params.lighting)
+      .replace(/\{\{camera\}\}/g, params.camera);
+  }
 
   return [
     `A classic mid-length head and shoulders portrait of a ${params.appearance} ${params.ethnicity} ${params.gender},`,
@@ -374,23 +435,25 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
   randomizeAvatarParams: () => {
     const newParams = randomizeParams();
+    const cachedTemplate = _avatarConfigCache?.config.draft.prompt_template;
     set((state) => ({
       avatar: {
         ...state.avatar,
         params: newParams,
-        editablePrompt: buildPromptFromParams(newParams),
+        editablePrompt: buildPromptFromParams(newParams, cachedTemplate),
       },
     }));
   },
 
   updateAvatarParams: (params) => {
+    const cachedTemplate = _avatarConfigCache?.config.draft.prompt_template;
     set((state) => {
       const newParams = { ...state.avatar.params, ...params };
       return {
         avatar: {
           ...state.avatar,
           params: newParams,
-          editablePrompt: buildPromptFromParams(newParams),
+          editablePrompt: buildPromptFromParams(newParams, cachedTemplate),
         },
       };
     });
@@ -409,6 +472,9 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     }));
 
     try {
+      const config = await getAvatarConfig();
+      const { draft } = config;
+
       // Build Runware payload — edge function uploads to storage via service role
       const { data: runwareResponse, error: invokeError } = await supabase.functions.invoke('runware', {
         body: {
@@ -418,15 +484,15 @@ export const useWizardStore = create<WizardState>((set, get) => ({
             {
               taskType: 'imageInference',
               taskUUID: generateUUID(),
-              model: 'runware:400@1',
+              model: draft.model,
               positivePrompt: avatar.editablePrompt,
-              negativePrompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
-              width: 896,
-              height: 1152,
-              numberResults: 4,
+              negativePrompt: draft.negative_prompt,
+              width: draft.width,
+              height: draft.height,
+              numberResults: draft.number_results,
               outputFormat: 'JPEG',
-              CFGScale: 3.5,
-              scheduler: 'FlowMatchEulerDiscreteScheduler',
+              CFGScale: draft.cfg_scale,
+              scheduler: draft.scheduler,
               includeCost: true,
               outputType: ['URL'],
               acceleration: 'high',
@@ -499,6 +565,9 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     set((state) => ({ avatar: { ...state.avatar, isUpscaling: true } }));
 
     try {
+      const config = await getAvatarConfig();
+      const { hires } = config;
+
       const { data: runwareResponse, error: invokeError } = await supabase.functions.invoke('runware', {
         body: {
           uploadToStorage: true,
@@ -507,11 +576,11 @@ export const useWizardStore = create<WizardState>((set, get) => ({
             {
               taskType: 'imageInference',
               taskUUID: generateUUID(),
-              model: 'google:4@2',
-              positivePrompt: 'Reconstruct this image as an ultra-photorealistic studio photograph, preserving the exact pose, body position, composition and framing precisely as shown. Apply full human-accurate detail: natural skin with visible pores, fine vellus hair, subsurface light scattering, authentic skin imperfections and micro-texture variation. Eyes must have realistic iris detail, moisture reflection and precise specular catch lights. Hair should show individual strand separation, natural flyaways and light-transmissive edges. All fabrics and materials must exhibit true-to-life weave texture, weight, drape and surface response to light. Render with three-point studio lighting — defined key light with natural falloff, subtle fill preserving shadow detail, and rim/hair light for subject-background separation. Accurate specular highlights, contact shadows, ambient occlusion and global illumination throughout. Shot on medium format digital, 80mm lens, f/2.8 shallow depth of field, 150MP resolution, cinematic colour grading with editorial-grade retouching. No AI artifacts, no plastic skin, no uncanny smoothing.',
+              model: hires.model,
+              positivePrompt: hires.prompt,
               referenceImages: [selected.url],
-              width: 1792,
-              height: 2400,
+              width: hires.width,
+              height: hires.height,
               numberResults: 1,
               outputFormat: 'JPEG',
               includeCost: true,

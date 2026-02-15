@@ -32,13 +32,14 @@ import {
   Target,
   Maximize,
   Crosshair,
+  Camera,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useAdminStatsStore } from '../../stores/adminStatsStore';
 import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { useAuthStore } from '../../stores/authStore';
-import { AppSettingsMap } from '../../types/admin';
+import { AppSettingsMap, AvatarGenerationConfig } from '../../types/admin';
 import { supabase } from '../../lib/supabase';
 
 // Simplified AI model for the dropdown
@@ -184,6 +185,255 @@ function RefreshChallengesButton() {
         <RefreshCw size={18} color="#60a5fa" />
       )}
     </Pressable>
+  );
+}
+
+function AvatarGenerationSection({
+  config,
+  onChange,
+}: {
+  config: AvatarGenerationConfig | null;
+  onChange: (config: AvatarGenerationConfig) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!config) return null;
+
+  const updateDraft = (key: string, value: string | number) => {
+    onChange({ ...config, draft: { ...config.draft, [key]: value } });
+  };
+
+  const updateHires = (key: string, value: string | number) => {
+    onChange({ ...config, hires: { ...config.hires, [key]: value } });
+  };
+
+  const inputStyle = {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 14,
+    color: '#fff',
+    fontSize: 15,
+  } as const;
+
+  const multilineStyle = {
+    ...inputStyle,
+    minHeight: 100,
+    textAlignVertical: 'top' as const,
+  };
+
+  const labelStyle = {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginBottom: 6,
+  } as const;
+
+  const tokenHintStyle = {
+    color: 'rgba(245,158,11,0.6)',
+    fontSize: 11,
+    marginBottom: 4,
+  } as const;
+
+  const rowStyle = {
+    flexDirection: 'row' as const,
+    gap: 12,
+    marginBottom: 16,
+  };
+
+  return (
+    <>
+      <Pressable
+        onPress={() => setExpanded(!expanded)}
+        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}
+      >
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: 12,
+            fontWeight: '600',
+            letterSpacing: 1,
+          }}
+        >
+          AVATAR GENERATION
+        </Text>
+        <ChevronDown
+          size={14}
+          color="rgba(255,255,255,0.5)"
+          style={{ marginLeft: 8, transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
+        />
+      </Pressable>
+
+      {expanded && (
+        <View
+          style={{
+            borderRadius: 16,
+            overflow: 'hidden',
+            marginBottom: 24,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.1)',
+          }}
+        >
+          <LinearGradient
+            colors={['rgba(30, 30, 40, 0.8)', 'rgba(20, 20, 30, 0.9)']}
+            style={{ padding: 16 }}
+          >
+            {/* Draft Section */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Camera size={16} color="#f59e0b" />
+              <Text style={{ color: '#f59e0b', fontSize: 14, fontWeight: '600', marginLeft: 8 }}>
+                Draft Generation
+              </Text>
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={labelStyle}>Prompt Template</Text>
+              <Text style={tokenHintStyle}>
+                Tokens: {'{{appearance}} {{ethnicity}} {{gender}} {{expression}} {{clothing}} {{accessories}} {{pose}} {{lighting}} {{camera}}'}
+              </Text>
+              <TextInput
+                value={config.draft.prompt_template}
+                onChangeText={(text) => updateDraft('prompt_template', text)}
+                multiline
+                style={multilineStyle}
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={labelStyle}>Negative Prompt</Text>
+              <TextInput
+                value={config.draft.negative_prompt}
+                onChangeText={(text) => updateDraft('negative_prompt', text)}
+                style={inputStyle}
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={labelStyle}>Model ID</Text>
+              <TextInput
+                value={config.draft.model}
+                onChangeText={(text) => updateDraft('model', text)}
+                style={inputStyle}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+            </View>
+
+            <View style={rowStyle}>
+              <View style={{ flex: 1 }}>
+                <Text style={labelStyle}>Width</Text>
+                <TextInput
+                  value={String(config.draft.width)}
+                  onChangeText={(text) => updateDraft('width', parseInt(text) || 0)}
+                  style={inputStyle}
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={labelStyle}>Height</Text>
+                <TextInput
+                  value={String(config.draft.height)}
+                  onChangeText={(text) => updateDraft('height', parseInt(text) || 0)}
+                  style={inputStyle}
+                  keyboardType="number-pad"
+                />
+              </View>
+            </View>
+
+            <View style={rowStyle}>
+              <View style={{ flex: 1 }}>
+                <Text style={labelStyle}>Results</Text>
+                <TextInput
+                  value={String(config.draft.number_results)}
+                  onChangeText={(text) => updateDraft('number_results', parseInt(text) || 1)}
+                  style={inputStyle}
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={labelStyle}>CFG Scale</Text>
+                <TextInput
+                  value={String(config.draft.cfg_scale)}
+                  onChangeText={(text) => updateDraft('cfg_scale', parseFloat(text) || 0)}
+                  style={inputStyle}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={labelStyle}>Scheduler</Text>
+              <TextInput
+                value={config.draft.scheduler}
+                onChangeText={(text) => updateDraft('scheduler', text)}
+                style={inputStyle}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+            </View>
+
+            {/* Divider */}
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 20 }} />
+
+            {/* Hi-Res Section */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Camera size={16} color="#60a5fa" />
+              <Text style={{ color: '#60a5fa', fontSize: 14, fontWeight: '600', marginLeft: 8 }}>
+                Hi-Res Upscale
+              </Text>
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={labelStyle}>Upscale Prompt</Text>
+              <TextInput
+                value={config.hires.prompt}
+                onChangeText={(text) => updateHires('prompt', text)}
+                multiline
+                style={multilineStyle}
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+            </View>
+
+            <View style={{ marginBottom: 16 }}>
+              <Text style={labelStyle}>Model ID</Text>
+              <TextInput
+                value={config.hires.model}
+                onChangeText={(text) => updateHires('model', text)}
+                style={inputStyle}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+            </View>
+
+            <View style={rowStyle}>
+              <View style={{ flex: 1 }}>
+                <Text style={labelStyle}>Width</Text>
+                <TextInput
+                  value={String(config.hires.width)}
+                  onChangeText={(text) => updateHires('width', parseInt(text) || 0)}
+                  style={inputStyle}
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={labelStyle}>Height</Text>
+                <TextInput
+                  value={String(config.hires.height)}
+                  onChangeText={(text) => updateHires('height', parseInt(text) || 0)}
+                  style={inputStyle}
+                  keyboardType="number-pad"
+                />
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
+      )}
+    </>
   );
 }
 
@@ -813,6 +1063,12 @@ export default function AdminSettingsScreen() {
                 <RefreshChallengesButton />
               </LinearGradient>
             </View>
+
+            {/* Avatar Generation */}
+            <AvatarGenerationSection
+              config={(localSettings.ai_avatar_config as AvatarGenerationConfig | null | undefined) ?? null}
+              onChange={(config) => updateLocal('ai_avatar_config', config)}
+            />
 
             {/* Save Button */}
             {hasChanges && (
