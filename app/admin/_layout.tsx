@@ -9,7 +9,7 @@ import { useState, useCallback } from 'react';
 import { View, ActivityIndicator, Text, Pressable } from 'react-native';
 import { Stack, Redirect, router, usePathname } from 'expo-router';
 import {
-  ArrowLeft,
+  ChevronLeft,
   Menu,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
@@ -21,13 +21,12 @@ function BackButton() {
       onPress={() => router.back()}
       hitSlop={12}
       style={{
-        alignItems: 'center',
         justifyContent: 'center',
-        height: '100%',
-        paddingHorizontal: 16,
+        paddingLeft: 8,
+        paddingRight: 12,
       }}
     >
-      <ArrowLeft size={20} color="#F59E0B" />
+      <ChevronLeft size={24} color="#F59E0B" />
     </Pressable>
   );
 }
@@ -42,8 +41,8 @@ function BackToPersonasButton() {
         marginLeft: 16,
       }}
     >
-      <ArrowLeft size={20} color="#F59E0B" />
-      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 6 }}>Personas</Text>
+      <ChevronLeft size={24} color="#F59E0B" />
+      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 2 }}>Personas</Text>
     </Pressable>
   );
 }
