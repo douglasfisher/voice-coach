@@ -45,12 +45,12 @@ const DEFAULT_AVATAR_PARAMS: AvatarParams = {
   ethnicity: 'English',
   gender: 'male',
   appearance: 'classically attractive',
-  lighting: 'soft studio',
-  clothing: 'business casual',
+  lighting: 'Rembrandt lighting with butterfly kicker and edge-lit hair light',
+  clothing: 'formal',
   expression: 'warm smile',
   accessories: ['none'],
   pose: 'slight angle',
-  camera: 'Canon 85mm f/1.4',
+  camera: 'shot on medium format, f/2.8 shallow depth',
 };
 
 const DEFAULT_FORM_DATA: WizardFormData = {
@@ -508,7 +508,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
               taskType: 'imageInference',
               taskUUID: generateUUID(),
               model: 'google:4@2',
-              positivePrompt: 'make this is more photorealistic, with full ultra photorealistic details but keep the same pose and position in the frame',
+              positivePrompt: 'Reconstruct this image as an ultra-photorealistic studio photograph, preserving the exact pose, body position, composition and framing precisely as shown. Apply full human-accurate detail: natural skin with visible pores, fine vellus hair, subsurface light scattering, authentic skin imperfections and micro-texture variation. Eyes must have realistic iris detail, moisture reflection and precise specular catch lights. Hair should show individual strand separation, natural flyaways and light-transmissive edges. All fabrics and materials must exhibit true-to-life weave texture, weight, drape and surface response to light. Render with three-point studio lighting — defined key light with natural falloff, subtle fill preserving shadow detail, and rim/hair light for subject-background separation. Accurate specular highlights, contact shadows, ambient occlusion and global illumination throughout. Shot on medium format digital, 80mm lens, f/2.8 shallow depth of field, 150MP resolution, cinematic colour grading with editorial-grade retouching. No AI artifacts, no plastic skin, no uncanny smoothing.',
               referenceImages: [selected.url],
               width: 1792,
               height: 2400,
