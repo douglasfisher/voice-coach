@@ -11,6 +11,7 @@ import { PersonaFormData } from './admin';
 // =============================================================================
 
 export interface AvatarParams {
+  ageRange: string;
   ethnicity: string;
   gender: string;
   appearance: string;
@@ -130,6 +131,18 @@ export const ETHNICITY_OPTIONS = [
 ];
 
 export const GENDER_OPTIONS = ['male', 'female'];
+
+export const AGE_RANGE_OPTIONS = [
+  '20', 'early twenties', 'late twenties',
+  'early thirties', 'late thirties',
+  'early forties', 'late forties',
+  'early fifties', 'late fifties',
+  'early sixties', 'late sixties',
+  'early seventies', 'late seventies',
+  'early eighties', 'late eighties',
+  'early nineties', 'late nineties',
+  '100',
+];
 
 export const APPEARANCE_OPTIONS = [
   'classically attractive',

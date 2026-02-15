@@ -15,6 +15,7 @@ import {
   POSE_OPTIONS,
   CAMERA_OPTIONS,
   APPEARANCE_OPTIONS,
+  AGE_RANGE_OPTIONS,
 } from '../../../types/wizard';
 
 // Match generated image ratio: 896x1152
@@ -153,6 +154,13 @@ export function WizardStepAvatar() {
         options={GENDER_OPTIONS}
         selected={avatar.params.gender}
         onSelect={(val) => updateAvatarParams({ gender: val })}
+      />
+
+      <OptionChips
+        label="Age Range"
+        options={AGE_RANGE_OPTIONS}
+        selected={avatar.params.ageRange}
+        onSelect={(val) => updateAvatarParams({ ageRange: val })}
       />
 
       <OptionChips

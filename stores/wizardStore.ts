@@ -32,6 +32,7 @@ import {
   POSE_OPTIONS,
   CAMERA_OPTIONS,
   APPEARANCE_OPTIONS,
+  AGE_RANGE_OPTIONS,
   PROMPT_SECTION_KEYS,
   PromptSectionKey,
 } from '../types/wizard';
@@ -45,7 +46,7 @@ import { buildHiresPrompt } from '../types/avatarOptions';
 
 const DEFAULT_AVATAR_CONFIG: AvatarGenerationConfig = {
   draft: {
-    prompt_template: 'A classic mid-length head and shoulders portrait of a {{appearance}} {{ethnicity}} {{gender}}, {{expression}}, wearing {{clothing}} attire, {{accessories}}, {{pose}} composition, lit with {{lighting}} lighting on a dark charcoal background with space around. Shot on {{camera}}.',
+    prompt_template: 'A classic mid-length head and shoulders portrait of a {{age_range}} {{appearance}} {{ethnicity}} {{gender}}, {{expression}}, wearing {{clothing}} attire, {{accessories}}, {{pose}} composition, lit with {{lighting}} lighting on a dark charcoal background with space around. Shot on {{camera}}.',
     negative_prompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
     model: 'runware:400@1',
     width: 896,
@@ -114,6 +115,7 @@ async function getAvatarConfig(): Promise<AvatarGenerationConfig> {
 // =============================================================================
 
 const DEFAULT_AVATAR_PARAMS: AvatarParams = {
+  ageRange: 'late twenties',
   ethnicity: 'English',
   gender: 'male',
   appearance: 'classically attractive',
@@ -163,6 +165,7 @@ const DEFAULT_FORM_DATA: WizardFormData = {
   feedback_style: 'sandwich',
   emotional_progression_enabled: false,
   prompt_sections: null,
+  age_range: null,
 };
 
 // =============================================================================
@@ -182,6 +185,7 @@ function randomizeParams(): AvatarParams {
     );
 
   return {
+    ageRange: pickRandom(AGE_RANGE_OPTIONS),
     ethnicity: pickRandom(ETHNICITY_OPTIONS),
     gender: pickRandom(GENDER_OPTIONS),
     appearance: pickRandom(APPEARANCE_OPTIONS),
@@ -200,6 +204,7 @@ function buildPromptFromParams(params: AvatarParams, template?: string): string 
 
   if (template) {
     return template
+      .replace(/\{\{age_range\}\}/g, params.ageRange)
       .replace(/\{\{appearance\}\}/g, params.appearance)
       .replace(/\{\{ethnicity\}\}/g, params.ethnicity)
       .replace(/\{\{gender\}\}/g, params.gender)
@@ -212,7 +217,7 @@ function buildPromptFromParams(params: AvatarParams, template?: string): string 
   }
 
   return [
-    `A classic mid-length head and shoulders portrait of a ${params.appearance} ${params.ethnicity} ${params.gender},`,
+    `A classic mid-length head and shoulders portrait of a ${params.ageRange} ${params.appearance} ${params.ethnicity} ${params.gender},`,
     `${params.expression},`,
     `wearing ${params.clothing} attire,`,
     `${accessoriesPart},`,
@@ -342,6 +347,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         feedback_style: persona.feedback_style || 'sandwich',
         emotional_progression_enabled: persona.emotional_progression_enabled ?? false,
         prompt_sections: persona.prompt_sections || null,
+        age_range: persona.age_range || null,
       };
 
       // Map trait defaults: categorySlug → optionId
@@ -749,7 +755,7 @@ Coaching Style: ${formData.coaching_style || 'Not set'}
 Challenge Style: ${formData.challenge_style}
 Feedback Style: ${formData.feedback_style}
 Personality: Warmth ${formData.warmth}/100, Directness ${formData.directness}/100, Patience ${formData.patience}/100, Humor ${formData.humor}/100, Formality ${formData.formality}/100
-Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}`;
+Avatar: ${avatar.params.ageRange} ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}`;
 
     const sectionPrompts: Record<PromptSectionKey, string> = {
       identity: `Write an opening identity paragraph for this AI coaching persona. Start with "You are [Name], a [role]..." and establish who they are, their background, and their approach. 2-4 sentences.\n\nPersona:\n${personaContext}\n\nReturn ONLY the paragraph, no explanation.`,
@@ -829,7 +835,7 @@ Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expr
       const { params } = avatar;
       const prompt = `Based on this avatar description, generate persona details for a coaching app character.
 
-Avatar: ${params.ethnicity} ${params.gender}, ${params.expression}, wearing ${params.clothing} attire, ${params.accessories.join(', ')}.
+Avatar: ${params.ageRange} ${params.ethnicity} ${params.gender}, ${params.expression}, wearing ${params.clothing} attire, ${params.accessories.join(', ')}.
 
 Generate a JSON object with these fields:
 - name: A culturally appropriate full name (first + last)
@@ -892,7 +898,7 @@ Coaching Style: ${formData.coaching_style || 'Not set'}
 Challenge Style: ${formData.challenge_style}
 Feedback Style: ${formData.feedback_style}
 Personality: Warmth ${formData.warmth}/100, Directness ${formData.directness}/100, Patience ${formData.patience}/100, Humor ${formData.humor}/100, Formality ${formData.formality}/100
-Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}
+Avatar: ${avatar.params.ageRange} ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}
 
 Write a detailed system prompt (200-400 words) that:
 1. Establishes the persona's voice and communication style
@@ -929,9 +935,10 @@ Return ONLY the system prompt text, no explanation or markdown.`;
     const { formData, avatar, saveDraftsToLibrary, traitDefaults, promptSections, editingPersonaId } = get();
     const store = useAdminPersonaStore.getState();
 
-    // Include prompt_sections in the form data
+    // Include prompt_sections and age_range in the form data
     const dataWithSections = {
       ...formData,
+      age_range: avatar.params.ageRange || null,
       prompt_sections: Object.values(promptSections).some((v) => v.trim())
         ? promptSections
         : null,

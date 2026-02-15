@@ -125,6 +125,7 @@ export default function AdminPersonaEditScreen() {
     feedback_style: 'sandwich',
     emotional_progression_enabled: false,
     prompt_sections: null,
+    age_range: null,
   });
 
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
@@ -189,6 +190,7 @@ export default function AdminPersonaEditScreen() {
         feedback_style: selectedPersona.feedback_style || 'sandwich',
         emotional_progression_enabled: selectedPersona.emotional_progression_enabled ?? false,
         prompt_sections: selectedPersona.prompt_sections || null,
+        age_range: selectedPersona.age_range || null,
       });
     }
   }, [selectedPersona, isNew]);
