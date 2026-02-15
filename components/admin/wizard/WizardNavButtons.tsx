@@ -10,6 +10,7 @@ interface WizardNavButtonsProps {
   onSave?: () => void;
   isSaving?: boolean;
   canSkip?: boolean;
+  isEditing?: boolean;
 }
 
 export function WizardNavButtons({
@@ -21,6 +22,7 @@ export function WizardNavButtons({
   onSave,
   isSaving,
   canSkip,
+  isEditing,
 }: WizardNavButtonsProps) {
   const isFirst = currentStep === 0;
   const isLast = currentStep === totalSteps - 1;
@@ -89,7 +91,7 @@ export function WizardNavButtons({
             <>
               <Save size={16} color="#F59E0B" />
               <Text style={{ color: '#F59E0B', fontSize: 14, fontWeight: '600', marginLeft: 6 }}>
-                Create Persona
+                {isEditing ? 'Update Persona' : 'Create Persona'}
               </Text>
             </>
           )}

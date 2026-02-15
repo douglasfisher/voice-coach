@@ -142,6 +142,11 @@ function buildPromptFromParams(params: AvatarParams): string {
 // =============================================================================
 
 interface WizardState {
+  // Edit mode
+  editingPersonaId: string | null;
+  isLoadingPersona: boolean;
+  loadPersona: (id: string) => Promise<void>;
+
   // Step navigation
   currentStep: WizardStep;
   nextStep: () => void;
@@ -191,6 +196,131 @@ interface WizardState {
 }
 
 export const useWizardStore = create<WizardState>((set, get) => ({
+  // =========================================================================
+  // EDIT MODE
+  // =========================================================================
+
+  editingPersonaId: null,
+  isLoadingPersona: false,
+
+  loadPersona: async (id: string) => {
+    set({ isLoadingPersona: true, editingPersonaId: id });
+
+    try {
+      const store = useAdminPersonaStore.getState();
+
+      // Fetch persona data and trait defaults in parallel
+      await Promise.all([
+        store.fetchPersona(id),
+        store.fetchPersonaTraitDefaults(id),
+      ]);
+
+      const persona = useAdminPersonaStore.getState().selectedPersona;
+      if (!persona) throw new Error('Persona not found');
+
+      // Map persona → formData
+      const formData: WizardFormData = {
+        name: persona.name,
+        title: persona.title,
+        tagline: persona.tagline || '',
+        avatar_url: persona.avatar_url,
+        avatar_thumbnail_url: persona.avatar_thumbnail_url,
+        voice_provider: persona.voice_provider,
+        voice_id: persona.voice_id,
+        voice_speed: persona.voice_speed,
+        voice_pitch: persona.voice_pitch,
+        voice_stability: persona.voice_stability,
+        warmth: persona.warmth,
+        directness: persona.directness,
+        patience: persona.patience,
+        humor: persona.humor,
+        formality: persona.formality,
+        challenge_style: persona.challenge_style,
+        specialty_areas: persona.specialty_areas || [],
+        cultural_background: persona.cultural_background || '',
+        system_prompt: persona.system_prompt,
+        is_active: persona.is_active,
+        is_premium: persona.is_premium,
+        sort_order: persona.sort_order,
+        ai_config: persona.ai_config || {
+          model: 'llama-3.1-8b-instant',
+          fallback_model: 'llama-3.1-8b-instant',
+          temperature: 0.7,
+          top_p: 0.9,
+          max_completion_tokens: 1024,
+          stop: [],
+        },
+        persona_type: persona.persona_type || 'challenger',
+        domain_id: persona.domain_id,
+        coaching_style: persona.coaching_style,
+        default_interaction_mode: persona.default_interaction_mode || 'coach_leads',
+        feedback_style: persona.feedback_style || 'sandwich',
+        emotional_progression_enabled: persona.emotional_progression_enabled ?? false,
+        prompt_sections: persona.prompt_sections || null,
+      };
+
+      // Map trait defaults: categorySlug → optionId
+      const traitDefaults: Record<string, string> = {};
+      const defaults = useAdminPersonaStore.getState().personaTraitDefaults;
+      for (const d of defaults) {
+        if (d.categorySlug && d.optionId) {
+          traitDefaults[d.categorySlug] = d.optionId;
+        }
+      }
+
+      // Map prompt_sections from JSONB
+      const promptSections: Record<string, string> = {
+        identity: '',
+        trait_tokens: '',
+        character_traits: '',
+        roleplay_behavior: '',
+        coaching_approach: '',
+      };
+      if (persona.prompt_sections && typeof persona.prompt_sections === 'object') {
+        const sections = persona.prompt_sections as Record<string, string>;
+        for (const key of PROMPT_SECTION_KEYS) {
+          if (sections[key]) {
+            promptSections[key] = sections[key];
+          }
+        }
+      }
+
+      // Check avatar_library for existing avatar params
+      const { data: avatarEntry } = await supabase
+        .from('avatar_library')
+        .select('params, public_url, storage_path')
+        .eq('used_by_persona_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const avatarParams = avatarEntry?.params
+        ? (avatarEntry.params as unknown as AvatarParams)
+        : { ...DEFAULT_AVATAR_PARAMS };
+
+      set({
+        formData,
+        traitDefaults,
+        promptSections,
+        currentStep: 0 as WizardStep,
+        isLoadingPersona: false,
+        avatar: {
+          params: avatarParams,
+          editablePrompt: buildPromptFromParams(avatarParams),
+          drafts: [],
+          selectedDraftId: null,
+          hiResUrl: persona.avatar_url || null,
+          hiResStoragePath: avatarEntry?.storage_path || null,
+          isGenerating: false,
+          isUpscaling: false,
+        },
+      });
+    } catch (err) {
+      console.error('Failed to load persona for editing:', err);
+      set({ isLoadingPersona: false, editingPersonaId: null });
+    }
+  },
+
   // =========================================================================
   // STEP NAVIGATION
   // =========================================================================
@@ -698,7 +828,7 @@ Return ONLY the system prompt text, no explanation or markdown.`;
   // =========================================================================
 
   savePersona: async () => {
-    const { formData, avatar, saveDraftsToLibrary, traitDefaults, promptSections } = get();
+    const { formData, avatar, saveDraftsToLibrary, traitDefaults, promptSections, editingPersonaId } = get();
     const store = useAdminPersonaStore.getState();
 
     // Include prompt_sections in the form data
@@ -709,7 +839,37 @@ Return ONLY the system prompt text, no explanation or markdown.`;
         : null,
     };
 
-    // Images are already in Supabase storage (uploaded by edge function)
+    if (editingPersonaId) {
+      // UPDATE existing persona
+      const { error } = await store.updatePersona(editingPersonaId, dataWithSections as typeof formData);
+
+      if (!error) {
+        // Save trait defaults
+        const traitEntries = Object.entries(traitDefaults);
+        if (traitEntries.length > 0) {
+          try {
+            for (const [, optionId] of traitEntries) {
+              await store.updatePersonaTraitDefault(editingPersonaId, optionId);
+            }
+          } catch (err) {
+            console.warn('Failed to save trait defaults:', err);
+          }
+        }
+
+        // Save new drafts to library if any were generated
+        if (avatar.drafts.length > 0) {
+          try {
+            await saveDraftsToLibrary(editingPersonaId);
+          } catch (err) {
+            console.warn('Failed to save drafts to library:', err);
+          }
+        }
+      }
+
+      return { id: editingPersonaId, error };
+    }
+
+    // CREATE new persona
     const result = await store.createPersona(dataWithSections as typeof formData);
 
     if (result.id) {
@@ -755,6 +915,8 @@ Return ONLY the system prompt text, no explanation or markdown.`;
         coaching_approach: '',
       },
       isGeneratingSection: null,
+      editingPersonaId: null,
+      isLoadingPersona: false,
       avatar: {
         params: { ...DEFAULT_AVATAR_PARAMS },
         editablePrompt: buildPromptFromParams(DEFAULT_AVATAR_PARAMS),

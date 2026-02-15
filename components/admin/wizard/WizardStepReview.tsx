@@ -43,7 +43,7 @@ function ReviewField({ label, value }: { label: string; value: string | number |
 }
 
 export function WizardStepReview() {
-  const { formData, avatar } = useWizardStore();
+  const { formData, avatar, editingPersonaId } = useWizardStore();
 
   return (
     <ScrollView
@@ -51,6 +51,26 @@ export function WizardStepReview() {
       contentContainerStyle={{ padding: 16 }}
       showsVerticalScrollIndicator={false}
     >
+      {/* Editing badge */}
+      {editingPersonaId && (
+        <View
+          style={{
+            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+            borderWidth: 1,
+            borderColor: 'rgba(59, 130, 246, 0.3)',
+            borderRadius: 10,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+            marginBottom: 16,
+            alignSelf: 'flex-start',
+          }}
+        >
+          <Text style={{ color: '#3b82f6', fontSize: 13, fontWeight: '600' }}>
+            Editing: {formData.name || 'Unnamed'}
+          </Text>
+        </View>
+      )}
+
       {/* Avatar preview — portrait ratio */}
       {(avatar.hiResUrl || formData.avatar_url) && (
         <View style={{ alignItems: 'center', marginBottom: 20 }}>

@@ -62,6 +62,13 @@ export default function AdminPersonaEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
 
+  // Redirect existing persona edits to the wizard
+  useEffect(() => {
+    if (id && !isNew) {
+      router.replace(`/admin/persona/wizard?id=${id}`);
+    }
+  }, [id, isNew]);
+
   const {
     selectedPersona,
     isLoading,
