@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Persona } from '../types/database';
 import { PersonaDisplay, ChallengeStyle, VoiceConfig, PersonaType } from '../types/persona';
 import { CoachingStyle, InteractionMode, FeedbackStyle } from '../types/coaching';
-import { resolvePersonaAvatar } from '../lib/personaImages';
+import { resolvePersonaAvatarWithUrl } from '../lib/personaImages';
 
 
 interface PersonaState {
@@ -20,13 +20,15 @@ interface PersonaState {
   getCoaches: () => PersonaDisplay[];
 }
 
-function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'challenge_style' | 'specialty_areas' | 'cultural_background' | 'warmth' | 'directness' | 'patience' | 'humor' | 'formality' | 'voice_provider' | 'voice_id' | 'voice_speed' | 'voice_pitch' | 'voice_stability' | 'persona_type' | 'domain_id' | 'coaching_style' | 'default_interaction_mode' | 'feedback_style'>): PersonaDisplay {
+function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'challenge_style' | 'specialty_areas' | 'cultural_background' | 'warmth' | 'directness' | 'patience' | 'humor' | 'formality' | 'voice_provider' | 'voice_id' | 'voice_speed' | 'voice_pitch' | 'voice_stability' | 'persona_type' | 'domain_id' | 'coaching_style' | 'default_interaction_mode' | 'feedback_style' | 'avatar_url' | 'avatar_thumbnail_url'>): PersonaDisplay {
   return {
     id: persona.id,
     name: persona.name,
     tagline: persona.tagline,
-    avatarUrl: resolvePersonaAvatar(persona.name),
-    avatarThumbnailUrl: null,
+    avatarUrl: resolvePersonaAvatarWithUrl(persona.name, persona.avatar_url, persona.avatar_thumbnail_url),
+    avatarThumbnailUrl: persona.avatar_thumbnail_url
+      ? resolvePersonaAvatarWithUrl(persona.name, persona.avatar_thumbnail_url)
+      : null,
     challengeStyle: persona.challenge_style as ChallengeStyle,
     specialtyAreas: persona.specialty_areas ?? [],
     culturalBackground: persona.cultural_background,
@@ -63,7 +65,7 @@ export const usePersonaStore = create<PersonaState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('personas')
-        .select('id, name, tagline, challenge_style, specialty_areas, cultural_background, warmth, directness, patience, humor, formality, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style, sort_order')
+        .select('id, name, tagline, challenge_style, specialty_areas, cultural_background, warmth, directness, patience, humor, formality, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style, avatar_url, avatar_thumbnail_url, sort_order')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 
