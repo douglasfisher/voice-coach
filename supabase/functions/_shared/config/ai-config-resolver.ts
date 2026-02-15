@@ -190,7 +190,7 @@ export async function resolveAIConfig(
   if (personaId) {
     const { data: persona, error: personaError } = await supabase
       .from('personas')
-      .select('ai_config, system_prompt, persona_type, coaching_style, feedback_style, default_interaction_mode, emotional_progression_enabled')
+      .select('ai_config, system_prompt, persona_type, coaching_style, feedback_style, default_interaction_mode, emotional_progression_enabled, age_range')
       .eq('id', personaId)
       .single();
 
@@ -242,6 +242,11 @@ export async function resolveAIConfig(
       }
 
       personaEmotionalProgressionEnabled = !!persona.emotional_progression_enabled;
+
+      // Replace age_range token if persona has one set
+      if (persona.age_range) {
+        personaPrompt = personaPrompt.replaceAll('{{age_range}}', persona.age_range);
+      }
 
       // Replace prompt tokens (e.g., {{character_demeanor}} → trait text)
       for (const [key, value] of Object.entries(mergedTokens)) {

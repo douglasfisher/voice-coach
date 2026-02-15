@@ -21,7 +21,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState(__DEV__ ? 'ruweb9js-s$gfdjd128-qwwimvca9' : '');
   const [error, setError] = useState('');
 
-  const { signInWithEmail, signInWithApple, isLoading } = useAuthStore();
+  const signInWithEmail = useAuthStore((s) => s.signInWithEmail);
+  const signInWithApple = useAuthStore((s) => s.signInWithApple);
+  const isLoading = useAuthStore((s) => s.isLoading);
 
   const handleEmailLogin = async () => {
     setError('');

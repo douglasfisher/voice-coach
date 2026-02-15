@@ -232,6 +232,7 @@ export interface Database {
           feedback_style: string;
           emotional_progression_enabled: boolean;
           prompt_sections: Record<string, string> | null;
+          age_range: string | null;
         };
         Insert: {
           id?: string;
@@ -276,6 +277,7 @@ export interface Database {
           feedback_style?: string;
           emotional_progression_enabled?: boolean;
           prompt_sections?: Record<string, string> | null;
+          age_range?: string | null;
         };
         Update: {
           id?: string;
@@ -320,6 +322,7 @@ export interface Database {
           feedback_style?: string;
           emotional_progression_enabled?: boolean;
           prompt_sections?: Record<string, string> | null;
+          age_range?: string | null;
         };
       };
       conversations: {

@@ -120,6 +120,8 @@ interface ChatState {
   // Filter actions
   setCoachesActiveDomain: (domain: string) => void;
   setChallengersActiveFilter: (filter: ChallengeStyle | 'all') => void;
+  // Logout cleanup
+  clearAllState: () => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
@@ -184,12 +186,13 @@ export const useChatStore = create<ChatState>()(
     try {
       const { data, error } = await supabase
         .from('conversations')
-        .select('*')
+        .select('id, user_id, persona_id, status, topic, interaction_mode, created_at, ended_at, overall_score')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
-      set({ conversations: data ?? [] });
+      set({ conversations: (data ?? []) as unknown as Conversation[] });
     } catch (error) {
       set({ error: (error as Error).message });
     } finally {
@@ -207,6 +210,14 @@ export const useChatStore = create<ChatState>()(
         .single();
 
       if (error) throw error;
+
+      // Verify conversation belongs to the current user
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (data.user_id !== currentUserId) {
+        set({ error: 'Unauthorized', isLoading: false });
+        return;
+      }
+
       set({ activeConversation: data });
 
       // Load saved trait selections for this conversation
@@ -241,16 +252,18 @@ export const useChatStore = create<ChatState>()(
   fetchMessages: async (conversationId) => {
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
+      .select('id, conversation_id, role, content, audio_url, audio_duration_ms, sequence, response_time_ms, metadata, created_at')
       .eq('conversation_id', conversationId)
-      .order('sequence', { ascending: true });
+      .order('sequence', { ascending: false })
+      .limit(50);
 
     if (error) {
       set({ error: error.message });
       return;
     }
 
-    const messages: ChatMessage[] = (data ?? []).map((msg: Record<string, unknown>) => ({
+    // Reverse to display oldest-first (fetched newest-first for limit)
+    const messages: ChatMessage[] = (data ?? []).reverse().map((msg: Record<string, unknown>) => ({
       id: msg.id as string,
       conversation_id: msg.conversation_id as string,
       role: msg.role as 'user' | 'assistant' | 'system',
@@ -396,6 +409,12 @@ export const useChatStore = create<ChatState>()(
     const { activeConversation, messages, coachingOptions, currentPhase, selectedTraits } = get();
     if (!activeConversation) return null;
 
+    const trimmed = content.trim();
+    if (!trimmed || trimmed.length > 5000) {
+      set({ error: trimmed ? 'Message is too long (max 5000 characters)' : 'Message cannot be empty' });
+      return null;
+    }
+
     set({ isSending: true, error: null });
     try {
       const sequence = messages.length + 1;
@@ -438,11 +457,7 @@ export const useChatStore = create<ChatState>()(
 
       // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       // Call Edge Function for AI response
@@ -470,12 +485,6 @@ export const useChatStore = create<ChatState>()(
     const { activeConversation, coachingOptions, selectedTraits } = get();
     if (!activeConversation) return false;
 
-    console.log('Starting chat with:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      coachingOptions,
-    });
-
     set({ isSending: true, error: null });
     try {
       const requestBody: Record<string, unknown> = {
@@ -497,11 +506,7 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       const { error } = await supabase.functions.invoke('chat', {
@@ -527,12 +532,6 @@ export const useChatStore = create<ChatState>()(
     if (!activeConversation) return;
 
     const isQAMode = globalInteractionMode === 'question';
-
-    console.log('Generating preview for:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      isQAMode,
-    });
 
     set({ isGeneratingPreview: true, error: null });
     try {
@@ -578,11 +577,6 @@ export const useChatStore = create<ChatState>()(
     if (!activeConversation) return false;
     if (questionRefreshCount >= MAX_QUESTION_REFRESHES) return false;
 
-    console.log('Regenerating question:', {
-      conversationId: activeConversation.id,
-      refreshCount: questionRefreshCount + 1,
-    });
-
     set({ isGeneratingPreview: true, error: null });
     try {
       const { data, error } = await supabase.functions.invoke('chat', {
@@ -612,11 +606,6 @@ export const useChatStore = create<ChatState>()(
     const { activeConversation, scenarioRefreshCount, selectedTraits } = get();
     if (!activeConversation) return false;
     if (scenarioRefreshCount >= MAX_QUESTION_REFRESHES) return false;
-
-    console.log('Regenerating scenario:', {
-      personaId: activeConversation.persona_id,
-      refreshCount: scenarioRefreshCount + 1,
-    });
 
     set({ isGeneratingPreview: true, error: null });
     try {
@@ -651,12 +640,6 @@ export const useChatStore = create<ChatState>()(
     if (!activeConversation) return false;
     if (isQAMode && !previewScenario) return false;
     if (!isQAMode && !previewQuestion) return false;
-
-    console.log('Starting chat with preview:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      isQAMode,
-    });
 
     set({ isSending: true, error: null });
     try {
@@ -821,11 +804,7 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       const { data, error } = await supabase.functions.invoke('chat', {
@@ -865,11 +844,7 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       const { data, error } = await supabase.functions.invoke('chat', {
@@ -918,6 +893,30 @@ export const useChatStore = create<ChatState>()(
 
   setChallengersActiveFilter: (filter) => {
     set({ challengersActiveFilter: filter });
+  },
+
+  clearAllState: () => {
+    set({
+      conversations: [],
+      activeConversation: null,
+      messages: [],
+      completedConversations: [],
+      isLoading: false,
+      isSending: false,
+      isGeneratingReport: false,
+      error: null,
+      previewQuestion: null,
+      previewScenario: null,
+      questionRefreshCount: 0,
+      scenarioRefreshCount: 0,
+      isGeneratingPreview: false,
+      dailyChallenges: [],
+      activeChallengeIndex: 0,
+      isLoadingChallenge: false,
+      currentPhase: 'roleplay',
+      coachingOptions: null,
+      selectedTraits: {},
+    });
   },
 
   setActiveChallengeIndex: (index) => {

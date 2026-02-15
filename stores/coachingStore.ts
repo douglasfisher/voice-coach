@@ -81,39 +81,37 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   fetchDomains: async () => {
     set({ isLoadingDomains: true, error: null });
     try {
-      // Fetch domains with scenario count
-      const { data: domainsData, error: domainsError } = await supabase
-        .from('coaching_domains')
-        .select('*')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true });
+      // Fetch domains, scenario counts, and coach counts in parallel
+      const [domainsResult, scenarioCountsResult, coachCountsResult] = await Promise.all([
+        supabase
+          .from('coaching_domains')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('scenarios')
+          .select('domain_id')
+          .eq('is_active', true),
+        supabase
+          .from('personas')
+          .select('domain_id')
+          .eq('is_active', true)
+          .eq('persona_type', 'coach'),
+      ]);
 
-      if (domainsError) throw domainsError;
+      if (domainsResult.error) throw domainsResult.error;
 
-      const domains = (domainsData || []).map(transformDomain);
-
-      // Fetch scenario counts per domain
-      const { data: scenarioCounts } = await supabase
-        .from('scenarios')
-        .select('domain_id')
-        .eq('is_active', true);
+      const domains = (domainsResult.data || []).map(transformDomain);
 
       // Count scenarios per domain
       const countMap = new Map<string, number>();
-      for (const s of scenarioCounts || []) {
+      for (const s of scenarioCountsResult.data || []) {
         const count = countMap.get(s.domain_id) || 0;
         countMap.set(s.domain_id, count + 1);
       }
 
-      // Fetch coach counts per domain
-      const { data: coachCounts } = await supabase
-        .from('personas')
-        .select('domain_id')
-        .eq('is_active', true)
-        .eq('persona_type', 'coach');
-
       const coachCountMap = new Map<string, number>();
-      for (const c of coachCounts || []) {
+      for (const c of coachCountsResult.data || []) {
         if (c.domain_id) {
           const count = coachCountMap.get(c.domain_id) || 0;
           coachCountMap.set(c.domain_id, count + 1);

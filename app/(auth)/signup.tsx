@@ -31,7 +31,8 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
 
-  const { signUpWithEmail, isLoading } = useAuthStore();
+  const signUpWithEmail = useAuthStore((s) => s.signUpWithEmail);
+  const isLoading = useAuthStore((s) => s.isLoading);
 
   const handleSignup = async () => {
     setError('');

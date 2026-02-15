@@ -62,6 +62,13 @@ export default function AdminPersonaEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
 
+  // Redirect existing persona edits to the wizard
+  useEffect(() => {
+    if (id && !isNew) {
+      router.replace(`/admin/persona/wizard?id=${id}`);
+    }
+  }, [id, isNew]);
+
   const {
     selectedPersona,
     isLoading,
@@ -118,6 +125,7 @@ export default function AdminPersonaEditScreen() {
     feedback_style: 'sandwich',
     emotional_progression_enabled: false,
     prompt_sections: null,
+    age_range: null,
   });
 
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
@@ -182,6 +190,7 @@ export default function AdminPersonaEditScreen() {
         feedback_style: selectedPersona.feedback_style || 'sandwich',
         emotional_progression_enabled: selectedPersona.emotional_progression_enabled ?? false,
         prompt_sections: selectedPersona.prompt_sections || null,
+        age_range: selectedPersona.age_range || null,
       });
     }
   }, [selectedPersona, isNew]);

@@ -88,7 +88,8 @@ export function PersonaModal({
   onPlayVoice,
   isPlayingVoice = false,
 }: PersonaModalProps) {
-  const { globalInteractionMode, setGlobalInteractionMode } = useChatStore();
+  const globalInteractionMode = useChatStore((s) => s.globalInteractionMode);
+  const setGlobalInteractionMode = useChatStore((s) => s.setGlobalInteractionMode);
   const { value: unifiedGradient, isLoading: isGradientLoading } = useAppSetting('unified_card_gradient');
 
   if (!persona) return null;

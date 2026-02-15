@@ -12,7 +12,7 @@ import { supabase } from '../../../lib/supabase';
 
 export default function PickPersonasScreen() {
   const { personas, isLoading } = usePersonas();
-  const { updatePreferences } = useAuthStore();
+  const updatePreferences = useAuthStore((s) => s.updatePreferences);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const togglePersona = (persona: PersonaDisplay) => {

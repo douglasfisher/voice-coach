@@ -53,13 +53,12 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
   fetchPersonas: async () => {
     set({ isLoading: true, error: null });
     try {
-      // Fetch personas with usage stats
+      // Fetch personas with conversation count
       const { data: personas, error } = await supabase
         .from('personas')
         .select(`
           *,
-          conversations:conversations(count),
-          messages:conversations(messages(count))
+          conversations:conversations(count)
         `)
         .order('sort_order', { ascending: true });
 
@@ -69,7 +68,6 @@ export const useAdminPersonaStore = create<AdminPersonaState>((set, get) => ({
       const personasWithStats: AdminPersonaView[] = (personas || []).map((p) => ({
         ...p,
         conversation_count: p.conversations?.[0]?.count || 0,
-        // messages count needs to be aggregated differently
         message_count: 0,
         total_tokens_used: 0,
       }));

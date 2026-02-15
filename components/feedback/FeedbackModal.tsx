@@ -31,7 +31,7 @@ export function FeedbackModal({ visible, onClose }: FeedbackModalProps) {
     submitFeedback,
     closeModal,
   } = useFeedbackStore();
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
 
   // Auto-close on success
   useEffect(() => {

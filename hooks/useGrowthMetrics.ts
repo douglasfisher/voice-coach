@@ -16,24 +16,22 @@ import {
 import { calculateOverallTrend } from '../lib/analysis';
 
 export function useGrowthMetrics() {
-  const { user } = useAuthStore();
-  const {
-    snapshots,
-    latestSnapshot,
-    patterns,
-    userProgress,
-    achievements,
-    allAchievements,
-    projections,
-    insights,
-    isLoading,
-    error,
-    fetchGrowthData,
-    dismissInsight: dismissInsightAction,
-    awardXP,
-    updateStreak,
-    unlockAchievement,
-  } = useAnalysisStore();
+  const user = useAuthStore((s) => s.user);
+  const snapshots = useAnalysisStore((s) => s.snapshots);
+  const latestSnapshot = useAnalysisStore((s) => s.latestSnapshot);
+  const patterns = useAnalysisStore((s) => s.patterns);
+  const userProgress = useAnalysisStore((s) => s.userProgress);
+  const achievements = useAnalysisStore((s) => s.achievements);
+  const allAchievements = useAnalysisStore((s) => s.allAchievements);
+  const projections = useAnalysisStore((s) => s.projections);
+  const insights = useAnalysisStore((s) => s.insights);
+  const isLoading = useAnalysisStore((s) => s.isLoading);
+  const error = useAnalysisStore((s) => s.error);
+  const fetchGrowthData = useAnalysisStore((s) => s.fetchGrowthData);
+  const dismissInsightAction = useAnalysisStore((s) => s.dismissInsight);
+  const awardXP = useAnalysisStore((s) => s.awardXP);
+  const updateStreak = useAnalysisStore((s) => s.updateStreak);
+  const unlockAchievement = useAnalysisStore((s) => s.unlockAchievement);
 
   // Fetch all growth data on mount
   useEffect(() => {

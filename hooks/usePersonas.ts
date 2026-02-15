@@ -3,8 +3,12 @@ import { usePersonaStore } from '../stores';
 import { ChallengeStyle } from '../types/persona';
 
 export function usePersonas() {
-  const { personas, isLoading, error, fetchPersonas, getPersonaById, getPersonasByStyle } =
-    usePersonaStore();
+  const personas = usePersonaStore((s) => s.personas);
+  const isLoading = usePersonaStore((s) => s.isLoading);
+  const error = usePersonaStore((s) => s.error);
+  const fetchPersonas = usePersonaStore((s) => s.fetchPersonas);
+  const getPersonaById = usePersonaStore((s) => s.getPersonaById);
+  const getPersonasByStyle = usePersonaStore((s) => s.getPersonasByStyle);
 
   useEffect(() => {
     if (personas.length === 0) {
@@ -23,7 +27,10 @@ export function usePersonas() {
 }
 
 export function usePersona(id: string | undefined) {
-  const { personas, isLoading, fetchPersonas, getPersonaById } = usePersonaStore();
+  const personas = usePersonaStore((s) => s.personas);
+  const isLoading = usePersonaStore((s) => s.isLoading);
+  const fetchPersonas = usePersonaStore((s) => s.fetchPersonas);
+  const getPersonaById = usePersonaStore((s) => s.getPersonaById);
 
   useEffect(() => {
     if (personas.length === 0) {
@@ -38,7 +45,10 @@ export function usePersona(id: string | undefined) {
 }
 
 export function usePersonasByStyle(style: ChallengeStyle) {
-  const { personas, isLoading, fetchPersonas, getPersonasByStyle } = usePersonaStore();
+  const personas = usePersonaStore((s) => s.personas);
+  const isLoading = usePersonaStore((s) => s.isLoading);
+  const fetchPersonas = usePersonaStore((s) => s.fetchPersonas);
+  const getPersonasByStyle = usePersonaStore((s) => s.getPersonasByStyle);
 
   useEffect(() => {
     if (personas.length === 0) {

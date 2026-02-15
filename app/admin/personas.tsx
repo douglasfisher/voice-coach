@@ -679,7 +679,7 @@ export default function AdminPersonasScreen() {
   };
 
   const handleEdit = (id: string) => {
-    router.push(`/admin/persona/${id}`);
+    router.push(`/admin/persona/wizard?id=${id}`);
   };
 
   const handleCreateNew = () => {

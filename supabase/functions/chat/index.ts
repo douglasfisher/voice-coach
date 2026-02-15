@@ -13,11 +13,33 @@ import { recordAIUsage, calculateAICost } from '../_shared/cost-calculator.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_USER_MESSAGE_LENGTH = 10_000;
+const MAX_PROMPT_TOKEN_LENGTH = 200;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+/** Validate UUID format */
+function isValidUUID(value: string | undefined | null): boolean {
+  return !!value && UUID_REGEX.test(value);
+}
+
+/** Sanitize prompt token values to prevent injection */
+function sanitizePromptTokens(tokens: Record<string, string>): Record<string, string> {
+  const sanitized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(tokens)) {
+    if (typeof value !== 'string') continue;
+    // Truncate to max length
+    let clean = value.slice(0, MAX_PROMPT_TOKEN_LENGTH);
+    // Strip instruction-like patterns
+    clean = clean.replace(/\b(ignore\s+(all|previous|above)|you\s+are\s+now|system\s*:\s*|<\/?system>|<\/?instruction>)\b/gi, '');
+    sanitized[key] = clean.trim();
+  }
+  return sanitized;
+}
 
 interface ChatRequest {
   conversationId?: string;
@@ -174,6 +196,56 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // =========================================================================
+    // AUTH: Extract and verify caller identity
+    // =========================================================================
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    let callerUserId: string | null = null;
+
+    if (token) {
+      const { data: { user: authUser } } = await supabase.auth.getUser(token);
+      callerUserId = authUser?.id ?? null;
+    }
+
+    const body = await req.json() as ChatRequest;
+
+    // =========================================================================
+    // INPUT VALIDATION
+    // =========================================================================
+    if (body.userMessage && body.userMessage.length > MAX_USER_MESSAGE_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: 'Message too long' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.conversationId && !isValidUUID(body.conversationId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid conversationId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.personaId && !isValidUUID(body.personaId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid personaId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.scenarioId && !isValidUUID(body.scenarioId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid scenarioId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Sanitize prompt tokens if present
+    if (body.promptTokens) {
+      body.promptTokens = sanitizePromptTokens(body.promptTokens);
+    }
+
     const {
       conversationId,
       userMessage,
@@ -199,7 +271,40 @@ serve(async (req) => {
       requestQuickFeedback,
       switchPhase,
       promptTokens,
-    } = await req.json() as ChatRequest;
+    } = body;
+
+    // =========================================================================
+    // CONVERSATION OWNERSHIP CHECK — verify caller owns the conversation
+    // =========================================================================
+    // Cache conversation metadata from ownership check to avoid duplicate queries
+    let cachedConvUserId: string | null = null;
+    let cachedConvInteractionMode: string | null = null;
+
+    if (conversationId) {
+      // Require a valid auth token for any conversation-scoped operation
+      if (!callerUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: convOwnership } = await supabase
+        .from('conversations')
+        .select('user_id, interaction_mode')
+        .eq('id', conversationId)
+        .single();
+
+      if (convOwnership && convOwnership.user_id !== callerUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      cachedConvUserId = convOwnership?.user_id || null;
+      cachedConvInteractionMode = convOwnership?.interaction_mode || null;
+    }
 
     // =========================================================================
     // Generic completion — lightweight AI call, no conversation context
@@ -819,19 +924,9 @@ Generate a comprehensive session report.`;
       );
     }
 
-    // Fetch conversation to get stored interaction_mode
-    let conversationInteractionMode: string | null = null;
-    if (conversationId) {
-      const { data: convData } = await supabase
-        .from('conversations')
-        .select('interaction_mode')
-        .eq('id', conversationId)
-        .single();
-      conversationInteractionMode = convData?.interaction_mode || null;
-    }
-
     // Resolve effective interaction mode (request > conversation > scenario > persona default)
-    const effectiveInteractionMode = interactionMode || conversationInteractionMode;
+    // Uses cached data from ownership check to avoid duplicate query
+    const effectiveInteractionMode = interactionMode || cachedConvInteractionMode;
 
     // Fetch scenario context if this is a coaching session
     let coachingContext: CoachingContext | undefined;
@@ -962,11 +1057,8 @@ Generate a comprehensive session report.`;
 
     // Handle greeting generation (save to DB)
     if (generateGreeting) {
-      const { data: conv } = await supabase
-        .from('conversations')
-        .select('user_id')
-        .eq('id', conversationId)
-        .single();
+      // Use cached conversation user_id from ownership check
+      const conv = cachedConvUserId ? { user_id: cachedConvUserId } : null;
 
       // For user_leads coaching mode, return scene context instead of AI greeting
       if (interactionMode === 'user_leads' && scenarioData) {
@@ -1045,7 +1137,8 @@ Generate a comprehensive session report.`;
           .from('messages')
           .select('role, content')
           .eq('conversation_id', conversationId)
-          .order('sequence', { ascending: true });
+          .order('sequence', { ascending: true })
+          .limit(30);
 
         const history: GroqMessage[] = (messages || []).map((m) => ({
           role: m.role as 'user' | 'assistant',
@@ -1085,14 +1178,8 @@ Generate a comprehensive session report.`;
 
         // Track feedback AI usage
         if (feedbackResponse.usage) {
-          const { data: conv } = await supabase
-            .from('conversations')
-            .select('user_id')
-            .eq('id', conversationId)
-            .single();
-
           await recordAIUsage(supabase, {
-            userId: conv?.user_id || null,
+            userId: cachedConvUserId,
             conversationId: conversationId,
             personaId: personaId,
             model: feedbackConfig.model,
@@ -1130,7 +1217,8 @@ Generate a comprehensive session report.`;
         .from('messages')
         .select('role, content')
         .eq('conversation_id', conversationId)
-        .order('sequence', { ascending: true });
+        .order('sequence', { ascending: true })
+        .limit(30);
 
       const history: GroqMessage[] = (messages || []).map((m) => ({
         role: m.role as 'user' | 'assistant',
@@ -1164,14 +1252,8 @@ Generate a comprehensive session report.`;
 
       // Track quick feedback AI usage
       if (feedbackResponse.usage) {
-        const { data: conv } = await supabase
-          .from('conversations')
-          .select('user_id')
-          .eq('id', conversationId)
-          .single();
-
         await recordAIUsage(supabase, {
-          userId: conv?.user_id || null,
+          userId: cachedConvUserId,
           conversationId: conversationId,
           personaId: personaId,
           model: config.model,
@@ -1195,18 +1277,21 @@ Generate a comprehensive session report.`;
       .eq('conversation_id', conversationId)
       .order('sequence', { ascending: true });
 
-    const history: GroqMessage[] = (messages || []).map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
-
-    const nextSequence = (messages?.length || 0) + 1;
+    const allMessages = messages || [];
+    const nextSequence = allMessages.length + 1;
 
     // Calculate response time since last message
-    const lastMessage = messages?.[messages.length - 1];
+    const lastMessage = allMessages[allMessages.length - 1];
     const userResponseTimeMs = lastMessage?.created_at
       ? Date.now() - new Date(lastMessage.created_at).getTime()
       : null;
+
+    // Sliding window: send only last 20 messages to Groq to reduce token costs
+    const contextWindow = allMessages.slice(-20);
+    const history: GroqMessage[] = contextWindow.map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }));
 
     // Save user message with response time
     const userMessageCreatedAt = new Date().toISOString();
@@ -1264,16 +1349,10 @@ Generate a comprehensive session report.`;
       ...(messageMetadata ? { metadata: messageMetadata } : {}),
     });
 
-    // Log usage
-    const { data: conversation } = await supabase
-      .from('conversations')
-      .select('user_id')
-      .eq('id', conversationId)
-      .single();
-
+    // Log usage (reuse cached conversation user_id from ownership check)
     if (groqResponse.usage) {
       await recordAIUsage(supabase, {
-        userId: conversation?.user_id || null,
+        userId: cachedConvUserId,
         conversationId: conversationId,
         personaId: personaId,
         model: config.model,
@@ -1292,7 +1371,7 @@ Generate a comprehensive session report.`;
   } catch (error) {
     console.error('Chat error:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'An error occurred processing your request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

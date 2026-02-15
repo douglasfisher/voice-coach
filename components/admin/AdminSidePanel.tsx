@@ -31,6 +31,7 @@ import {
   DollarSign,
   Coins,
   Settings,
+  Camera,
   ArrowLeft,
 } from 'lucide-react-native';
 
@@ -61,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Personas', subtitle: 'Manage personas', icon: Users, route: '/admin/personas' },
       { label: 'Traits', subtitle: 'Trait categories', icon: Sliders, route: '/admin/traits' },
+      { label: 'Avatar Studio', subtitle: 'Generation config', icon: Camera, route: '/admin/avatars' },
     ],
   },
   {

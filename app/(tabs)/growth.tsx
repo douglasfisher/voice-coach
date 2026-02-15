@@ -68,9 +68,10 @@ export default function GrowthScreen() {
     dismissInsight,
   } = useGrowthMetrics();
 
-  const { completedConversations, fetchCompletedConversations } = useChatStore();
-  const { getPersonaById } = usePersonaStore();
-  const { user } = useAuthStore();
+  const completedConversations = useChatStore((s) => s.completedConversations);
+  const fetchCompletedConversations = useChatStore((s) => s.fetchCompletedConversations);
+  const getPersonaById = usePersonaStore((s) => s.getPersonaById);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (user?.id) {

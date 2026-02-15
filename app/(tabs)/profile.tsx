@@ -29,9 +29,12 @@ import { useFeedbackStore } from '../../stores/feedbackStore';
 import { LevelBadge } from '../../components/growth/LevelBadge';
 
 export default function ProfileScreen() {
-  const { profile, preferences, user, signOut, updatePreferences, updateProfile: _updateProfile } =
-    useAuthStore();
-  const { openModalManual } = useFeedbackStore();
+  const profile = useAuthStore((s) => s.profile);
+  const preferences = useAuthStore((s) => s.preferences);
+  const user = useAuthStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
+  const updatePreferences = useAuthStore((s) => s.updatePreferences);
+  const openModalManual = useFeedbackStore((s) => s.openModalManual);
 
   const [intensity, setIntensity] = useState(
     preferences?.preferred_challenge_intensity ?? 5

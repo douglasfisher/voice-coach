@@ -40,8 +40,10 @@ export default function CoachesScreen() {
   const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
   const { personas, isLoading: personasLoading } = usePersonas();
-  const { user } = useAuthStore();
-  const { createConversation, coachesActiveDomain, setCoachesActiveDomain } = useChatStore();
+  const user = useAuthStore((s) => s.user);
+  const createConversation = useChatStore((s) => s.createConversation);
+  const coachesActiveDomain = useChatStore((s) => s.coachesActiveDomain);
+  const setCoachesActiveDomain = useChatStore((s) => s.setCoachesActiveDomain);
   const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
   const isSnapMode = fullscreenCardMode === true;
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
@@ -81,7 +83,7 @@ export default function CoachesScreen() {
   }, []);
 
   // Filter to only show coaches
-  const coaches = personas.filter(p => p.personaType === 'coach');
+  const coaches = useMemo(() => personas.filter(p => p.personaType === 'coach'), [personas]);
 
   // Auto-open persona modal when navigated with openPersonaId param
   useEffect(() => {
@@ -275,6 +277,11 @@ export default function CoachesScreen() {
               />
             </View>
           )}
+          getItemLayout={(_data, index) => ({
+            length: snapCardHeight,
+            offset: snapCardHeight * index,
+            index,
+          })}
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: headerHeight,
@@ -283,6 +290,8 @@ export default function CoachesScreen() {
           snapToInterval={snapCardHeight}
           snapToAlignment="start"
           decelerationRate="fast"
+          windowSize={5}
+          maxToRenderPerBatch={3}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#10b981" progressViewOffset={headerHeight} />}
