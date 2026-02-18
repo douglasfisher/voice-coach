@@ -12,7 +12,6 @@ import {
   Alert,
 } from 'react-native';
 import Animated, {
-  FadeInUp,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
@@ -96,17 +95,29 @@ const STYLE_THEMES: Record<ChallengeStyle, {
 
 function FocusMessageWrapper({ isVisible, children }: { isVisible: boolean; children: React.ReactNode }) {
   const opacity = useSharedValue(isVisible ? 1 : 0);
+  const maxHeight = useSharedValue(0);
+  const isMounted = useRef(false);
 
   useEffect(() => {
     opacity.value = withTiming(isVisible ? 1 : 0, { duration: 250 });
   }, [isVisible]);
 
+  useEffect(() => {
+    if (!isMounted.current) {
+      // First mount: animate from 0 to full height
+      isMounted.current = true;
+      maxHeight.value = withTiming(1000, { duration: 600, easing: Easing.out(Easing.cubic) });
+    }
+  }, []);
+
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
+    maxHeight: maxHeight.value,
+    overflow: 'hidden' as const,
   }));
 
   return (
-    <Animated.View style={animatedStyle} entering={FadeInUp.duration(300).easing(Easing.out(Easing.cubic))}>
+    <Animated.View style={animatedStyle}>
       {children}
     </Animated.View>
   );
