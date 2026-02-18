@@ -33,8 +33,10 @@ import {
   RotateCcw,
   LogOut,
 } from 'lucide-react-native';
+import { Volume2, VolumeX } from 'lucide-react-native';
 import { useConversation } from '../../../hooks/useConversation';
 import { useTTS } from '../../../hooks/useTTS';
+import { useNativeTTS } from '../../../hooks/useNativeTTS';
 import { useVoiceInput } from '../../../hooks/useVoiceInput';
 import { useTraits } from '../../../hooks/useTraits';
 import { useAuthStore } from '../../../stores/authStore';
@@ -143,6 +145,10 @@ export default function ChatScreen() {
 
   const { play, stop, isPlaying, generateAndPlay, isLoading: _ttsLoading } = useTTS();
 
+  // Native TTS (free on-device speech)
+  const nativeTtsEnabled = preferences?.native_tts_enabled ?? false;
+  const { speak: nativeSpeak, stop: nativeStop, isMuted: nativeMuted, toggleMute: toggleNativeMute } = useNativeTTS();
+
   // Voice input
   const voiceInputEnabled = preferences?.voice_input_enabled ?? false;
   const {
@@ -233,11 +239,19 @@ export default function ChatScreen() {
     : null;
 
   const handleSend = async (content: string) => {
+    // Stop any native TTS when user sends a new message
+    nativeStop();
+
     const result = await send(content);
 
-    // Auto-play TTS for assistant response if enabled
+    // Auto-play ElevenLabs TTS for assistant response if enabled (premium)
     if (result?.response && preferences?.tts_enabled && persona?.voiceConfig) {
       generateAndPlay(result.response, persona.voiceConfig);
+    }
+
+    // Auto-play native TTS for assistant response if enabled (free)
+    if (result?.response && nativeTtsEnabled) {
+      nativeSpeak(result.response);
     }
   };
 
@@ -673,7 +687,7 @@ export default function ChatScreen() {
                   borderTopColor: 'rgba(255, 255, 255, 0.08)',
                 }}
               >
-                {/* Left: Reset & End buttons */}
+                {/* Left: Reset, End & Mute buttons */}
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Pressable
                     onPress={handleResetPress}
@@ -706,6 +720,24 @@ export default function ChatScreen() {
                       End
                     </Text>
                   </Pressable>
+                  {nativeTtsEnabled && (
+                    <Pressable
+                      onPress={toggleNativeMute}
+                      style={{
+                        padding: 10,
+                        borderRadius: 20,
+                        backgroundColor: nativeMuted ? 'rgba(255,255,255,0.04)' : 'rgba(167,139,250,0.15)',
+                        borderWidth: 1,
+                        borderColor: nativeMuted ? 'rgba(255,255,255,0.1)' : 'rgba(167,139,250,0.3)',
+                      }}
+                    >
+                      {nativeMuted ? (
+                        <VolumeX size={18} color="rgba(255,255,255,0.4)" />
+                      ) : (
+                        <Volume2 size={18} color="#a78bfa" />
+                      )}
+                    </Pressable>
+                  )}
                 </View>
 
                 {/* Right: Timer */}

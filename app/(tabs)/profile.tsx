@@ -50,6 +50,9 @@ export default function ProfileScreen() {
   const [immersiveChatEnabled, setImmersiveChatEnabled] = useState(
     preferences?.immersive_chat_enabled ?? true
   );
+  const [nativeTtsEnabled, setNativeTtsEnabled] = useState(
+    preferences?.native_tts_enabled ?? false
+  );
   const [userGender, setUserGender] = useState<string | null>(
     preferences?.user_gender ?? null
   );
@@ -65,6 +68,7 @@ export default function ProfileScreen() {
       setVoiceInputEnabled(preferences.voice_input_enabled ?? false);
       setNotifications(preferences.notification_daily_challenge ?? true);
       setImmersiveChatEnabled(preferences.immersive_chat_enabled ?? true);
+      setNativeTtsEnabled(preferences.native_tts_enabled ?? false);
       setUserGender(preferences.user_gender ?? null);
       setInterestedIn(preferences.interested_in ?? null);
     }
@@ -153,6 +157,11 @@ export default function ProfileScreen() {
   const toggleImmersiveChat = async (value: boolean) => {
     setImmersiveChatEnabled(value);
     await updatePreferences({ immersive_chat_enabled: value });
+  };
+
+  const toggleNativeTts = async (value: boolean) => {
+    setNativeTtsEnabled(value);
+    await updatePreferences({ native_tts_enabled: value });
   };
 
   const selectUserGender = async (value: string | null) => {
@@ -476,6 +485,16 @@ export default function ProfileScreen() {
           description="Show chat messages overlaid on persona image"
           value={immersiveChatEnabled}
           onValueChange={toggleImmersiveChat}
+        />
+
+        {/* Read Aloud (Native TTS) */}
+        <SettingToggle
+          icon={MessageSquareText}
+          iconColor="#a78bfa"
+          title="Read Aloud"
+          description="AI responses are spoken using your device voice"
+          value={nativeTtsEnabled}
+          onValueChange={toggleNativeTts}
         />
 
         {/* Dating Preferences */}
