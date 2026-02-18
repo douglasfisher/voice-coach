@@ -46,7 +46,6 @@ const STEP_COMPONENTS: Record<number, React.ComponentType> = {
 interface PersonaEditModalProps {
   personaId: string;
   personaName: string;
-  resolvedAvatarUrl?: string;
   visible: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -55,7 +54,6 @@ interface PersonaEditModalProps {
 export function PersonaEditModal({
   personaId,
   personaName,
-  resolvedAvatarUrl,
   visible,
   onClose,
   onSaved,
@@ -72,21 +70,7 @@ export function PersonaEditModal({
 
   useEffect(() => {
     if (visible && personaId) {
-      loadPersona(personaId).then(() => {
-        // Patch avatar URL if the DB value didn't resolve to a loadable URL
-        // (e.g. local bundled avatars mapped via LOCAL_AVATARS)
-        const state = useWizardStore.getState();
-        const hiRes = state.avatar.hiResUrl;
-        if (resolvedAvatarUrl && (!hiRes || !hiRes.startsWith('http'))) {
-          useWizardStore.setState((s) => ({
-            avatar: { ...s.avatar, hiResUrl: resolvedAvatarUrl },
-            formData: {
-              ...s.formData,
-              avatar_url: s.formData.avatar_url || resolvedAvatarUrl,
-            },
-          }));
-        }
-      });
+      loadPersona(personaId);
     }
     return () => {
       if (!visible) reset();

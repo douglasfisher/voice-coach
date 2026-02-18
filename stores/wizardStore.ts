@@ -308,13 +308,28 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       const persona = useAdminPersonaStore.getState().selectedPersona;
       if (!persona) throw new Error('Persona not found');
 
-      // Map persona → formData
+      // Check avatar_library for existing Supabase Storage URL + avatar params
+      const { data: avatarEntry } = await supabase
+        .from('avatar_library')
+        .select('params, public_url, storage_path')
+        .eq('used_by_persona_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Resolve avatar URL: prefer avatar_library, then DB value (skip 'local' marker)
+      const resolvedAvatarUrl = avatarEntry?.public_url
+        || (persona.avatar_url && persona.avatar_url !== 'local' ? persona.avatar_url : '');
+      const resolvedThumbnailUrl = persona.avatar_thumbnail_url && persona.avatar_thumbnail_url !== 'local'
+        ? persona.avatar_thumbnail_url
+        : (avatarEntry?.public_url || null);
+
       const formData: WizardFormData = {
         name: persona.name,
         title: persona.title,
         tagline: persona.tagline || '',
-        avatar_url: persona.avatar_url,
-        avatar_thumbnail_url: persona.avatar_thumbnail_url,
+        avatar_url: resolvedAvatarUrl,
+        avatar_thumbnail_url: resolvedThumbnailUrl,
         voice_provider: persona.voice_provider,
         voice_id: persona.voice_id,
         voice_speed: persona.voice_speed,
@@ -376,15 +391,6 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         }
       }
 
-      // Check avatar_library for existing avatar params
-      const { data: avatarEntry } = await supabase
-        .from('avatar_library')
-        .select('params, public_url, storage_path')
-        .eq('used_by_persona_id', id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
       const avatarParams = avatarEntry?.params
         ? (avatarEntry.params as unknown as AvatarParams)
         : { ...DEFAULT_AVATAR_PARAMS };
@@ -400,7 +406,8 @@ export const useWizardStore = create<WizardState>((set, get) => ({
           editablePrompt: buildPromptFromParams(avatarParams),
           drafts: [],
           selectedDraftId: null,
-          hiResUrl: persona.avatar_url || null,
+          hiResUrl: avatarEntry?.public_url
+            || (persona.avatar_url && persona.avatar_url !== 'local' ? persona.avatar_url : null),
           hiResStoragePath: avatarEntry?.storage_path || null,
           isGenerating: false,
           isUpscaling: false,
