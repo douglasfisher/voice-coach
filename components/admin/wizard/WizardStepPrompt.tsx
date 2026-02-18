@@ -153,7 +153,8 @@ export function WizardStepPrompt() {
     isGeneratingSection,
   } = useWizardStore();
 
-  // Auto-trigger AI generation on mount if all sections are empty
+  // Auto-trigger AI generation on mount ONLY if all sections are empty
+  // AND no existing system_prompt exists (older personas have a prompt but no sections)
   const hasTriggered = useRef(false);
   useEffect(() => {
     if (hasTriggered.current) return;
@@ -161,6 +162,8 @@ export function WizardStepPrompt() {
       (key) => !(promptSections[key] || '').trim()
     );
     if (!allEmpty) return;
+    // Don't auto-generate if persona already has a system prompt (edit mode)
+    if (formData.system_prompt.trim().length > 0) return;
 
     hasTriggered.current = true;
     (async () => {
