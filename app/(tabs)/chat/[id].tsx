@@ -337,13 +337,7 @@ export default function ChatScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, sessionStartTime]);
 
-  useEffect(() => {
-    if (messages.length > 0 && !isFocusMode) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  }, [messages.length, isFocusMode]);
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
   const renderMessage = useCallback(({ item }: { item: typeof messages[number] }) => (
     <MessageBubble
@@ -523,12 +517,13 @@ export default function ChatScreen() {
           ) : (
             <FlatList
               ref={flatListRef}
-              data={messages}
+              data={invertedMessages}
+              inverted
               keyExtractor={(item) => item.id}
               contentContainerStyle={{
                 padding: 16,
-                paddingBottom: 8,
-                paddingTop: showImmersiveLayout ? insets.top + 60 : 16,
+                paddingTop: 8,
+                paddingBottom: showImmersiveLayout ? insets.top + 60 : 16,
               }}
               showsVerticalScrollIndicator={false}
               style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
@@ -536,12 +531,7 @@ export default function ChatScreen() {
               maxToRenderPerBatch={10}
               initialNumToRender={15}
               renderItem={renderMessage}
-              ListFooterComponent={listFooter}
-              getItemLayout={(_data, index) => ({
-                length: 120,
-                offset: 120 * index,
-                index,
-              })}
+              ListHeaderComponent={listFooter}
             />
           )
         ) : (
