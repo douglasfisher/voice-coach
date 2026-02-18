@@ -687,7 +687,7 @@ export default function ChatScreen() {
                   borderTopColor: 'rgba(255, 255, 255, 0.08)',
                 }}
               >
-                {/* Left: Reset, End & Mute buttons */}
+                {/* Left: Reset & End buttons */}
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Pressable
                     onPress={handleResetPress}
@@ -720,6 +720,10 @@ export default function ChatScreen() {
                       End
                     </Text>
                   </Pressable>
+                </View>
+
+                {/* Right: Listen toggle & Timer */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   {nativeTtsEnabled && (
                     <Pressable
                       onPress={toggleNativeMute}
@@ -738,16 +742,14 @@ export default function ChatScreen() {
                       )}
                     </Pressable>
                   )}
+                  {sessionStartTime && (
+                    <SessionTimer
+                      startTime={sessionStartTime}
+                      accentColor={theme?.accent}
+                      isImmersive={showImmersiveLayout}
+                    />
+                  )}
                 </View>
-
-                {/* Right: Timer */}
-                {sessionStartTime && (
-                  <SessionTimer
-                    startTime={sessionStartTime}
-                    accentColor={theme?.accent}
-                    isImmersive={showImmersiveLayout}
-                  />
-                )}
               </View>
             )}
 
