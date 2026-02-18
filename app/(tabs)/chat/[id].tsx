@@ -16,6 +16,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -105,7 +106,7 @@ function FocusMessageWrapper({ isVisible, children }: { isVisible: boolean; chil
   }));
 
   return (
-    <Animated.View style={animatedStyle} entering={FadeInUp.duration(300).springify().damping(22)}>
+    <Animated.View style={animatedStyle} entering={FadeInUp.duration(300).easing(Easing.out(Easing.cubic))}>
       {children}
     </Animated.View>
   );
