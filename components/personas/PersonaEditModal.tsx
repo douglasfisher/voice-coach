@@ -220,7 +220,7 @@ export function PersonaEditModal({
           >
             {/* Show current avatar on Avatar tab when no Supabase Storage URL exists */}
             {currentStep === 0 && !hiResUrl && currentAvatarSource && (
-              <View style={{ padding: 16, paddingBottom: 0 }}>
+              <View style={{ padding: 16, paddingBottom: 0, alignItems: 'center' }}>
                 <Text
                   style={{
                     color: '#4ade80',
@@ -236,8 +236,8 @@ export function PersonaEditModal({
                 <Image
                   source={currentAvatarSource}
                   style={{
-                    width: '100%',
-                    aspectRatio: 896 / 1152,
+                    width: 160,
+                    height: 206,
                     borderRadius: 12,
                     borderWidth: 2,
                     borderColor: '#4ade80',
