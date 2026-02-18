@@ -390,6 +390,7 @@ export function PersonaModal({
           <PersonaEditModal
             personaId={persona.id}
             personaName={persona.name}
+            resolvedAvatarUrl={typeof persona.avatarUrl === 'string' ? persona.avatarUrl : undefined}
             visible={editModalVisible}
             onClose={() => setEditModalVisible(false)}
             onSaved={() => {

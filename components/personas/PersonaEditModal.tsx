@@ -6,7 +6,9 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Save } from 'lucide-react-native';
 import { useWizardStore } from '../../stores/wizardStore';
 import { usePersonaStore } from '../../stores/personaStore';
@@ -44,6 +46,7 @@ const STEP_COMPONENTS: Record<number, React.ComponentType> = {
 interface PersonaEditModalProps {
   personaId: string;
   personaName: string;
+  resolvedAvatarUrl?: string;
   visible: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -52,10 +55,12 @@ interface PersonaEditModalProps {
 export function PersonaEditModal({
   personaId,
   personaName,
+  resolvedAvatarUrl,
   visible,
   onClose,
   onSaved,
 }: PersonaEditModalProps) {
+  const insets = useSafeAreaInsets();
   const [isSaving, setIsSaving] = useState(false);
   const currentStep = useWizardStore((s) => s.currentStep);
   const isLoadingPersona = useWizardStore((s) => s.isLoadingPersona);
@@ -67,7 +72,21 @@ export function PersonaEditModal({
 
   useEffect(() => {
     if (visible && personaId) {
-      loadPersona(personaId);
+      loadPersona(personaId).then(() => {
+        // Patch avatar URL if the DB value didn't resolve to a loadable URL
+        // (e.g. local bundled avatars mapped via LOCAL_AVATARS)
+        const state = useWizardStore.getState();
+        const hiRes = state.avatar.hiResUrl;
+        if (resolvedAvatarUrl && (!hiRes || !hiRes.startsWith('http'))) {
+          useWizardStore.setState((s) => ({
+            avatar: { ...s.avatar, hiResUrl: resolvedAvatarUrl },
+            formData: {
+              ...s.formData,
+              avatar_url: s.formData.avatar_url || resolvedAvatarUrl,
+            },
+          }));
+        }
+      });
     }
     return () => {
       if (!visible) reset();
@@ -102,7 +121,7 @@ export function PersonaEditModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
       <View style={{ flex: 1, backgroundColor: '#0a0a0f' }}>
@@ -113,7 +132,7 @@ export function PersonaEditModal({
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: 16,
-            paddingTop: 16,
+            paddingTop: insets.top + 4,
             paddingBottom: 12,
             borderBottomWidth: 1,
             borderBottomColor: 'rgba(255,255,255,0.1)',
