@@ -11,7 +11,12 @@ import {
   ImageSourcePropType,
   Alert,
 } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -87,6 +92,24 @@ const STYLE_THEMES: Record<ChallengeStyle, {
     Icon: Eye,
   },
 };
+
+function FocusMessageWrapper({ isVisible, children }: { isVisible: boolean; children: React.ReactNode }) {
+  const opacity = useSharedValue(isVisible ? 1 : 0);
+
+  useEffect(() => {
+    opacity.value = withTiming(isVisible ? 1 : 0, { duration: 250 });
+  }, [isVisible]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={animatedStyle} entering={FadeInUp.duration(300).springify().damping(22)}>
+      {children}
+    </Animated.View>
+  );
+}
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -371,12 +394,9 @@ export default function ChatScreen() {
 
     if (isFocusMode) {
       return (
-        <Animated.View
-          style={{ opacity: isVisible ? 1 : 0 }}
-          {...(isVisible ? { entering: FadeIn.duration(300) } : {})}
-        >
+        <FocusMessageWrapper isVisible={isVisible}>
           {bubble}
-        </Animated.View>
+        </FocusMessageWrapper>
       );
     }
 
