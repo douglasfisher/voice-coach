@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType, ActivityIndicator, FlatList, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, ImageSourcePropType, ActivityIndicator, FlatList, Dimensions, RefreshControl } from 'react-native';
 import Animated, { useAnimatedStyle, withRepeat, withSequence, withTiming, withDelay } from 'react-native-reanimated';
 import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { router } from 'expo-router';
@@ -87,6 +87,19 @@ export default function HomeScreen() {
   const [isStartingChallenge, setIsStartingChallenge] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchDailyChallenges(true),
+        user?.id ? fetchConversations(user.id) : Promise.resolve(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchDailyChallenges, fetchConversations, user?.id]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
@@ -183,6 +196,13 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#60a5fa"
+          />
+        }
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 12 }}>
