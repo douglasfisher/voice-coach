@@ -40,6 +40,7 @@ import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { useAuthStore } from '../../stores/authStore';
 import { AppSettingsMap } from '../../types/admin';
 import { supabase } from '../../lib/supabase';
+import { useChatStore } from '../../stores/chatStore';
 
 // Simplified AI model for the dropdown
 interface AIModelOption {
@@ -148,6 +149,8 @@ function RefreshChallengesButton() {
       });
       if (error) throw error;
       const count = data?.challenges?.length || 0;
+      // Force client to refetch so homepage updates immediately
+      await useChatStore.getState().fetchDailyChallenges(true);
       Alert.alert('Success', `${count} daily challenges have been refreshed.`);
     } catch (err: any) {
       const msg = err?.message || err?.context?.body || 'Unknown error';

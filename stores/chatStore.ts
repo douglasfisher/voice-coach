@@ -106,7 +106,7 @@ interface ChatState {
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
-  fetchDailyChallenges: () => Promise<void>;
+  fetchDailyChallenges: (force?: boolean) => Promise<void>;
   setActiveChallengeIndex: (index: number) => void;
   // Coaching-specific actions
   switchPhase: (phase: SessionPhase) => Promise<{ response: string } | null>;
@@ -923,11 +923,11 @@ export const useChatStore = create<ChatState>()(
     set({ activeChallengeIndex: index });
   },
 
-  fetchDailyChallenges: async () => {
+  fetchDailyChallenges: async (force?: boolean) => {
     const { dailyChallenges } = get();
 
-    // Check if we already have today's challenges
-    if (dailyChallenges.length > 0) {
+    // Check if we already have today's challenges (skip if force refresh)
+    if (!force && dailyChallenges.length > 0) {
       const generatedDate = new Date(dailyChallenges[0].generatedAt).toDateString();
       const today = new Date().toDateString();
       if (generatedDate === today) {
