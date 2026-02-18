@@ -1309,11 +1309,12 @@ Generate a comprehensive session report.`;
 
     let assistantMessage = groqResponse.choices[0]?.message?.content || '';
 
-    // Parse and strip emotional state tag from AI response (e.g., [STATE:2:CAUTIOUSLY_CURIOUS])
+    // Parse and strip emotional state tag from AI response
+    // Handles variations: [STATE:2:NAME], (STATE:2:NAME), ( STATE:2:NAME), etc.
     let messageMetadata: Record<string, unknown> | null = null;
-    const stateTagMatch = assistantMessage.match(/\[STATE:(\d+):([A-Z_]+)\]\s*$/);
+    const stateTagMatch = assistantMessage.match(/[\[\(]\s*STATE:(\d+):([A-Z_]+)\s*[\]\)]\s*$/);
     if (stateTagMatch) {
-      assistantMessage = assistantMessage.replace(/\[STATE:\d+:[A-Z_]+\]\s*$/, '').trimEnd();
+      assistantMessage = assistantMessage.replace(/[\[\(]\s*STATE:\d+:[A-Z_]+\s*[\]\)]\s*$/, '').trimEnd();
       messageMetadata = {
         emotional_stage: {
           number: parseInt(stateTagMatch[1], 10),

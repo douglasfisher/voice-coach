@@ -129,7 +129,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         style={{
           flexDirection: 'row',
           alignItems: 'flex-end',
-          maxWidth: '85%',
+          maxWidth: '95%',
           ...(isUser ? { flexDirection: 'row-reverse' } : {}),
         }}
       >
