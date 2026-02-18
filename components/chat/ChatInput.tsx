@@ -1,6 +1,6 @@
 import { View, Text, Pressable, GestureResponderEvent, TextInput } from 'react-native';
 import { useRef, useCallback, useState } from 'react';
-import { Send, RotateCcw, LogOut } from 'lucide-react-native';
+import { Send, RotateCcw, LogOut, Volume2, VolumeX } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   withRepeat,
@@ -36,6 +36,10 @@ interface ChatInputProps {
   onEndPress?: () => void;
   sessionStartTime?: Date | null;
   themeAccent?: string;
+  // Native TTS toggle
+  nativeTtsEnabled?: boolean;
+  nativeMuted?: boolean;
+  onToggleNativeMute?: () => void;
 }
 
 const CANCEL_THRESHOLD = 100;
@@ -59,6 +63,9 @@ export function ChatInput({
   onEndPress,
   sessionStartTime,
   themeAccent,
+  nativeTtsEnabled = false,
+  nativeMuted = false,
+  onToggleNativeMute,
 }: ChatInputProps) {
   const isRecording = voiceState === 'recording';
   const isProcessing = voiceState === 'processing';
@@ -439,19 +446,42 @@ export function ChatInput({
           </Pressable>
         </View>
 
-        {/* Right side: Timer */}
-        {showControls && sessionStartTime && (
+        {/* Right side: Listen toggle & Timer */}
+        {showControls && (sessionStartTime || nativeTtsEnabled) && (
           <View
             style={{
               position: 'absolute',
               right: 0,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
             }}
           >
-            <SessionTimer
-              startTime={sessionStartTime}
-              accentColor={themeAccent || accentColor}
-              isImmersive={immersiveMode}
-            />
+            {nativeTtsEnabled && (
+              <Pressable
+                onPress={onToggleNativeMute}
+                style={{
+                  padding: 10,
+                  borderRadius: 20,
+                  backgroundColor: nativeMuted ? 'rgba(255,255,255,0.04)' : 'rgba(167,139,250,0.15)',
+                  borderWidth: 1,
+                  borderColor: nativeMuted ? 'rgba(255,255,255,0.1)' : 'rgba(167,139,250,0.3)',
+                }}
+              >
+                {nativeMuted ? (
+                  <VolumeX size={18} color="rgba(255,255,255,0.4)" />
+                ) : (
+                  <Volume2 size={18} color="#a78bfa" />
+                )}
+              </Pressable>
+            )}
+            {sessionStartTime && (
+              <SessionTimer
+                startTime={sessionStartTime}
+                accentColor={themeAccent || accentColor}
+                isImmersive={immersiveMode}
+              />
+            )}
           </View>
         )}
       </View>

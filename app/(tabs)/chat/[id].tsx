@@ -774,6 +774,9 @@ export default function ChatScreen() {
               onEndPress={handleEndConversation}
               sessionStartTime={sessionStartTime}
               themeAccent={theme?.accent}
+              nativeTtsEnabled={nativeTtsEnabled}
+              nativeMuted={nativeMuted}
+              onToggleNativeMute={toggleNativeMute}
             />
           </View>
         ) : conversation.status !== 'active' ? (
