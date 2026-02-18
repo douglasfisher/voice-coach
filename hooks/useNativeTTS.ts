@@ -1,59 +1,78 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Platform } from 'react-native';
 import * as Speech from 'expo-speech';
 
-// Preferred iOS voice IDs in priority order
-const IOS_FEMALE_PREFERRED = [
-  'com.apple.voice.compact.en-US.Samantha',
-  'com.apple.voice.compact.en-AU.Karen',
-  'com.apple.voice.compact.en-GB.Kate',
-];
-const IOS_MALE_PREFERRED = [
-  'com.apple.voice.compact.en-US.Aaron',
-  'com.apple.voice.compact.en-US.Fred',
-  'com.apple.voice.compact.en-GB.Daniel',
-];
+// Known female voice name patterns
+const FEMALE_NAMES = ['samantha', 'karen', 'kate', 'moira', 'tessa', 'fiona', 'victoria', 'allison', 'ava', 'susan', 'zoe', 'nicky'];
+// Known male voice name patterns
+const MALE_NAMES = ['aaron', 'fred', 'daniel', 'alex', 'tom', 'oliver', 'james', 'ralph', 'bruce', 'lee', 'rishi'];
+
+function isFemaleName(identifier: string): boolean {
+  const lower = identifier.toLowerCase();
+  return FEMALE_NAMES.some((n) => lower.includes(n));
+}
+
+function isMaleName(identifier: string): boolean {
+  const lower = identifier.toLowerCase();
+  return MALE_NAMES.some((n) => lower.includes(n));
+}
 
 export function useNativeTTS(gender: 'male' | 'female' = 'male') {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const speakingRef = useRef(false);
-  const resolvedVoice = useRef<string | undefined>(undefined);
+  const voiceMapRef = useRef<{ male?: string; female?: string }>({});
+  const voicesReady = useRef(false);
 
-  // Discover available voices and pick the best match for gender
+  // Discover voices once, build a male/female map
   useEffect(() => {
     let cancelled = false;
 
-    async function resolveVoice() {
+    async function discoverVoices() {
       try {
         const voices = await Speech.getAvailableVoicesAsync();
-        if (cancelled) return;
+        if (cancelled || voices.length === 0) return;
 
-        // Filter to English voices
         const enVoices = voices.filter((v) => v.language.startsWith('en'));
+        if (enVoices.length === 0) return;
 
-        // Try preferred voices first
-        const preferred = gender === 'female' ? IOS_FEMALE_PREFERRED : IOS_MALE_PREFERRED;
-        for (const id of preferred) {
-          if (enVoices.some((v) => v.identifier === id)) {
-            resolvedVoice.current = id;
-            return;
-          }
+        // Find best female voice
+        const femaleVoice = enVoices.find((v) => isFemaleName(v.identifier));
+        // Find best male voice
+        const maleVoice = enVoices.find((v) => isMaleName(v.identifier));
+
+        // If we found gendered voices, use them; otherwise split the list
+        if (femaleVoice || maleVoice) {
+          voiceMapRef.current = {
+            female: femaleVoice?.identifier || enVoices[0].identifier,
+            male: maleVoice?.identifier || enVoices[enVoices.length > 1 ? 1 : 0].identifier,
+          };
+        } else if (enVoices.length >= 2) {
+          // No name matches — just use first two different voices
+          voiceMapRef.current = {
+            female: enVoices[0].identifier,
+            male: enVoices[1].identifier,
+          };
+        } else {
+          voiceMapRef.current = {
+            female: enVoices[0].identifier,
+            male: enVoices[0].identifier,
+          };
         }
 
-        // Fallback: pick any English voice (first available)
-        if (enVoices.length > 0) {
-          resolvedVoice.current = enVoices[0].identifier;
+        voicesReady.current = true;
+
+        if (__DEV__) {
+          console.log('[NativeTTS] Available EN voices:', enVoices.map((v) => v.identifier));
+          console.log('[NativeTTS] Voice map:', voiceMapRef.current);
         }
       } catch {
-        // Voice discovery failed — speak without a specific voice
-        resolvedVoice.current = undefined;
+        // Voice discovery failed — will speak without specific voice
       }
     }
 
-    resolveVoice();
+    discoverVoices();
     return () => { cancelled = true; };
-  }, [gender]);
+  }, []);
 
   const speak = useCallback((text: string) => {
     if (isMuted || !text) return;
@@ -62,9 +81,12 @@ export function useNativeTTS(gender: 'male' | 'female' = 'male') {
     speakingRef.current = true;
     setIsSpeaking(true);
 
+    const voiceId = voiceMapRef.current[gender];
+
     const options: Speech.SpeechOptions = {
       language: 'en-US',
       rate: 1.0,
+      pitch: gender === 'female' ? 1.1 : 0.9,
       onDone: () => {
         speakingRef.current = false;
         setIsSpeaking(false);
@@ -79,12 +101,12 @@ export function useNativeTTS(gender: 'male' | 'female' = 'male') {
       },
     };
 
-    if (resolvedVoice.current) {
-      options.voice = resolvedVoice.current;
+    if (voiceId) {
+      options.voice = voiceId;
     }
 
     Speech.speak(text, options);
-  }, [isMuted]);
+  }, [isMuted, gender]);
 
   const stop = useCallback(() => {
     Speech.stop();
