@@ -148,10 +148,21 @@ function RefreshChallengesButton() {
         body: { generateChallengeBatch: true, refreshChallengeBatch: true },
       });
       if (error) throw error;
-      const count = data?.challenges?.length || 0;
-      // Force client to refetch so homepage updates immediately
-      await useChatStore.getState().fetchDailyChallenges(true);
-      Alert.alert('Success', `${count} daily challenges have been refreshed.`);
+      const challenges = data?.challenges || [];
+      // Directly update the store with the fresh batch (avoids a redundant refetch)
+      if (challenges.length > 0) {
+        useChatStore.setState({
+          dailyChallenges: challenges.map((c: any) => ({
+            question: c.question,
+            topic: c.topic,
+            personaId: c.personaId,
+            personaName: c.personaName,
+            generatedAt: data.generatedAt || new Date().toISOString(),
+          })),
+          activeChallengeIndex: 0,
+        });
+      }
+      Alert.alert('Success', `${challenges.length} daily challenges have been refreshed.`);
     } catch (err: any) {
       const msg = err?.message || err?.context?.body || 'Unknown error';
       Alert.alert('Error', `Failed to refresh challenges: ${msg}`);
