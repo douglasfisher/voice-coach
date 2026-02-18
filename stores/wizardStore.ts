@@ -166,6 +166,7 @@ const DEFAULT_FORM_DATA: WizardFormData = {
   emotional_progression_enabled: false,
   prompt_sections: null,
   age_range: null,
+  gender: 'male' as const,
 };
 
 // =============================================================================
@@ -363,6 +364,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         emotional_progression_enabled: persona.emotional_progression_enabled ?? false,
         prompt_sections: persona.prompt_sections || null,
         age_range: persona.age_range || null,
+        gender: (persona.gender as 'male' | 'female') || 'male',
       };
 
       // Map trait defaults: categorySlug → optionId

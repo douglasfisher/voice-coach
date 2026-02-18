@@ -147,7 +147,7 @@ export default function ChatScreen() {
 
   // Native TTS (free on-device speech)
   const nativeTtsEnabled = preferences?.native_tts_enabled ?? false;
-  const { speak: nativeSpeak, stop: nativeStop, isMuted: nativeMuted, toggleMute: toggleNativeMute } = useNativeTTS();
+  const { speak: nativeSpeak, stop: nativeStop, isMuted: nativeMuted, toggleMute: toggleNativeMute } = useNativeTTS(persona?.gender);
 
   // Voice input
   const voiceInputEnabled = preferences?.voice_input_enabled ?? false;
@@ -372,6 +372,19 @@ export default function ChatScreen() {
       clearPreview();
     };
   }, [clearPreview]);
+
+  // Read initial AI message aloud when chat starts
+  const hasReadInitial = useRef(false);
+  useEffect(() => {
+    if (nativeTtsEnabled && !nativeMuted && messages.length > 0 && !hasReadInitial.current) {
+      // Find the first assistant or system message with content
+      const firstAiMsg = messages.find((m) => (m.role === 'assistant' || m.role === 'system') && m.content);
+      if (firstAiMsg) {
+        hasReadInitial.current = true;
+        nativeSpeak(firstAiMsg.content);
+      }
+    }
+  }, [messages.length, nativeTtsEnabled, nativeMuted, nativeSpeak]);
 
   // Track session start time when first message appears
   useEffect(() => {

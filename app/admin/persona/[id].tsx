@@ -126,6 +126,7 @@ export default function AdminPersonaEditScreen() {
     emotional_progression_enabled: false,
     prompt_sections: null,
     age_range: null,
+    gender: 'male' as const,
   });
 
   const [aiModels, setAiModels] = useState<AIModelOption[]>([]);
@@ -191,6 +192,7 @@ export default function AdminPersonaEditScreen() {
         emotional_progression_enabled: selectedPersona.emotional_progression_enabled ?? false,
         prompt_sections: selectedPersona.prompt_sections || null,
         age_range: selectedPersona.age_range || null,
+        gender: (selectedPersona.gender as 'male' | 'female') || 'male',
       });
     }
   }, [selectedPersona, isNew]);

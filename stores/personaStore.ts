@@ -20,7 +20,7 @@ interface PersonaState {
   getCoaches: () => PersonaDisplay[];
 }
 
-function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'challenge_style' | 'specialty_areas' | 'cultural_background' | 'warmth' | 'directness' | 'patience' | 'humor' | 'formality' | 'voice_provider' | 'voice_id' | 'voice_speed' | 'voice_pitch' | 'voice_stability' | 'persona_type' | 'domain_id' | 'coaching_style' | 'default_interaction_mode' | 'feedback_style' | 'avatar_url' | 'avatar_thumbnail_url'>): PersonaDisplay {
+function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'challenge_style' | 'specialty_areas' | 'cultural_background' | 'warmth' | 'directness' | 'patience' | 'humor' | 'formality' | 'voice_provider' | 'voice_id' | 'voice_speed' | 'voice_pitch' | 'voice_stability' | 'persona_type' | 'domain_id' | 'coaching_style' | 'default_interaction_mode' | 'feedback_style' | 'avatar_url' | 'avatar_thumbnail_url' | 'gender'>): PersonaDisplay {
   return {
     id: persona.id,
     name: persona.name,
@@ -52,6 +52,7 @@ function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'ch
     coachingStyle: persona.coaching_style as CoachingStyle | null,
     defaultInteractionMode: (persona.default_interaction_mode as InteractionMode) || 'coach_leads',
     feedbackStyle: (persona.feedback_style as FeedbackStyle) || 'sandwich',
+    gender: (persona.gender as 'male' | 'female') || 'male',
   };
 }
 
@@ -65,7 +66,7 @@ export const usePersonaStore = create<PersonaState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('personas')
-        .select('id, name, tagline, challenge_style, specialty_areas, cultural_background, warmth, directness, patience, humor, formality, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style, avatar_url, avatar_thumbnail_url, sort_order')
+        .select('id, name, tagline, challenge_style, specialty_areas, cultural_background, warmth, directness, patience, humor, formality, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style, avatar_url, avatar_thumbnail_url, sort_order, gender')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 

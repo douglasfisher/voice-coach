@@ -48,6 +48,7 @@ export interface PersonaDisplay {
   coachingStyle: CoachingStyle | null;
   defaultInteractionMode: InteractionMode;
   feedbackStyle: FeedbackStyle;
+  gender: 'male' | 'female';
 }
 
 export const CHALLENGE_STYLE_LABELS: Record<ChallengeStyle, string> = {
