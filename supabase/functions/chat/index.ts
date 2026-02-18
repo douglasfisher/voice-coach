@@ -450,43 +450,17 @@ serve(async (req) => {
         );
       }
 
-      // Group by domain and round-robin pick 10
-      const byDomain: Record<string, typeof allCoaches> = {};
-      for (const coach of allCoaches) {
-        const domain = coach.domain_id || 'unknown';
-        if (!byDomain[domain]) byDomain[domain] = [];
-        byDomain[domain].push(coach);
+      // Fisher-Yates shuffle all coaches, then pick 10
+      const shuffled = [...allCoaches];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      // Shuffle each domain's coaches
-      for (const domain of Object.keys(byDomain)) {
-        const arr = byDomain[domain];
-        for (let i = arr.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-      }
-
-      const domainKeys = Object.keys(byDomain);
-      const selectedPersonas: { id: string; name: string }[] = [];
-      let domainIdx = 0;
-      const domainPointers: Record<string, number> = {};
-      for (const d of domainKeys) domainPointers[d] = 0;
-
-      while (selectedPersonas.length < 10 && selectedPersonas.length < allCoaches.length) {
-        const domain = domainKeys[domainIdx % domainKeys.length];
-        const pointer = domainPointers[domain];
-        if (pointer < byDomain[domain].length) {
-          selectedPersonas.push({
-            id: byDomain[domain][pointer].id,
-            name: byDomain[domain][pointer].name,
-          });
-          domainPointers[domain]++;
-        }
-        domainIdx++;
-        // Safety: if we've gone through all domains without adding, break
-        if (domainIdx > domainKeys.length * allCoaches.length) break;
-      }
+      const selectedPersonas = shuffled.slice(0, 10).map((c) => ({
+        id: c.id,
+        name: c.name,
+      }));
 
       // Fetch challenge prompt
       const { data: challengeSettings } = await supabase
