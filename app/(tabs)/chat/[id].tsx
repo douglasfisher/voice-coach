@@ -11,6 +11,7 @@ import {
   ImageSourcePropType,
   Alert,
 } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,7 +44,7 @@ import {
   EndChatModal,
   SessionTimer,
   ResetConfirmationModal,
-  FocusModeChat,
+  CollapsibleSceneHeader,
 } from '../../../components/chat';
 import { useAppSetting } from '../../../hooks/useAppSetting';
 import { HeaderFade } from '../../../components/ui/HeaderFade';
@@ -339,25 +340,48 @@ export default function ChatScreen() {
 
   const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
-  const renderMessage = useCallback(({ item }: { item: typeof messages[number] }) => (
-    <MessageBubble
-      content={item.content}
-      role={item.role as 'user' | 'assistant'}
-      persona={item.role === 'assistant' ? persona : undefined}
-      audioUrl={item.audio_url}
-      onPlayAudio={
-        item.role === 'assistant' && preferences?.tts_enabled
-          ? () => handlePlayAudio(item.audio_url, item.content)
-          : undefined
-      }
-      isPlaying={isPlaying}
-      timestamp={item.created_at}
-      responseTimeMs={item.response_time_ms}
-      immersiveMode={showImmersiveLayout}
-      metadata={item.metadata}
-      isAdmin={!!profile?.is_admin}
-    />
-  ), [persona, preferences?.tts_enabled, handlePlayAudio, isPlaying, showImmersiveLayout, profile?.is_admin]);
+  const userExchangeCount = useMemo(
+    () => messages.filter((m) => m.role === 'user').length,
+    [messages]
+  );
+
+  const renderMessage = useCallback(({ item, index }: { item: typeof messages[number]; index: number }) => {
+    // In focus mode, only show the last 2 messages (index 0 and 1 in inverted list)
+    const isVisible = !isFocusMode || index <= 1;
+
+    const bubble = (
+      <MessageBubble
+        content={item.content}
+        role={item.role as 'user' | 'assistant'}
+        persona={item.role === 'assistant' ? persona : undefined}
+        audioUrl={item.audio_url}
+        onPlayAudio={
+          item.role === 'assistant' && preferences?.tts_enabled
+            ? () => handlePlayAudio(item.audio_url, item.content)
+            : undefined
+        }
+        isPlaying={isPlaying}
+        timestamp={item.created_at}
+        responseTimeMs={item.response_time_ms}
+        immersiveMode={showImmersiveLayout}
+        metadata={item.metadata}
+        isAdmin={!!profile?.is_admin}
+      />
+    );
+
+    if (isFocusMode) {
+      return (
+        <Animated.View
+          style={{ opacity: isVisible ? 1 : 0 }}
+          {...(isVisible ? { entering: FadeIn.duration(300) } : {})}
+        >
+          {bubble}
+        </Animated.View>
+      );
+    }
+
+    return bubble;
+  }, [persona, preferences?.tts_enabled, handlePlayAudio, isPlaying, showImmersiveLayout, profile?.is_admin, isFocusMode]);
 
   const listFooter = useMemo(() => (
     isSending ? <TypingIndicator persona={persona} /> : null
@@ -501,20 +525,45 @@ export default function ChatScreen() {
 
         {/* Messages or Full-screen Hero */}
         {chatStarted ? (
-          isFocusMode ? (
-            <FocusModeChat
-              messages={messages}
-              persona={persona}
-              isSending={isSending}
-              immersiveMode={showImmersiveLayout}
-              isAdmin={!!profile?.is_admin}
-              preferences={preferences}
-              onPlayAudio={handlePlayAudio}
-              isPlaying={isPlaying}
-              isQAMode={isQAMode}
-              topPadding={showImmersiveLayout ? insets.top + 60 : 16}
-            />
-          ) : (
+          <>
+            {/* Focus mode: scene header + exchange counter above the list */}
+            {isFocusMode && messages.length > 0 && (
+              <View style={{ paddingHorizontal: 16, paddingTop: showImmersiveLayout ? insets.top + 60 : 16 }}>
+                <CollapsibleSceneHeader
+                  message={messages[0]}
+                  persona={persona}
+                  immersiveMode={showImmersiveLayout}
+                  isQAMode={isQAMode}
+                />
+                {userExchangeCount > 0 && (
+                  <View
+                    style={{
+                      alignSelf: 'center',
+                      paddingHorizontal: 14,
+                      paddingVertical: 5,
+                      borderRadius: 12,
+                      backgroundColor: showImmersiveLayout
+                        ? 'rgba(0,0,0,0.4)'
+                        : 'rgba(255,255,255,0.06)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.08)',
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: 'rgba(255,255,255,0.4)',
+                        fontSize: 11,
+                        fontWeight: '600',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Exchange {userExchangeCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
             <FlatList
               ref={flatListRef}
               data={invertedMessages}
@@ -523,7 +572,9 @@ export default function ChatScreen() {
               contentContainerStyle={{
                 padding: 16,
                 paddingTop: 8,
-                paddingBottom: showImmersiveLayout ? insets.top + 60 : 16,
+                paddingBottom: isFocusMode
+                  ? 16
+                  : (showImmersiveLayout ? insets.top + 60 : 16),
               }}
               showsVerticalScrollIndicator={false}
               style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
@@ -533,7 +584,7 @@ export default function ChatScreen() {
               renderItem={renderMessage}
               ListHeaderComponent={listFooter}
             />
-          )
+          </>
         ) : (
           <ChatHeroEmptyState
             persona={persona}
