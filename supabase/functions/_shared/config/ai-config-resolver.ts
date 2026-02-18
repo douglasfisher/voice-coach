@@ -68,6 +68,9 @@ export interface ResolvedAIConfig {
   // Coaching prompts from DB
   coaching_prompts?: DBCoachingPrompts;
 
+  // Emotional progression
+  emotional_progression_active: boolean;
+
   // Response style
   response_style: AIResponseStyle;
 
@@ -309,6 +312,7 @@ export async function resolveAIConfig(
 
   // 5. Build the full system prompt with modifiers
   let fullSystemPrompt: string;
+  let emotionalProgressionActive = false;
 
   // Check if this is a coaching task and we have coaching context
   const isCoachingTask = task === 'coaching' || task === 'coaching_feedback';
@@ -318,7 +322,6 @@ export async function resolveAIConfig(
     // Resolve emotional progression if applicable
     const effectivePhase = (coaching.currentPhase as SessionPhase) || 'roleplay';
     let emotionalProgression: string | undefined;
-
     if (
       personaEmotionalProgressionEnabled &&
       effectivePhase === 'roleplay' &&
@@ -330,6 +333,7 @@ export async function resolveAIConfig(
       emotionalProgression = dbEmotionalProgressions.template
         .replace('{{starting_stage}}', demeanor.starting_stage)
         .replace('{{stages}}', demeanor.stages);
+      emotionalProgressionActive = true;
     }
 
     // Build coaching-specific prompt
@@ -363,6 +367,7 @@ export async function resolveAIConfig(
     report_system_prompt: dbReportPrompt,
     scene_template: dbSceneTemplate,
     coaching_prompts: dbCoachingPrompts,
+    emotional_progression_active: emotionalProgressionActive,
     response_style: responseStyle,
     cost_per_million_input: costConfig.input,
     cost_per_million_output: costConfig.output,

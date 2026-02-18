@@ -993,7 +993,7 @@ Generate a comprehensive session report.`;
     });
 
     // Helper to call Groq using resolved config
-    async function callGroq(messages: GroqMessage[]) {
+    async function callGroq(messages: GroqMessage[], responseFormat?: { type: string }) {
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -1007,6 +1007,7 @@ Generate a comprehensive session report.`;
           top_p: config.top_p,
           max_tokens: config.max_completion_tokens,
           stop: config.stop,
+          ...(responseFormat ? { response_format: responseFormat } : {}),
         }),
       });
 
@@ -1300,27 +1301,50 @@ Generate a comprehensive session report.`;
       created_at: userMessageCreatedAt,
     });
 
-    // Generate response
-    const groqResponse = await callGroq([
-      { role: 'system', content: config.full_system_prompt },
-      ...history,
-      { role: 'user', content: userMessage! },
-    ]);
+    // Generate response — use JSON mode when emotional progression is active
+    const hasEmotionalProgression = config.emotional_progression_active;
+    const groqResponse = await callGroq(
+      [
+        { role: 'system', content: config.full_system_prompt },
+        ...history,
+        { role: 'user', content: userMessage! },
+      ],
+      hasEmotionalProgression ? { type: 'json_object' } : undefined
+    );
 
-    let assistantMessage = groqResponse.choices[0]?.message?.content || '';
-
-    // Parse and strip emotional state tag from AI response
-    // Handles variations: [STATE:2:NAME], (STATE:2:NAME), ( STATE:2:NAME), etc.
+    let assistantMessage = '';
     let messageMetadata: Record<string, unknown> | null = null;
-    const stateTagMatch = assistantMessage.match(/[\[\(]\s*STATE:(\d+):([A-Z_]+)\s*[\]\)]\s*$/);
-    if (stateTagMatch) {
-      assistantMessage = assistantMessage.replace(/[\[\(]\s*STATE:\d+:[A-Z_]+\s*[\]\)]\s*$/, '').trimEnd();
-      messageMetadata = {
-        emotional_stage: {
-          number: parseInt(stateTagMatch[1], 10),
-          name: stateTagMatch[2],
-        },
-      };
+
+    const rawContent = groqResponse.choices[0]?.message?.content || '';
+
+    if (hasEmotionalProgression) {
+      try {
+        const parsed = JSON.parse(rawContent);
+        assistantMessage = parsed.message || rawContent;
+        if (parsed.emotional_state) {
+          messageMetadata = {
+            emotional_stage: {
+              number: parsed.emotional_state.stage,
+              name: parsed.emotional_state.name,
+            },
+          };
+        }
+      } catch {
+        // Fallback: treat as plain text, try regex strip
+        assistantMessage = rawContent;
+        const stateTagMatch = assistantMessage.match(/[\[\(]\s*STATE:(\d+):([A-Z_]+)\s*[\]\)]\s*$/);
+        if (stateTagMatch) {
+          assistantMessage = assistantMessage.replace(/[\[\(]\s*STATE:\d+:[A-Z_]+\s*[\]\)]\s*$/, '').trimEnd();
+          messageMetadata = {
+            emotional_stage: {
+              number: parseInt(stateTagMatch[1], 10),
+              name: stateTagMatch[2],
+            },
+          };
+        }
+      }
+    } else {
+      assistantMessage = rawContent;
     }
 
     // Add AI usage metadata to the message
