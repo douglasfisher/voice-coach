@@ -412,6 +412,7 @@ serve(async (req) => {
 
     // Handle batch challenge generation (10 challenges per day)
     if (generateChallengeBatch) {
+      console.log('[challenges] Batch generation started, refresh:', !!refreshChallengeBatch);
       // Check if we already have today's batch (unless admin is forcing refresh)
       if (!refreshChallengeBatch) {
         const { data: existingBatch } = await supabase
@@ -441,6 +442,7 @@ serve(async (req) => {
         .eq('persona_type', 'coach')
         .eq('is_active', true);
 
+      console.log('[challenges] Found', allCoaches?.length || 0, 'active coaches');
       if (!allCoaches || allCoaches.length === 0) {
         return new Response(
           JSON.stringify({ error: 'No active coaches found' }),
@@ -506,41 +508,55 @@ serve(async (req) => {
         task: 'challenge',
       });
 
-      const challengeResponse = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [
-            { role: 'system', content: challengePrompt },
-            { role: 'user', content: 'Generate 10 unique, thought-provoking questions for today. Each should cover a different topic area.' },
-          ],
-          temperature: 0.9,
-          max_tokens: 1500,
-        }),
-      });
-
-      if (!challengeResponse.ok) {
-        throw new Error(`Groq API error: ${challengeResponse.status}`);
-      }
-
-      const challengeData = await challengeResponse.json();
-      const content = challengeData.choices[0]?.message?.content || '';
-
       let challenges: { question: string; topic: string }[] = [];
       try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
-        challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
-      } catch {
-        // Fallback: single challenge
-        challenges = [{
-          question: "What belief do you hold that you've never seriously questioned?",
-          topic: 'Self-Reflection',
-        }];
+        console.log('[challenges] Calling Groq API with model:', config.model);
+        const challengeResponse = await fetch(GROQ_API_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: config.model,
+            messages: [
+              { role: 'system', content: challengePrompt },
+              { role: 'user', content: 'Generate 10 unique, thought-provoking questions for today. Each should cover a different topic area.' },
+            ],
+            temperature: 0.9,
+            max_tokens: 1500,
+          }),
+        });
+
+        if (!challengeResponse.ok) {
+          const errBody = await challengeResponse.text();
+          console.error('[challenges] Groq API error:', challengeResponse.status, errBody);
+          return new Response(
+            JSON.stringify({ error: 'Challenge generation failed', details: `Groq API error: ${challengeResponse.status}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const challengeData = await challengeResponse.json();
+        const content = challengeData.choices[0]?.message?.content || '';
+
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+          challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
+        } catch {
+          challenges = [{
+            question: "What belief do you hold that you've never seriously questioned?",
+            topic: 'Self-Reflection',
+          }];
+        }
+        console.log('[challenges] Parsed', challenges.length, 'challenges from Groq response');
+      } catch (groqError) {
+        console.error('[challenges] Generation failed:', groqError);
+        return new Response(
+          JSON.stringify({ error: 'Challenge generation failed', details: String(groqError) }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       // Attach persona info to each challenge (round-robin assignment)
@@ -558,10 +574,16 @@ serve(async (req) => {
       };
 
       // Upsert into app_settings
-      await supabase
+      const { error: upsertError } = await supabase
         .from('app_settings')
         .update({ value: batch })
         .eq('key', 'daily_challenges_batch');
+
+      if (upsertError) {
+        console.error('[challenges] DB update failed:', upsertError);
+      } else {
+        console.log('[challenges] Batch saved successfully,', enrichedChallenges.length, 'challenges');
+      }
 
       return new Response(
         JSON.stringify(batch),

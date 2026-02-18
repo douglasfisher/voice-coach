@@ -143,13 +143,15 @@ function RefreshChallengesButton() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const { error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await supabase.functions.invoke('chat', {
         body: { generateChallengeBatch: true, refreshChallengeBatch: true },
       });
       if (error) throw error;
-      Alert.alert('Success', 'Daily challenges have been refreshed.');
-    } catch (err) {
-      Alert.alert('Error', 'Failed to refresh challenges. Please try again.');
+      const count = data?.challenges?.length || 0;
+      Alert.alert('Success', `${count} daily challenges have been refreshed.`);
+    } catch (err: any) {
+      const msg = err?.message || err?.context?.body || 'Unknown error';
+      Alert.alert('Error', `Failed to refresh challenges: ${msg}`);
       console.error('Refresh challenges error:', err);
     } finally {
       setIsRefreshing(false);
