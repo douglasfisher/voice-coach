@@ -106,7 +106,7 @@ function FocusMessageWrapper({ isVisible, children }: { isVisible: boolean; chil
     if (!isMounted.current) {
       // First mount: animate from 0 to full height
       isMounted.current = true;
-      maxHeight.value = withTiming(1000, { duration: 600, easing: Easing.out(Easing.cubic) });
+      maxHeight.value = withTiming(1000, { duration: 1200, easing: Easing.out(Easing.cubic) });
     }
   }, []);
 
