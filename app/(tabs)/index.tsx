@@ -856,6 +856,7 @@ export default function HomeScreen() {
         visible={selectedPersona !== null}
         onClose={() => setSelectedPersona(null)}
         onChallenge={handlePersonaChallenge}
+        onPersonaUpdated={(p) => setSelectedPersona(p)}
       />
 
       {/* Creating session overlay */}

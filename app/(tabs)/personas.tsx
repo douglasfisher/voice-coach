@@ -311,6 +311,7 @@ export default function PersonasScreen() {
         visible={selectedPersona !== null}
         onClose={() => setSelectedPersona(null)}
         onChallenge={handleChallenge}
+        onPersonaUpdated={(p) => setSelectedPersona(p)}
       />
 
       {isCreating && (
