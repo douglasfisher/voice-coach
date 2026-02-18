@@ -6,7 +6,8 @@ import {
   Pressable,
   ScrollView,
   ActivityIndicator,
-  Platform,
+  Image,
+  ImageSourcePropType,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Save } from 'lucide-react-native';
@@ -46,6 +47,7 @@ const STEP_COMPONENTS: Record<number, React.ComponentType> = {
 interface PersonaEditModalProps {
   personaId: string;
   personaName: string;
+  currentAvatarSource?: ImageSourcePropType;
   visible: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -54,6 +56,7 @@ interface PersonaEditModalProps {
 export function PersonaEditModal({
   personaId,
   personaName,
+  currentAvatarSource,
   visible,
   onClose,
   onSaved,
@@ -62,6 +65,7 @@ export function PersonaEditModal({
   const [isSaving, setIsSaving] = useState(false);
   const currentStep = useWizardStore((s) => s.currentStep);
   const isLoadingPersona = useWizardStore((s) => s.isLoadingPersona);
+  const hiResUrl = useWizardStore((s) => s.avatar.hiResUrl);
   const goToStep = useWizardStore((s) => s.goToStep);
   const loadPersona = useWizardStore((s) => s.loadPersona);
   const savePersona = useWizardStore((s) => s.savePersona);
@@ -214,6 +218,34 @@ export function PersonaEditModal({
             contentContainerStyle={{ paddingBottom: 40 }}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Show current avatar on Avatar tab when no Supabase Storage URL exists */}
+            {currentStep === 0 && !hiResUrl && currentAvatarSource && (
+              <View style={{ padding: 16, paddingBottom: 0 }}>
+                <Text
+                  style={{
+                    color: '#4ade80',
+                    fontSize: 12,
+                    fontWeight: '600',
+                    letterSpacing: 1,
+                    marginBottom: 10,
+                    textAlign: 'center',
+                  }}
+                >
+                  CURRENT AVATAR
+                </Text>
+                <Image
+                  source={currentAvatarSource}
+                  style={{
+                    width: '100%',
+                    aspectRatio: 896 / 1152,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: '#4ade80',
+                  }}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
             {StepComponent && <StepComponent />}
           </ScrollView>
         )}

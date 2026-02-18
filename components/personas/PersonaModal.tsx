@@ -390,6 +390,7 @@ export function PersonaModal({
           <PersonaEditModal
             personaId={persona.id}
             personaName={persona.name}
+            currentAvatarSource={imageSource as ImageSourcePropType}
             visible={editModalVisible}
             onClose={() => setEditModalVisible(false)}
             onSaved={() => {
