@@ -445,12 +445,22 @@ export default function ProfileScreen() {
           </LinearGradient>
         </View>
 
-        {/* Voice Settings */}
+        {/* Read Aloud (Native TTS) */}
+        <SettingToggle
+          icon={MessageSquareText}
+          iconColor="#a78bfa"
+          title="Read Aloud"
+          description="AI responses are spoken using your device voice"
+          value={nativeTtsEnabled}
+          onValueChange={toggleNativeTts}
+        />
+
+        {/* ElevenLabs Voice Responses (Premium) */}
         <SettingToggle
           icon={Volume2}
           iconColor="#60a5fa"
-          title="Voice Responses"
-          description="Hear personas speak their responses"
+          title="ElevenLabs Voice"
+          description="Premium realistic voice responses"
           value={ttsEnabled}
           onValueChange={toggleTTS}
         />
@@ -485,16 +495,6 @@ export default function ProfileScreen() {
           description="Show chat messages overlaid on persona image"
           value={immersiveChatEnabled}
           onValueChange={toggleImmersiveChat}
-        />
-
-        {/* Read Aloud (Native TTS) */}
-        <SettingToggle
-          icon={MessageSquareText}
-          iconColor="#a78bfa"
-          title="Read Aloud"
-          description="AI responses are spoken using your device voice"
-          value={nativeTtsEnabled}
-          onValueChange={toggleNativeTts}
         />
 
         {/* Dating Preferences */}
