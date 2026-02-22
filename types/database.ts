@@ -235,6 +235,7 @@ export interface Database {
           feedback_style: string;
           emotional_progression_enabled: boolean;
           prompt_sections: Record<string, string> | null;
+          mode_prompts: { qa_roleplay?: string; coaching_chat?: string; feedback?: string } | null;
           age_range: string | null;
           gender: 'male' | 'female';
         };
@@ -281,6 +282,7 @@ export interface Database {
           feedback_style?: string;
           emotional_progression_enabled?: boolean;
           prompt_sections?: Record<string, string> | null;
+          mode_prompts?: { qa_roleplay?: string; coaching_chat?: string; feedback?: string } | null;
           age_range?: string | null;
           gender?: 'male' | 'female';
         };
@@ -327,6 +329,7 @@ export interface Database {
           feedback_style?: string;
           emotional_progression_enabled?: boolean;
           prompt_sections?: Record<string, string> | null;
+          mode_prompts?: { qa_roleplay?: string; coaching_chat?: string; feedback?: string } | null;
           age_range?: string | null;
           gender?: 'male' | 'female';
         };

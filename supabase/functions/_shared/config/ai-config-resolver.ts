@@ -193,7 +193,7 @@ export async function resolveAIConfig(
   if (personaId) {
     const { data: persona, error: personaError } = await supabase
       .from('personas')
-      .select('ai_config, system_prompt, persona_type, coaching_style, feedback_style, default_interaction_mode, emotional_progression_enabled, age_range')
+      .select('ai_config, system_prompt, mode_prompts, persona_type, coaching_style, feedback_style, default_interaction_mode, emotional_progression_enabled, age_range')
       .eq('id', personaId)
       .single();
 
@@ -257,6 +257,32 @@ export async function resolveAIConfig(
       }
       // Clean up any unreplaced tokens (no trait selected = remove placeholder)
       personaPrompt = personaPrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+      // Resolve mode-specific prompt override if available
+      const modePrompts = persona.mode_prompts as Record<string, string> | null;
+      if (modePrompts && coaching) {
+        let modeKey: string | null = null;
+        if (coaching.currentPhase === 'feedback') {
+          modeKey = 'feedback';
+        } else if (coaching.interactionMode === 'question_mode') {
+          modeKey = 'qa_roleplay';
+        } else if (coaching.interactionMode) {
+          modeKey = 'coaching_chat';
+        }
+
+        if (modeKey && modePrompts[modeKey]) {
+          let modePrompt = modePrompts[modeKey];
+          // Apply same token replacement to mode prompt
+          if (persona.age_range) {
+            modePrompt = modePrompt.replaceAll('{{age_range}}', persona.age_range);
+          }
+          for (const [key, value] of Object.entries(mergedTokens)) {
+            modePrompt = modePrompt.replaceAll(`{{${key}}}`, value || '');
+          }
+          modePrompt = modePrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
+          personaPrompt = modePrompt;
+        }
+      }
 
       // Extract coaching-specific persona fields
       if (persona.persona_type === 'coach') {

@@ -125,6 +125,7 @@ export default function AdminPersonaEditScreen() {
     feedback_style: 'sandwich',
     emotional_progression_enabled: false,
     prompt_sections: null,
+    mode_prompts: null,
     age_range: null,
     gender: 'male' as const,
   });
@@ -191,6 +192,7 @@ export default function AdminPersonaEditScreen() {
         feedback_style: selectedPersona.feedback_style || 'sandwich',
         emotional_progression_enabled: selectedPersona.emotional_progression_enabled ?? false,
         prompt_sections: selectedPersona.prompt_sections || null,
+        mode_prompts: selectedPersona.mode_prompts || null,
         age_range: selectedPersona.age_range || null,
         gender: (selectedPersona.gender as 'male' | 'female') || 'male',
       });

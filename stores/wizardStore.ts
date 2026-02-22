@@ -165,6 +165,7 @@ const DEFAULT_FORM_DATA: WizardFormData = {
   feedback_style: 'sandwich',
   emotional_progression_enabled: false,
   prompt_sections: null,
+  mode_prompts: null,
   age_range: null,
   gender: 'male' as const,
 };
@@ -363,6 +364,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         feedback_style: persona.feedback_style || 'sandwich',
         emotional_progression_enabled: persona.emotional_progression_enabled ?? false,
         prompt_sections: persona.prompt_sections || null,
+        mode_prompts: persona.mode_prompts || null,
         age_range: persona.age_range || null,
         gender: (persona.gender as 'male' | 'female') || 'male',
       };
