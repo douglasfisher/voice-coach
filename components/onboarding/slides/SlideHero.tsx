@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Image, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { resolvePersonaAvatar } from '../../../lib/personaImages';
 import { ParticleField } from '../ParticleField';
 import { SPRING_GENTLE, STAGGER_GAP, EASE_ENTER } from '../../../constants/animations';
+import { supabase } from '../../../lib/supabase';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -20,6 +21,21 @@ interface SlideHeroProps {
 }
 
 export function SlideHero({ isActive }: SlideHeroProps) {
+  const [counts, setCounts] = useState({ coaches: 0, challengers: 0, domains: 0 });
+
+  useEffect(() => {
+    (async () => {
+      const [personaRes, domainRes] = await Promise.all([
+        supabase.from('personas').select('persona_type', { count: 'exact', head: false }).eq('is_active', true),
+        supabase.from('coaching_domains').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      ]);
+      const rows = personaRes.data || [];
+      const coaches = rows.filter((r: { persona_type: string }) => r.persona_type === 'coach').length;
+      const challengers = rows.filter((r: { persona_type: string }) => r.persona_type === 'challenger').length;
+      setCounts({ coaches, challengers, domains: domainRes.count || 0 });
+    })();
+  }, []);
+
   const bgScale = useSharedValue(1.0);
   const eyebrowOpacity = useSharedValue(0);
   const eyebrowY = useSharedValue(15);
@@ -173,7 +189,7 @@ export function SlideHero({ isActive }: SlideHeroProps) {
             subtitleStyle,
           ]}
         >
-          28 expert coaches across 6 real-world domains
+          {counts.coaches + counts.challengers} expert coaches across {counts.domains} real-world domains
         </Animated.Text>
       </View>
     </View>
