@@ -253,6 +253,12 @@ export default function PersonasScreen() {
               <Text style={{ color: '#6E6E73' }}>No challengers match this filter</Text>
             </View>
           }
+          ListFooterComponent={
+            <View style={{ height: headerHeight + 40, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 32, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 6 }} />
+              <Text style={{ color: 'rgba(255,255,255,0.15)', fontSize: 11 }}>You've seen them all</Text>
+            </View>
+          }
         />
       ) : (
         <Animated.ScrollView
