@@ -1393,15 +1393,36 @@ Rules for intake options:
     let intakeSystemSuffix = '';
     if (isAdvisorIntake) {
       const round = body.intakeSelections!.intakeRound;
-      intakeSystemSuffix = `
+      const shouldEndIntake = round >= 3;
 
-INTAKE ROUND: ${round}. The user just answered a multiple-choice clarifying question.
+      if (shouldEndIntake) {
+        // Round 3+: MUST stop asking MC questions and start giving advice
+        intakeSystemSuffix = `
 
-If you need more context to give good advice (typically 2-3 rounds total), respond in this JSON format:
+INTAKE COMPLETE (round ${round}). You now have enough context from the user's answers.
+
+You MUST now respond with initial advice. Do NOT include an "intake" field. Respond in JSON:
 {
-  "message": "Your acknowledgment and follow-up text",
+  "message": "Your response here"
+}
+
+Your response should:
+1. Briefly acknowledge what they've shared (1 sentence)
+2. Offer your initial perspective, insight, or advice (2-3 sentences)
+3. End with ONE open-ended follow-up question to go deeper (the user will type their answer from here)
+
+Do NOT ask another multiple-choice question. The intake phase is over. Transition to natural conversation.`;
+      } else {
+        // Round 1-2: can ask one more MC question
+        intakeSystemSuffix = `
+
+INTAKE ROUND: ${round} of 2-3. The user just answered a multiple-choice clarifying question.
+
+Respond in JSON. You may ask ONE more clarifying MC question to narrow down their situation:
+{
+  "message": "Brief acknowledgment of their answer + your follow-up",
   "intake": {
-    "question": "Accessible label for the next question",
+    "question": "Short question label",
     "options": [
       { "id": "snake_case_id", "label": "Human readable label" }
     ],
@@ -1409,16 +1430,17 @@ If you need more context to give good advice (typically 2-3 rounds total), respo
   }
 }
 
-If you now have enough context to start advising (usually after 2-3 rounds), respond in this JSON format WITHOUT the intake field:
+OR if you already have enough context, skip intake and start advising:
 {
-  "message": "Your advice and response here, transitioning to freeform conversation"
+  "message": "Your acknowledgment + initial advice + open-ended follow-up question"
 }
 
 Rules:
-- Always include "message" with your conversational response
-- Only include "intake" if you need more clarification
-- Keep options to 3-6 choices, relevant to what the user just told you
-- After round 3, you should usually have enough context — stop asking and start advising`;
+- "message" should acknowledge their choice warmly (not just repeat it)
+- If asking another MC question, make it dig deeper into their specific situation (not broad categories again)
+- 3-5 options max, specific and actionable
+- multiSelect: true only if multiple answers genuinely make sense`;
+      }
     }
 
     const systemPromptForCall = isAdvisorIntake
