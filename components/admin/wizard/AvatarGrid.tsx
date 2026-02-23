@@ -29,23 +29,25 @@ function SkeletonCell() {
   }));
 
   return (
-    <Animated.View
-      style={[
-        {
-          width: '48.5%',
-          aspectRatio: IMAGE_ASPECT_RATIO,
-          borderRadius: 12,
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.08)',
-        },
-        animatedStyle,
-      ]}
-    >
-      <ActivityIndicator size="small" color="rgba(255,255,255,0.3)" />
-    </Animated.View>
+    <View style={{ width: '48.5%', aspectRatio: IMAGE_ASPECT_RATIO }}>
+      <Animated.View
+        style={[
+          {
+            width: '100%',
+            height: '100%',
+            borderRadius: 12,
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.08)',
+          },
+          animatedStyle,
+        ]}
+      >
+        <ActivityIndicator size="small" color="rgba(255,255,255,0.3)" />
+      </Animated.View>
+    </View>
   );
 }
 
