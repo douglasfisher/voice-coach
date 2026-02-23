@@ -1,7 +1,7 @@
 import { View, Text, Pressable, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap, Lightbulb, HelpCircle } from 'lucide-react-native';
-import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS, ADVISORY_STYLE_LABELS } from '../../types/persona';
 import { useChatStore } from '../../stores/chatStore';
 import { TraitCategory, TraitOption, TraitSelection } from '../../types/coaching';
 import { TraitPicker } from './TraitPicker';
@@ -128,7 +128,9 @@ export function ChatHeroEmptyState({
     : persona.avatarUrl;
 
   // Get style label based on persona type
-  const styleLabel = isCoach && persona.coachingStyle
+  const styleLabel = isAdvisor && persona.coachingStyle
+    ? ADVISORY_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
+    : isCoach && persona.coachingStyle
     ? COACHING_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
     : CHALLENGE_STYLE_LABELS[persona.challengeStyle];
 
@@ -191,8 +193,8 @@ export function ChatHeroEmptyState({
             </Text>
           </View>
 
-          {/* Q&A Mode badge */}
-          {isQAMode && (
+          {/* Q&A Mode badge (not shown for advisors — they're always in advisor mode) */}
+          {isQAMode && !isAdvisor && (
             <View
               style={{
                 flexDirection: 'row',
@@ -224,9 +226,47 @@ export function ChatHeroEmptyState({
           />
         )}
 
-        {/* Advisor mode: Simple prompt */}
+        {/* Advisor mode: Show tagline, specialties, and prompt */}
         {isAdvisor ? (
           <View style={{ marginBottom: 20 }}>
+            {/* Tagline */}
+            {persona.tagline && (
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  marginBottom: 12,
+                  fontStyle: 'italic',
+                }}
+              >
+                {persona.tagline}
+              </Text>
+            )}
+
+            {/* Specialty areas */}
+            {persona.specialtyAreas.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                {persona.specialtyAreas.map((area) => (
+                  <View
+                    key={area}
+                    style={{
+                      backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: 'rgba(139, 92, 246, 0.3)',
+                    }}
+                  >
+                    <Text style={{ color: '#c4b5fd', fontSize: 12, fontWeight: '500' }}>
+                      {area}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <Text
               style={{
                 color: '#fff',

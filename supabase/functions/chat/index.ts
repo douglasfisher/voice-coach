@@ -1034,9 +1034,22 @@ Generate a comprehensive session report.`;
       return response.json();
     }
 
+    // Look up persona type for advisor-specific behavior
+    let cachedPersonaType: string | null = null;
+    {
+      const { data: ptData } = await supabase
+        .from('personas')
+        .select('persona_type')
+        .eq('id', personaId)
+        .single();
+      cachedPersonaType = ptData?.persona_type || null;
+    }
+
     // Helper to generate opening question
     async function generateQuestion() {
-      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max). Be direct and intriguing. No introduction - just the question.`;
+      const questionPrompt = cachedPersonaType === 'advisor'
+        ? `Introduce yourself briefly (1 sentence) and ask 1-2 clarifying questions to understand the user's situation. Be warm and professional. No roleplay — you are an advisor.`
+        : `Ask ONE thought-provoking opening question (1-2 sentences max). Be direct and intriguing. No introduction - just the question.`;
 
       return callGroq([
         { role: 'system', content: config.full_system_prompt },
