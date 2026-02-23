@@ -825,6 +825,16 @@ export default function AdminPersonasScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Bottom spacer — gives the last card room to be swiped */}
+            {filteredPersonas.length > 0 && (
+              <View style={{ alignItems: 'center', paddingTop: 24, paddingBottom: 80 }}>
+                <View style={{ width: 40, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 8 }} />
+                <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>
+                  {filteredPersonas.length} persona{filteredPersonas.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
           </>
         )}
       </ScrollView>
