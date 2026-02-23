@@ -78,6 +78,7 @@ interface ChatState {
   // Screen filter preferences (persisted)
   coachesActiveDomain: string;
   challengersActiveFilter: ChallengeStyle | 'all';
+  advisorsActiveCategory: string;
 
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
@@ -120,6 +121,7 @@ interface ChatState {
   // Filter actions
   setCoachesActiveDomain: (domain: string) => void;
   setChallengersActiveFilter: (filter: ChallengeStyle | 'all') => void;
+  setAdvisorsActiveCategory: (category: string) => void;
   // Logout cleanup
   clearAllState: () => void;
 }
@@ -180,6 +182,7 @@ export const useChatStore = create<ChatState>()(
   // Screen filter preferences
   coachesActiveDomain: 'all',
   challengersActiveFilter: 'all',
+  advisorsActiveCategory: 'all',
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
@@ -893,6 +896,10 @@ export const useChatStore = create<ChatState>()(
 
   setChallengersActiveFilter: (filter) => {
     set({ challengersActiveFilter: filter });
+  },
+
+  setAdvisorsActiveCategory: (category) => {
+    set({ advisorsActiveCategory: category });
   },
 
   clearAllState: () => {

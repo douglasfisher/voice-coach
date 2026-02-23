@@ -18,9 +18,11 @@ interface PersonaState {
   getCoachesByDomain: (domainId: string) => PersonaDisplay[];
   getChallengers: () => PersonaDisplay[];
   getCoaches: () => PersonaDisplay[];
+  getAdvisors: () => PersonaDisplay[];
+  getAdvisorsByCategory: (categoryId: string) => PersonaDisplay[];
 }
 
-function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'challenge_style' | 'specialty_areas' | 'cultural_background' | 'warmth' | 'directness' | 'patience' | 'humor' | 'formality' | 'voice_provider' | 'voice_id' | 'voice_speed' | 'voice_pitch' | 'voice_stability' | 'persona_type' | 'domain_id' | 'coaching_style' | 'default_interaction_mode' | 'feedback_style' | 'avatar_url' | 'avatar_thumbnail_url' | 'gender'>): PersonaDisplay {
+function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'challenge_style' | 'specialty_areas' | 'cultural_background' | 'warmth' | 'directness' | 'patience' | 'humor' | 'formality' | 'voice_provider' | 'voice_id' | 'voice_speed' | 'voice_pitch' | 'voice_stability' | 'persona_type' | 'domain_id' | 'coaching_style' | 'default_interaction_mode' | 'feedback_style' | 'avatar_url' | 'avatar_thumbnail_url' | 'gender'> & { advisor_category_id?: string | null }): PersonaDisplay {
   return {
     id: persona.id,
     name: persona.name,
@@ -53,6 +55,7 @@ function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'ch
     defaultInteractionMode: (persona.default_interaction_mode as InteractionMode) || 'coach_leads',
     feedbackStyle: (persona.feedback_style as FeedbackStyle) || 'sandwich',
     gender: (persona.gender as 'male' | 'female') || 'male',
+    advisorCategoryId: persona.advisor_category_id || null,
   };
 }
 
@@ -66,7 +69,7 @@ export const usePersonaStore = create<PersonaState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('personas')
-        .select('id, name, tagline, challenge_style, specialty_areas, cultural_background, warmth, directness, patience, humor, formality, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability, persona_type, domain_id, coaching_style, default_interaction_mode, feedback_style, avatar_url, avatar_thumbnail_url, sort_order, gender')
+        .select('id, name, tagline, challenge_style, specialty_areas, cultural_background, warmth, directness, patience, humor, formality, voice_provider, voice_id, voice_speed, voice_pitch, voice_stability, persona_type, domain_id, advisor_category_id, coaching_style, default_interaction_mode, feedback_style, avatar_url, avatar_thumbnail_url, sort_order, gender')
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
 
@@ -105,5 +108,15 @@ export const usePersonaStore = create<PersonaState>((set, get) => ({
 
   getCoaches: () => {
     return get().personas.filter((p) => p.personaType === 'coach');
+  },
+
+  getAdvisors: () => {
+    return get().personas.filter((p) => p.personaType === 'advisor');
+  },
+
+  getAdvisorsByCategory: (categoryId) => {
+    return get().personas.filter(
+      (p) => p.personaType === 'advisor' && p.advisorCategoryId === categoryId
+    );
   },
 }));
