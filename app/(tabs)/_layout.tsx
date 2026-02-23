@@ -1,6 +1,6 @@
 import { Tabs, Redirect } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
-import { Home, Users, GraduationCap, TrendingUp, Settings } from 'lucide-react-native';
+import { Home, Users, GraduationCap, TrendingUp, Lightbulb } from 'lucide-react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { ScrollHideContext } from '../../hooks/useScrollHideAnimation';
 import { AnimatedTabBar } from '../../components/navigation/AnimatedTabBar';
@@ -8,16 +8,17 @@ import { useAuthStore } from '../../stores/authStore';
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const color = focused ? '#F59E0B' : '#6E6E73';
-  // Custom color for coaches tab
+  // Custom colors for typed tabs
   const coachColor = focused ? '#10b981' : '#6E6E73';
+  const advisorColor = focused ? '#8b5cf6' : '#6E6E73';
   const size = 24;
 
   const icons: Record<string, React.ReactNode> = {
     index: <Home size={size} color={color} />,
     personas: <Users size={size} color={color} />,
     coaches: <GraduationCap size={size} color={coachColor} />,
+    advisors: <Lightbulb size={size} color={advisorColor} />,
     growth: <TrendingUp size={size} color={color} />,
-    profile: <Settings size={size} color={color} />,
   };
 
   return (
@@ -90,6 +91,14 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
+          name="advisors"
+          options={{
+            title: 'Advisors',
+            tabBarIcon: ({ focused }) => <TabIcon name="advisors" focused={focused} />,
+            tabBarActiveTintColor: '#8b5cf6',
+          }}
+        />
+        <Tabs.Screen
           name="growth"
           options={{
             title: 'Growth',
@@ -99,8 +108,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Settings',
-            tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} />,
+            href: null,
           }}
         />
         <Tabs.Screen

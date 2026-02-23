@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, Image, ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TrendingUp, Award, ChevronRight, Clock, Sparkles } from 'lucide-react-native';
+import { TrendingUp, Award, ChevronRight, Clock, Sparkles, Settings } from 'lucide-react-native';
 import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { router } from 'expo-router';
 import { useGrowthMetrics } from '../../hooks/useGrowthMetrics';
@@ -169,26 +169,42 @@ export default function GrowthScreen() {
       >
         {/* Header */}
         <View style={{ marginBottom: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <View
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <TrendingUp size={24} color="#F59E0B" />
+              </View>
+              <View>
+                <Text style={{ color: '#fff', fontSize: 28, fontWeight: '700' }}>Your Growth</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 2 }}>
+                  Track your thinking patterns over time
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => router.push('/(tabs)/profile')}
+              hitSlop={8}
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.08)',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginRight: 12,
               }}
             >
-              <TrendingUp size={24} color="#F59E0B" />
-            </View>
-            <View>
-              <Text style={{ color: '#fff', fontSize: 28, fontWeight: '700' }}>Your Growth</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 2 }}>
-                Track your thinking patterns over time
-              </Text>
-            </View>
+              <Settings size={20} color="#9A9A9E" />
+            </Pressable>
           </View>
         </View>
 

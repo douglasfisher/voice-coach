@@ -15,6 +15,8 @@ import {
   Brain,
   RefreshCw,
   GraduationCap,
+  Lightbulb,
+  Settings,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { useChatStore } from '../../stores/chatStore';
@@ -124,7 +126,7 @@ export default function HomeScreen() {
     }
   }, [user?.id, fetchDailyChallenges]);
 
-  // Shuffle coaches and challengers once per mount
+  // Shuffle coaches, challengers, and advisors once per mount
   const shuffledCoaches = useMemo(
     () => shuffle(personas.filter((p) => p.personaType === 'coach')),
     [personas]
@@ -133,11 +135,17 @@ export default function HomeScreen() {
     () => shuffle(personas.filter((p) => p.personaType === 'challenger')),
     [personas]
   );
+  const shuffledAdvisors = useMemo(
+    () => shuffle(personas.filter((p) => p.personaType === 'advisor')),
+    [personas]
+  );
 
   const featuredCoach = shuffledCoaches[0] ?? null;
   const scrollCoaches = shuffledCoaches.slice(1, 7);
   const featuredChallenger = shuffledChallengers[0] ?? null;
   const scrollChallengers = shuffledChallengers.slice(1, 7);
+  const featuredAdvisor = shuffledAdvisors[0] ?? null;
+  const scrollAdvisors = shuffledAdvisors.slice(1, 7);
 
   const activeConversations = conversations.filter((c) => c.status === 'active');
   const recentConversations = conversations.slice(0, 5);
@@ -206,12 +214,31 @@ export default function HomeScreen() {
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 12 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>{greeting}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            <LevelBadge level={profile?.current_level ?? 1} size="md" />
-            <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginLeft: 8 }}>
-              {displayName}
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16 }}>{greeting}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                <LevelBadge level={profile?.current_level ?? 1} size="md" />
+                <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginLeft: 8 }}>
+                  {displayName}
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => router.push('/(tabs)/profile')}
+              hitSlop={8}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 4,
+              }}
+            >
+              <Settings size={20} color="#9A9A9E" />
+            </Pressable>
           </View>
         </View>
 
@@ -652,6 +679,68 @@ export default function HomeScreen() {
                 See All Coaches
               </Text>
               <ChevronRight size={16} color="#10b981" style={{ marginLeft: 4 }} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Meet the Advisors */}
+        {shuffledAdvisors.length > 0 && (
+          <View style={{ paddingHorizontal: 8, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <Lightbulb size={16} color="#8b5cf6" />
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', letterSpacing: 1, marginLeft: 8 }}>
+                MEET THE ADVISORS
+              </Text>
+            </View>
+
+            {/* Featured Advisor */}
+            {featuredAdvisor && (
+              <PersonaCard
+                persona={featuredAdvisor}
+                onPress={() => setSelectedPersona(featuredAdvisor)}
+                featured
+              />
+            )}
+
+            {/* Advisor Scroll Row */}
+            {scrollAdvisors.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 0, gap: 12 }}
+              >
+                {scrollAdvisors.map((advisor) => (
+                  <View key={advisor.id} style={{ width: 200 }}>
+                    <PersonaCard
+                      persona={advisor}
+                      onPress={() => setSelectedPersona(advisor)}
+                      size="sm"
+                      height={300}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* See All Advisors */}
+            <Pressable
+              onPress={() => router.push('/(tabs)/advisors')}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 14,
+                marginTop: 8,
+                borderRadius: 14,
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                borderWidth: 1,
+                borderColor: 'rgba(139, 92, 246, 0.2)',
+              }}
+            >
+              <Text style={{ color: '#8b5cf6', fontSize: 14, fontWeight: '600' }}>
+                See All Advisors
+              </Text>
+              <ChevronRight size={16} color="#8b5cf6" style={{ marginLeft: 4 }} />
             </Pressable>
           </View>
         )}

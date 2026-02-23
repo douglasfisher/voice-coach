@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl, D
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GraduationCap, Settings } from 'lucide-react-native';
+import { Lightbulb, Settings } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
@@ -19,12 +19,13 @@ import { HEADER_TOP_PADDING } from '../../constants/layout';
 import { HeaderFade } from '../../components/ui/HeaderFade';
 import { shuffleArray } from '../../lib/shuffle';
 
-// Height of header content (title + subtitle + filter pills) without safe area
 const HEADER_CONTENT_HEIGHT = 119;
 const TAB_BAR_HEIGHT = 85;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-interface CoachingDomain {
+const ACCENT = '#8b5cf6';
+
+interface AdvisorCategory {
   id: string;
   slug: string;
   name: string;
@@ -34,7 +35,7 @@ interface CoachingDomain {
   tagline: string | null;
 }
 
-export default function CoachesScreen() {
+export default function AdvisorsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = insets.top + HEADER_CONTENT_HEIGHT;
   const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
@@ -42,8 +43,8 @@ export default function CoachesScreen() {
   const { personas, isLoading: personasLoading } = usePersonas();
   const user = useAuthStore((s) => s.user);
   const createConversation = useChatStore((s) => s.createConversation);
-  const coachesActiveDomain = useChatStore((s) => s.coachesActiveDomain);
-  const setCoachesActiveDomain = useChatStore((s) => s.setCoachesActiveDomain);
+  const advisorsActiveCategory = useChatStore((s) => s.advisorsActiveCategory);
+  const setAdvisorsActiveCategory = useChatStore((s) => s.setAdvisorsActiveCategory);
   const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
   const isSnapMode = fullscreenCardMode === true;
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
@@ -51,8 +52,8 @@ export default function CoachesScreen() {
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaDisplay | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [domains, setDomains] = useState<CoachingDomain[]>([]);
-  const [domainsLoading, setDomainsLoading] = useState(true);
+  const [categories, setCategories] = useState<AdvisorCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [shuffleKey, setShuffleKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const listOpacity = useSharedValue(1);
@@ -60,49 +61,48 @@ export default function CoachesScreen() {
     opacity: listOpacity.value,
   }));
 
-  // Fetch coaching domains
+  // Fetch advisor categories
   useEffect(() => {
-    async function fetchDomains() {
-      setDomainsLoading(true);
+    async function fetchCategories() {
+      setCategoriesLoading(true);
       try {
         const { data, error } = await supabase
-          .from('coaching_domains')
+          .from('advisor_categories')
           .select('*')
           .eq('is_active', true)
           .order('sort_order', { ascending: true });
 
         if (error) throw error;
-        setDomains(data || []);
+        setCategories(data || []);
       } catch (error) {
-        console.error('Failed to fetch coaching domains:', error);
+        console.error('Failed to fetch advisor categories:', error);
       } finally {
-        setDomainsLoading(false);
+        setCategoriesLoading(false);
       }
     }
-    fetchDomains();
+    fetchCategories();
   }, []);
 
-  // Filter to only show coaches
-  const coaches = useMemo(() => personas.filter(p => p.personaType === 'coach'), [personas]);
+  // Filter to only show advisors
+  const advisors = useMemo(() => personas.filter(p => p.personaType === 'advisor'), [personas]);
 
   // Auto-open persona modal when navigated with openPersonaId param
   useEffect(() => {
-    if (openPersonaId && coaches.length > 0) {
-      const match = coaches.find(c => c.id === openPersonaId);
+    if (openPersonaId && advisors.length > 0) {
+      const match = advisors.find(a => a.id === openPersonaId);
       if (match) setSelectedPersona(match);
     }
-  }, [openPersonaId, coaches.length]);
+  }, [openPersonaId, advisors.length]);
 
-  const filteredCoaches = coachesActiveDomain === 'all'
-    ? coaches
-    : coaches.filter(p => p.domainId === coachesActiveDomain);
+  const filteredAdvisors = advisorsActiveCategory === 'all'
+    ? advisors
+    : advisors.filter(p => p.advisorCategoryId === advisorsActiveCategory);
 
-  // Stable key based on actual content so shuffle doesn't re-run on every render
-  const filteredKey = filteredCoaches.map(c => c.id).join(',');
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredKey tracks content; shuffleKey triggers explicit re-shuffle
-  const shuffledCoaches = useMemo(() => shuffleArray(filteredCoaches), [filteredKey, shuffleKey]);
-  const featuredCoach = shuffledCoaches[0];
-  const otherCoaches = shuffledCoaches.slice(1);
+  const filteredKey = filteredAdvisors.map(a => a.id).join(',');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const shuffledAdvisors = useMemo(() => shuffleArray(filteredAdvisors), [filteredKey, shuffleKey]);
+  const featuredAdvisor = shuffledAdvisors[0];
+  const otherAdvisors = shuffledAdvisors.slice(1);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -115,16 +115,10 @@ export default function CoachesScreen() {
     setIsRefreshing(false);
   }, [listOpacity]);
 
-  // Get domain info for display
-  const getDomainName = (domainId: string | 'all'): string => {
-    if (domainId === 'all') return 'All Coaches';
-    const domain = domains.find(d => d.id === domainId);
-    return domain?.name || 'Coaches';
-  };
-
-  const _getDomainColor = (domainId: string): string => {
-    const domain = domains.find(d => d.id === domainId);
-    return domain?.color || '#F59E0B';
+  const getCategoryName = (categoryId: string | 'all'): string => {
+    if (categoryId === 'all') return 'All Advisors';
+    const cat = categories.find(c => c.id === categoryId);
+    return cat?.name || 'Advisors';
   };
 
   const handleChallenge = async (persona: PersonaDisplay) => {
@@ -150,11 +144,11 @@ export default function CoachesScreen() {
     }
   };
 
-  const isLoading = personasLoading || domainsLoading;
+  const isLoading = personasLoading || categoriesLoading;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0F0F12' }}>
-      {/* Floating header — slides fully off screen including safe area */}
+      {/* Floating header */}
       <Animated.View
         style={[
           {
@@ -174,13 +168,13 @@ export default function CoachesScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <GraduationCap size={24} color="#10b981" />
+                <Lightbulb size={24} color={ACCENT} />
                 <Text className="text-text-primary text-2xl font-bold ml-2">
-                  Coaches
+                  Advisors
                 </Text>
               </View>
               <Text className="text-text-secondary mt-1">
-                Practice real-world conversations
+                Get expert advice on any topic
               </Text>
             </View>
             <Pressable
@@ -200,7 +194,7 @@ export default function CoachesScreen() {
           </View>
         </View>
 
-        {/* Domain Filter Pills */}
+        {/* Category Filter Pills */}
         <View style={{ paddingVertical: 12 }}>
           <ScrollView
             horizontal
@@ -209,51 +203,51 @@ export default function CoachesScreen() {
           >
             {/* All filter */}
             <Pressable
-              onPress={() => setCoachesActiveDomain('all')}
+              onPress={() => setAdvisorsActiveCategory('all')}
               style={{
                 paddingHorizontal: 8,
                 paddingVertical: 8,
                 borderRadius: 20,
-                backgroundColor: coachesActiveDomain === 'all' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255,255,255,0.05)',
+                backgroundColor: advisorsActiveCategory === 'all' ? `${ACCENT}33` : 'rgba(255,255,255,0.05)',
                 borderWidth: 1,
-                borderColor: coachesActiveDomain === 'all' ? '#10b981' : 'rgba(255,255,255,0.1)',
+                borderColor: advisorsActiveCategory === 'all' ? ACCENT : 'rgba(255,255,255,0.1)',
               }}
             >
               <Text
                 style={{
                   fontSize: 14,
                   fontWeight: '500',
-                  color: coachesActiveDomain === 'all' ? '#10b981' : '#9A9A9E'
+                  color: advisorsActiveCategory === 'all' ? ACCENT : '#9A9A9E'
                 }}
               >
                 All
               </Text>
             </Pressable>
 
-            {/* Domain filters */}
-            {domains.map((domain) => {
-              const isActive = coachesActiveDomain === domain.id;
+            {/* Category filters */}
+            {categories.map((cat) => {
+              const isActive = advisorsActiveCategory === cat.id;
               return (
                 <Pressable
-                  key={domain.id}
-                  onPress={() => setCoachesActiveDomain(domain.id)}
+                  key={cat.id}
+                  onPress={() => setAdvisorsActiveCategory(cat.id)}
                   style={{
                     paddingHorizontal: 8,
                     paddingVertical: 8,
                     borderRadius: 20,
-                    backgroundColor: isActive ? `${domain.color}20` : 'rgba(255,255,255,0.05)',
+                    backgroundColor: isActive ? `${cat.color}20` : 'rgba(255,255,255,0.05)',
                     borderWidth: 1,
-                    borderColor: isActive ? domain.color : 'rgba(255,255,255,0.1)',
+                    borderColor: isActive ? cat.color : 'rgba(255,255,255,0.1)',
                   }}
                 >
                   <Text
                     style={{
                       fontSize: 14,
                       fontWeight: '500',
-                      color: isActive ? domain.color : '#9A9A9E'
+                      color: isActive ? cat.color : '#9A9A9E'
                     }}
                   >
-                    {domain.name}
+                    {cat.name}
                   </Text>
                 </Pressable>
               );
@@ -262,7 +256,7 @@ export default function CoachesScreen() {
         </View>
       </Animated.View>
 
-      {/* Fade gradient — fixed below status bar, always visible */}
+      {/* Fade gradient */}
       <View
         style={{
           position: 'absolute',
@@ -278,11 +272,11 @@ export default function CoachesScreen() {
 
       {isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color="#10b981" />
+          <ActivityIndicator size="large" color={ACCENT} />
         </View>
       ) : isSnapMode ? (
         <Animated.FlatList
-          data={shuffledCoaches}
+          data={shuffledAdvisors}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={{ height: snapCardHeight, paddingHorizontal: 8, paddingBottom: 16 }}>
@@ -310,10 +304,10 @@ export default function CoachesScreen() {
           maxToRenderPerBatch={3}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#10b981" progressViewOffset={headerHeight} />}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={ACCENT} progressViewOffset={headerHeight} />}
           ListEmptyComponent={
             <View style={{ paddingVertical: 80, alignItems: 'center' }}>
-              <Text style={{ color: '#6E6E73' }}>No coaches available in this category</Text>
+              <Text style={{ color: '#6E6E73' }}>No advisors available in this category</Text>
             </View>
           }
         />
@@ -328,55 +322,55 @@ export default function CoachesScreen() {
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#10b981" progressViewOffset={headerHeight} />}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={ACCENT} progressViewOffset={headerHeight} />}
         >
           {isRefreshing && (
             <View style={{ alignItems: 'center', paddingVertical: 16 }}>
-              <ActivityIndicator size="small" color="#10b981" />
-              <Text style={{ color: '#6E6E73', fontSize: 12, marginTop: 6 }}>Shuffling coaches...</Text>
+              <ActivityIndicator size="small" color={ACCENT} />
+              <Text style={{ color: '#6E6E73', fontSize: 12, marginTop: 6 }}>Shuffling advisors...</Text>
             </View>
           )}
 
           <Animated.View style={listAnimatedStyle}>
-            {/* Featured Coach */}
-            {featuredCoach && (
+            {/* Featured Advisor */}
+            {featuredAdvisor && (
               <PersonaCard
-                persona={featuredCoach}
-                onPress={() => setSelectedPersona(featuredCoach)}
+                persona={featuredAdvisor}
+                onPress={() => setSelectedPersona(featuredAdvisor)}
                 featured
               />
             )}
 
             {/* Section Header */}
-            {otherCoaches.length > 0 && (
+            {otherAdvisors.length > 0 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <Text style={{ color: '#9A9A9E', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>
-                  {getDomainName(coachesActiveDomain)}
+                  {getCategoryName(advisorsActiveCategory)}
                 </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10b981', marginRight: 6 }} />
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: ACCENT, marginRight: 6 }} />
                   <Text style={{ color: '#6E6E73', fontSize: 12 }}>
-                    {otherCoaches.length + 1} available
+                    {otherAdvisors.length + 1} available
                   </Text>
                 </View>
               </View>
             )}
 
-            {/* Grid of Coaches */}
+            {/* Grid of Advisors */}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 }}>
-              {otherCoaches.map((coach) => (
-                <View key={coach.id} style={{ width: '100%', padding: 4 }}>
+              {otherAdvisors.map((advisor) => (
+                <View key={advisor.id} style={{ width: '100%', padding: 4 }}>
                   <PersonaCard
-                    persona={coach}
-                    onPress={() => setSelectedPersona(coach)}
+                    persona={advisor}
+                    onPress={() => setSelectedPersona(advisor)}
                   />
                 </View>
               ))}
             </View>
 
-            {filteredCoaches.length === 0 && (
+            {filteredAdvisors.length === 0 && (
               <View className="py-20 items-center">
-                <Text className="text-text-muted">No coaches available in this category</Text>
+                <Text className="text-text-muted">No advisors available in this category</Text>
               </View>
             )}
           </Animated.View>
@@ -397,7 +391,7 @@ export default function CoachesScreen() {
             colors={['#1a1a2e', '#16213e', '#0f3460']}
             style={{ borderRadius: 16, padding: 24, alignItems: 'center' }}
           >
-            <ActivityIndicator size="large" color="#10b981" />
+            <ActivityIndicator size="large" color={ACCENT} />
             <Text className="text-text-primary mt-4">
               Starting session...
             </Text>

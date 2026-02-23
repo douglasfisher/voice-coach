@@ -1,6 +1,6 @@
 import { View, Text, Pressable, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap, HelpCircle } from 'lucide-react-native';
+import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap, Lightbulb, HelpCircle } from 'lucide-react-native';
 import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
 import { useChatStore } from '../../stores/chatStore';
 import { TraitCategory, TraitOption, TraitSelection } from '../../types/coaching';
@@ -117,11 +117,12 @@ export function ChatHeroEmptyState({
   onTraitSelect,
 }: ChatHeroEmptyStateProps) {
   const globalInteractionMode = useChatStore((s) => s.globalInteractionMode);
-  const isQAMode = globalInteractionMode === 'question';
   const isCoach = persona.personaType === 'coach';
+  const isAdvisor = persona.personaType === 'advisor';
+  const isQAMode = isAdvisor || globalInteractionMode === 'question';
   const theme = STYLE_THEMES[persona.challengeStyle];
-  const StyleIcon = isCoach ? GraduationCap : theme.Icon;
-  const accentColor = isCoach ? '#10b981' : theme.accent;
+  const StyleIcon = isAdvisor ? Lightbulb : isCoach ? GraduationCap : theme.Icon;
+  const accentColor = isAdvisor ? '#8b5cf6' : isCoach ? '#10b981' : theme.accent;
   const imageSource = typeof persona.avatarUrl === 'string'
     ? { uri: persona.avatarUrl }
     : persona.avatarUrl;
@@ -223,8 +224,21 @@ export function ChatHeroEmptyState({
           />
         )}
 
-        {/* Q&A Mode: Show AI-generated or fallback scene */}
-        {isQAMode && isCoach ? (
+        {/* Advisor mode: Simple prompt */}
+        {isAdvisor ? (
+          <View style={{ marginBottom: 20 }}>
+            <Text
+              style={{
+                color: '#fff',
+                fontSize: 17,
+                fontWeight: '600',
+                lineHeight: 24,
+              }}
+            >
+              What would you like advice on?
+            </Text>
+          </View>
+        ) : isQAMode && isCoach ? (
           isLoading && !scenarioMessage ? (
             /* Loading skeleton for scenario */
             <View style={{ marginBottom: 20 }}>
@@ -330,8 +344,8 @@ export function ChatHeroEmptyState({
           </Text>
         ) : null}
 
-        {/* New Question/Scenario button */}
-        <Pressable
+        {/* New Question/Scenario button (hidden for advisors) */}
+        {!isAdvisor && <Pressable
           onPress={isQAMode && isCoach ? onRefreshScenario : onRefreshQuestion}
           disabled={!canRefresh}
           style={{
@@ -362,7 +376,7 @@ export function ChatHeroEmptyState({
               )}
             </>
           )}
-        </Pressable>
+        </Pressable>}
 
         {/* Start CTA button */}
         <Pressable
@@ -381,7 +395,7 @@ export function ChatHeroEmptyState({
             <ActivityIndicator color="#0f0f12" />
           ) : (
             <Text style={{ color: '#0f0f12', fontWeight: '700', fontSize: 18 }}>
-              {isCoach ? (isQAMode ? 'You Start' : 'Start Practice') : 'Start Challenge'}
+              {isAdvisor ? 'Ask Your Question' : isCoach ? (isQAMode ? 'You Start' : 'Start Practice') : 'Start Challenge'}
             </Text>
           )}
         </Pressable>

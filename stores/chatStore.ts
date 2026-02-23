@@ -1003,6 +1003,7 @@ export const useChatStore = create<ChatState>()(
         selectedTraits: state.selectedTraits,
         coachesActiveDomain: state.coachesActiveDomain,
         challengersActiveFilter: state.challengersActiveFilter,
+        advisorsActiveCategory: state.advisorsActiveCategory,
       }),
     },
   ),

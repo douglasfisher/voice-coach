@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, Modal, Pressable, Image, ImageSourcePropType, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X, Sparkles, Zap, Brain, Heart, Scale, Eye, Play, Volume2, ChevronRight, GraduationCap, Pencil } from 'lucide-react-native';
+import { X, Sparkles, Zap, Brain, Heart, Scale, Eye, Play, Volume2, ChevronRight, GraduationCap, Lightbulb, Pencil } from 'lucide-react-native';
 import {
   PersonaDisplay,
   ChallengeStyle,
   CHALLENGE_STYLE_LABELS,
   CHALLENGE_STYLE_DESCRIPTIONS,
+  ADVISORY_STYLE_LABELS,
+  ADVISORY_STYLE_DESCRIPTIONS,
 } from '../../types/persona';
 import { ModeToggle } from '../chat/ModeToggle';
 import { useChatStore } from '../../stores/chatStore';
@@ -101,18 +103,24 @@ export function PersonaModal({
 
   if (!persona) return null;
   const isCoach = persona.personaType === 'coach';
+  const isAdvisor = persona.personaType === 'advisor';
   const theme = STYLE_THEMES[persona.challengeStyle];
-  const StyleIcon = isCoach ? GraduationCap : theme.Icon;
+  const StyleIcon = isAdvisor ? Lightbulb : isCoach ? GraduationCap : theme.Icon;
+  const accentColor = isAdvisor ? '#8b5cf6' : isCoach ? '#10b981' : theme.accent;
   const imageSource = typeof persona.avatarUrl === 'string'
     ? { uri: persona.avatarUrl }
     : persona.avatarUrl;
 
   // Get style label and description based on persona type
-  const styleLabel = isCoach && persona.coachingStyle
+  const styleLabel = isAdvisor && persona.coachingStyle
+    ? ADVISORY_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
+    : isCoach && persona.coachingStyle
     ? COACHING_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
     : CHALLENGE_STYLE_LABELS[persona.challengeStyle];
 
-  const styleDescription = isCoach && persona.coachingStyle
+  const styleDescription = isAdvisor && persona.coachingStyle
+    ? ADVISORY_STYLE_DESCRIPTIONS[persona.coachingStyle] || 'Expert advisor'
+    : isCoach && persona.coachingStyle
     ? COACHING_STYLE_DESCRIPTIONS[persona.coachingStyle] || 'Practice coach'
     : CHALLENGE_STYLE_DESCRIPTIONS[persona.challengeStyle];
 
@@ -144,8 +152,8 @@ export function PersonaModal({
 
             {/* Gradient overlay */}
             <LinearGradient
-              colors={(unifiedGradient || isGradientLoading) ? UNIFIED_GRADIENT : theme.gradient}
-              locations={(unifiedGradient || isGradientLoading) ? [0, 0.5, 1] : [0, 0.8, 1]}
+              colors={(unifiedGradient || isGradientLoading || isAdvisor) ? UNIFIED_GRADIENT : theme.gradient}
+              locations={(unifiedGradient || isGradientLoading || isAdvisor) ? [0, 0.5, 1] : [0, 0.8, 1]}
               style={{
                 position: 'absolute',
                 width: '100%',
@@ -204,8 +212,8 @@ export function PersonaModal({
 
             {/* Hero text content */}
             <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24 }}>
-              {/* Mode toggle for coaches */}
-              {isCoach && (
+              {/* Mode toggle for coaches (not advisors — always Q&A) */}
+              {isCoach && !isAdvisor && (
                 <View style={{ marginBottom: 12 }}>
                   <ModeToggle
                     mode={globalInteractionMode}
@@ -222,11 +230,11 @@ export function PersonaModal({
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: isCoach ? '#10b981' : theme.accent,
+                    backgroundColor: accentColor,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginRight: 12,
-                    shadowColor: isCoach ? '#10b981' : theme.accent,
+                    shadowColor: accentColor,
                     shadowOffset: { width: 0, height: 0 },
                     shadowOpacity: 0.6,
                     shadowRadius: 12,
@@ -235,7 +243,7 @@ export function PersonaModal({
                   <StyleIcon size={20} color="#0f0f12" />
                 </View>
                 <View>
-                  <Text style={{ color: isCoach ? '#10b981' : theme.accent, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 }}>
+                  <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700', letterSpacing: 0.5 }}>
                     {styleLabel.toUpperCase()}
                   </Text>
                   <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 }}>
@@ -276,13 +284,17 @@ export function PersonaModal({
               )}
 
               {/* Mode description */}
-              {isCoach && (
+              {isAdvisor ? (
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 10 }}>
+                  Ask questions and get expert advice
+                </Text>
+              ) : isCoach ? (
                 <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 10 }}>
                   {globalInteractionMode === 'question'
                     ? 'Your coach sets the scene — you roleplay a realistic scenario together.'
                     : 'Your coach asks the questions and guides you with direct feedback.'}
                 </Text>
-              )}
+              ) : null}
             </View>
           </View>
 
@@ -376,12 +388,12 @@ export function PersonaModal({
               justifyContent: 'center',
               paddingVertical: 18,
               borderRadius: 16,
-              backgroundColor: isCoach ? '#10b981' : theme.accent,
+              backgroundColor: accentColor,
             }}
           >
             <StyleIcon size={22} color="#0f0f12" />
             <Text style={{ color: '#0f0f12', fontWeight: 'bold', fontSize: 18, marginLeft: 10 }}>
-              {isCoach ? (globalInteractionMode === 'question' ? 'Start Q&A' : 'Start Practice') : 'Start Challenge'}
+              {isAdvisor ? 'Ask Advisor' : isCoach ? (globalInteractionMode === 'question' ? 'Start Q&A' : 'Start Practice') : 'Start Challenge'}
             </Text>
             <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
           </Pressable>

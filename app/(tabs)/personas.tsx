@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl, D
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles } from 'lucide-react-native';
+import { Sparkles, Settings } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
@@ -144,6 +144,20 @@ export default function PersonasScreen() {
                 Choose your intellectual sparring partner
               </Text>
             </View>
+            <Pressable
+              onPress={() => router.push('/(tabs)/profile')}
+              hitSlop={8}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Settings size={20} color="#9A9A9E" />
+            </Pressable>
           </View>
         </View>
 

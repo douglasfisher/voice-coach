@@ -284,12 +284,13 @@ export async function resolveAIConfig(
         }
       }
 
-      // Extract coaching-specific persona fields
+      // Extract coaching-specific persona fields (coaches only, not advisors)
       if (persona.persona_type === 'coach') {
         personaCoachingStyle = persona.coaching_style as CoachingStyle || 'supportive_guide';
         personaFeedbackStyle = (persona.feedback_style as FeedbackStyle) || 'sandwich';
         personaInteractionMode = (persona.default_interaction_mode as InteractionMode) || 'coach_leads';
       }
+      // Advisors use their system_prompt directly — no coaching prompt stacking
 
       // Get cost from ai_models table if persona has a specific model
       const personaModel = personaConfig.model as string;
