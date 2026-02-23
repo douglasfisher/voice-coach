@@ -89,6 +89,23 @@ export function IntakeOptionsPanel({
         gap: 8,
       }}
     >
+      {/* Question label */}
+      {intake.question ? (
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: 13,
+            fontWeight: '600',
+            textTransform: 'uppercase',
+            letterSpacing: 0.8,
+            marginBottom: 2,
+            paddingHorizontal: 2,
+          }}
+        >
+          {intake.question}
+        </Text>
+      ) : null}
+
       {/* Options */}
       {intake.options.map((option) => {
         const isSelected = selected.has(option.id);
