@@ -1,9 +1,53 @@
 import { View, Image, Pressable, ActivityIndicator, Text } from 'react-native';
 import { Check } from 'lucide-react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
+import { useEffect } from 'react';
 import { DraftImage } from '../../../types/wizard';
 
 // Generated images are 896x1152, aspect ratio ~0.778
 const IMAGE_ASPECT_RATIO = 896 / 1152;
+
+function SkeletonCell() {
+  const opacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: '48.5%',
+          aspectRatio: IMAGE_ASPECT_RATIO,
+          borderRadius: 12,
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.08)',
+        },
+        animatedStyle,
+      ]}
+    >
+      <ActivityIndicator size="small" color="rgba(255,255,255,0.3)" />
+    </Animated.View>
+  );
+}
 
 interface AvatarGridProps {
   drafts: DraftImage[];
@@ -15,19 +59,20 @@ interface AvatarGridProps {
 export function AvatarGrid({ drafts, selectedId, onSelect, isGenerating }: AvatarGridProps) {
   if (isGenerating) {
     return (
-      <View
-        style={{
-          height: 280,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(255,255,255,0.03)',
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.08)',
-        }}
-      >
-        <ActivityIndicator size="large" color="#F59E0B" />
-        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 12 }}>
+      <View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <SkeletonCell key={i} />
+          ))}
+        </View>
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.4)',
+            fontSize: 13,
+            textAlign: 'center',
+            marginTop: 12,
+          }}
+        >
           Generating 4 drafts...
         </Text>
       </View>
