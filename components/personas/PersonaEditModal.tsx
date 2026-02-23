@@ -10,7 +10,7 @@ import {
   ImageSourcePropType,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Save } from 'lucide-react-native';
+import { X, Save, ImageIcon } from 'lucide-react-native';
 import { useWizardStore } from '../../stores/wizardStore';
 import { usePersonaStore } from '../../stores/personaStore';
 import { WizardStep, WIZARD_STEP_LABELS } from '../../types/wizard';
@@ -63,12 +63,16 @@ export function PersonaEditModal({
 }: PersonaEditModalProps) {
   const insets = useSafeAreaInsets();
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const currentStep = useWizardStore((s) => s.currentStep);
   const isLoadingPersona = useWizardStore((s) => s.isLoadingPersona);
   const hiResUrl = useWizardStore((s) => s.avatar.hiResUrl);
+  const avatarUrl = useWizardStore((s) => s.formData.avatar_url);
+  const editingPersonaId = useWizardStore((s) => s.editingPersonaId);
   const goToStep = useWizardStore((s) => s.goToStep);
   const loadPersona = useWizardStore((s) => s.loadPersona);
   const savePersona = useWizardStore((s) => s.savePersona);
+  const saveAvatarOnly = useWizardStore((s) => s.saveAvatarOnly);
   const reset = useWizardStore((s) => s.reset);
   const fetchPersonas = usePersonaStore((s) => s.fetchPersonas);
 
@@ -97,6 +101,26 @@ export function PersonaEditModal({
       setIsSaving(false);
     }
   };
+
+  const handleSaveAvatarOnly = async () => {
+    setIsSavingAvatar(true);
+    try {
+      const { error } = await saveAvatarOnly();
+      if (error) {
+        console.error('Save avatar error:', error);
+        return;
+      }
+      await fetchPersonas();
+      onSaved();
+    } catch (err) {
+      console.error('Save avatar error:', err);
+    } finally {
+      setIsSavingAvatar(false);
+    }
+  };
+
+  // Show "Save Avatar & Exit" when on avatar step, in edit mode, and avatar has changed
+  const showSaveAvatarButton = currentStep === 0 && !!editingPersonaId && (!!hiResUrl || !!avatarUrl);
 
   const handleClose = () => {
     reset();
@@ -243,6 +267,36 @@ export function PersonaEditModal({
               </View>
             )}
             {StepComponent && <StepComponent />}
+            {showSaveAvatarButton && (
+              <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+                <Pressable
+                  onPress={handleSaveAvatarOnly}
+                  disabled={isSavingAvatar}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingVertical: 14,
+                    borderRadius: 12,
+                    backgroundColor: isSavingAvatar ? 'rgba(59,130,246,0.4)' : '#3b82f6',
+                  }}
+                >
+                  {isSavingAvatar ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <ImageIcon size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', marginLeft: 8 }}>
+                        Save Avatar & Exit
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textAlign: 'center', marginTop: 6 }}>
+                  Saves only avatar — no other fields touched
+                </Text>
+              </View>
+            )}
           </ScrollView>
         )}
       </View>

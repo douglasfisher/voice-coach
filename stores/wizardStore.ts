@@ -280,6 +280,7 @@ interface WizardState {
   isGeneratingPrompt: boolean;
 
   // Save
+  saveAvatarOnly: () => Promise<{ error: Error | null }>;
   savePersona: () => Promise<{ id: string | null; error: Error | null }>;
 
   // Reset
@@ -941,6 +942,30 @@ Return ONLY the system prompt text, no explanation or markdown.`;
   // =========================================================================
   // SAVE
   // =========================================================================
+
+  saveAvatarOnly: async () => {
+    const { formData, avatar, saveDraftsToLibrary, editingPersonaId } = get();
+    if (!editingPersonaId) return { error: new Error('No persona being edited') };
+
+    const store = useAdminPersonaStore.getState();
+
+    const avatarData: { avatar_url: string; avatar_thumbnail_url: string | null } = {
+      avatar_url: formData.avatar_url,
+      avatar_thumbnail_url: formData.avatar_thumbnail_url,
+    };
+
+    const { error } = await store.updatePersona(editingPersonaId, avatarData as Partial<typeof formData>);
+
+    if (!error && avatar.drafts.length > 0) {
+      try {
+        await saveDraftsToLibrary(editingPersonaId);
+      } catch (err) {
+        console.warn('Failed to save drafts to library:', err);
+      }
+    }
+
+    return { error };
+  },
 
   savePersona: async () => {
     const { formData, avatar, saveDraftsToLibrary, traitDefaults, promptSections, editingPersonaId } = get();
