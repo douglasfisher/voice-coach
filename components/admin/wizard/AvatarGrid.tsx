@@ -1,4 +1,4 @@
-import { View, Image, Pressable, ActivityIndicator, Text } from 'react-native';
+import { View, Image, Pressable, ActivityIndicator, Text, useWindowDimensions } from 'react-native';
 import { Check } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
@@ -10,10 +10,20 @@ import Animated, {
 import { useEffect } from 'react';
 import { DraftImage } from '../../../types/wizard';
 
-// Generated images are 896x1152, aspect ratio ~0.778
+// Generated images are 896×1152
 const IMAGE_ASPECT_RATIO = 896 / 1152;
+const GRID_GAP = 8;
+const GRID_PADDING = 16; // parent horizontal padding on each side
 
-function SkeletonCell() {
+function useCellSize() {
+  const { width: screenWidth } = useWindowDimensions();
+  const containerWidth = screenWidth - GRID_PADDING * 2;
+  const cellWidth = (containerWidth - GRID_GAP) / 2;
+  const cellHeight = cellWidth / IMAGE_ASPECT_RATIO;
+  return { cellWidth, cellHeight };
+}
+
+function SkeletonCell({ cellWidth, cellHeight }: { cellWidth: number; cellHeight: number }) {
   const opacity = useSharedValue(0.3);
 
   useEffect(() => {
@@ -29,25 +39,23 @@ function SkeletonCell() {
   }));
 
   return (
-    <View style={{ width: '48.5%', aspectRatio: IMAGE_ASPECT_RATIO }}>
-      <Animated.View
-        style={[
-          {
-            width: '100%',
-            height: '100%',
-            borderRadius: 12,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.08)',
-          },
-          animatedStyle,
-        ]}
-      >
-        <ActivityIndicator size="small" color="rgba(255,255,255,0.3)" />
-      </Animated.View>
-    </View>
+    <Animated.View
+      style={[
+        {
+          width: cellWidth,
+          height: cellHeight,
+          borderRadius: 12,
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.08)',
+        },
+        animatedStyle,
+      ]}
+    >
+      <ActivityIndicator size="small" color="rgba(255,255,255,0.3)" />
+    </Animated.View>
   );
 }
 
@@ -59,12 +67,14 @@ interface AvatarGridProps {
 }
 
 export function AvatarGrid({ drafts, selectedId, onSelect, isGenerating }: AvatarGridProps) {
+  const { cellWidth, cellHeight } = useCellSize();
+
   if (isGenerating) {
     return (
       <View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP }}>
           {[0, 1, 2, 3].map((i) => (
-            <SkeletonCell key={i} />
+            <SkeletonCell key={i} cellWidth={cellWidth} cellHeight={cellHeight} />
           ))}
         </View>
         <Text
@@ -83,13 +93,13 @@ export function AvatarGrid({ drafts, selectedId, onSelect, isGenerating }: Avata
 
   if (drafts.length === 0) {
     return (
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP }}>
         {[0, 1, 2, 3].map((i) => (
           <View
             key={i}
             style={{
-              width: '48.5%',
-              aspectRatio: IMAGE_ASPECT_RATIO,
+              width: cellWidth,
+              height: cellHeight,
               borderRadius: 12,
               backgroundColor: 'rgba(255,255,255,0.03)',
               borderWidth: 1,
@@ -103,7 +113,7 @@ export function AvatarGrid({ drafts, selectedId, onSelect, isGenerating }: Avata
   }
 
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP }}>
       {drafts.map((draft) => {
         const isSelected = draft.id === selectedId;
         return (
@@ -111,8 +121,8 @@ export function AvatarGrid({ drafts, selectedId, onSelect, isGenerating }: Avata
             key={draft.id}
             onPress={() => onSelect(draft.id)}
             style={{
-              width: '48.5%',
-              aspectRatio: IMAGE_ASPECT_RATIO,
+              width: cellWidth,
+              height: cellHeight,
               borderRadius: 12,
               overflow: 'hidden',
               borderWidth: 3,
