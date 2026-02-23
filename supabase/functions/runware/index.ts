@@ -47,14 +47,16 @@ Deno.serve(async (req: Request) => {
 
     const runwareData = await response.json();
 
-    if (!response.ok) {
+    // Runware may return partial results (some images + some errors).
+    // If we got any data, treat it as a partial success and process images.
+    if (!response.ok && !runwareData?.data?.length) {
       return new Response(JSON.stringify(runwareData), {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // If not uploading, return as-is
+    // If not uploading, return as-is (with 200 even for partial results)
     if (!shouldUpload || !runwareData?.data) {
       return new Response(JSON.stringify(runwareData), {
         status: 200,
