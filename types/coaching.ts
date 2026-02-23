@@ -26,7 +26,8 @@ export type InteractionMode =
   | 'coach_leads'    // Coach asks questions, user responds (current default for challengers)
   | 'user_leads'     // User initiates, coach plays the role (hot seat scenarios)
   | 'turn_taking'    // Back-and-forth, equal participation (negotiations)
-  | 'question_mode'; // User asks questions, coach provides expert answers (Q&A mode)
+  | 'question_mode'  // User asks questions, coach provides expert answers (Q&A mode)
+  | 'advisor_mode';  // Advisor asks clarifying questions, then gives tailored advice
 
 /**
  * Feedback delivery style
@@ -169,6 +170,7 @@ export const INTERACTION_MODE_LABELS: Record<InteractionMode, string> = {
   user_leads: 'You Lead',
   turn_taking: 'Back & Forth',
   question_mode: 'Q&A Mode',
+  advisor_mode: 'Advisor Mode',
 };
 
 export const INTERACTION_MODE_DESCRIPTIONS: Record<InteractionMode, string> = {
@@ -176,6 +178,7 @@ export const INTERACTION_MODE_DESCRIPTIONS: Record<InteractionMode, string> = {
   user_leads: 'You start the conversation and the coach responds in character',
   turn_taking: 'Equal participation with natural back-and-forth exchange',
   question_mode: 'Ask questions and get expert answers from your coach',
+  advisor_mode: 'Advisor asks clarifying questions, then gives tailored expert advice',
 };
 
 export const FEEDBACK_STYLE_LABELS: Record<FeedbackStyle, string> = {

@@ -6,6 +6,7 @@ import { Conversation, Message } from '../types/database';
 import { InteractionMode, SessionPhase, SituationVariant, TraitSelection } from '../types/coaching';
 import { ChallengeStyle } from '../types/persona';
 import { useAuthStore } from './authStore';
+import { usePersonaStore } from './personaStore';
 
 interface SessionReport {
   tldr: string;
@@ -304,6 +305,10 @@ export const useChatStore = create<ChatState>()(
     const { globalInteractionMode, selectedTraits } = get();
     set({ isLoading: true, error: null });
     try {
+      // Check if this is an advisor persona
+      const persona = usePersonaStore.getState().getPersonaById(personaId);
+      const isAdvisor = persona?.personaType === 'advisor';
+
       const insertData: Record<string, unknown> = {
         user_id: userId,
         persona_id: personaId,
@@ -311,12 +316,15 @@ export const useChatStore = create<ChatState>()(
         status: 'active',
       };
 
-      // Apply global interaction mode if set to question mode
-      if (globalInteractionMode === 'question') {
+      // Advisors always use advisor_mode, regardless of global toggle
+      if (isAdvisor) {
+        insertData.interaction_mode = 'advisor_mode';
+      } else if (globalInteractionMode === 'question') {
+        // Apply global interaction mode if set to question mode (coaches only)
         insertData.interaction_mode = 'question_mode';
       }
 
-      // Add coaching fields if provided (these can override global mode)
+      // Add coaching fields if provided (these can override global mode, but not for advisors)
       if (coachingOptions) {
         if (coachingOptions.domainId) {
           insertData.domain_id = coachingOptions.domainId;
@@ -324,13 +332,15 @@ export const useChatStore = create<ChatState>()(
         if (coachingOptions.scenarioId) {
           insertData.scenario_id = coachingOptions.scenarioId;
         }
-        if (coachingOptions.interactionMode) {
+        if (coachingOptions.interactionMode && !isAdvisor) {
           insertData.interaction_mode = coachingOptions.interactionMode;
         }
         if (coachingOptions.scenarioVariant) {
           insertData.scenario_variant = coachingOptions.scenarioVariant;
         }
-        insertData.current_phase = 'roleplay';
+        if (!isAdvisor) {
+          insertData.current_phase = 'roleplay';
+        }
       }
 
       const { data, error } = await supabase
@@ -534,6 +544,10 @@ export const useChatStore = create<ChatState>()(
     const { activeConversation, globalInteractionMode, selectedTraits } = get();
     if (!activeConversation) return;
 
+    // Advisors don't use previews — no scenarios, no greeting previews
+    const persona = usePersonaStore.getState().getPersonaById(activeConversation.persona_id);
+    if (persona?.personaType === 'advisor') return;
+
     const isQAMode = globalInteractionMode === 'question';
 
     set({ isGeneratingPreview: true, error: null });
@@ -641,6 +655,11 @@ export const useChatStore = create<ChatState>()(
 
     // For Q&A mode, we need a scenario; for practice mode, we need a question
     if (!activeConversation) return false;
+
+    // Advisors should never use the preview path
+    const persona = usePersonaStore.getState().getPersonaById(activeConversation.persona_id);
+    if (persona?.personaType === 'advisor') return false;
+
     if (isQAMode && !previewScenario) return false;
     if (!isQAMode && !previewQuestion) return false;
 

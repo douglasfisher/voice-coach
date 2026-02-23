@@ -60,7 +60,7 @@ interface ChatRequest {
   settings?: { model?: string; temperature?: number; max_completion_tokens?: number };
   // Coaching-specific fields
   scenarioId?: string;
-  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
+  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode' | 'advisor_mode';
   currentPhase?: 'roleplay' | 'feedback';
   scenarioVariant?: { name: string; context: string };
   requestQuickFeedback?: boolean;
@@ -567,6 +567,20 @@ serve(async (req) => {
 
     // Handle scenario generation for Q&A mode (doesn't require conversationId)
     if (generateScenario) {
+      // Guard: advisors don't use scenarios
+      const { data: personaTypeCheck } = await supabase
+        .from('personas')
+        .select('persona_type')
+        .eq('id', personaId)
+        .single();
+
+      if (personaTypeCheck?.persona_type === 'advisor') {
+        return new Response(
+          JSON.stringify({ error: 'Advisors do not use scenario generation' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       // Fetch persona's qa_scenario_prompt and scene template
       const { data: persona, error: personaError } = await supabase
         .from('personas')

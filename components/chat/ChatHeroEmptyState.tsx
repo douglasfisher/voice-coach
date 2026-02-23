@@ -136,9 +136,9 @@ export function ChatHeroEmptyState({
   const currentRefreshCount = isQAMode && isCoach ? scenarioRefreshCount : refreshCount;
   const refreshesRemaining = maxRefreshes - currentRefreshCount;
 
-  // For Q&A mode, check scenario; otherwise check question
-  const hasPreview = isQAMode && isCoach ? !!scenarioMessage : !!questionMessage;
-  const canRefresh = refreshesRemaining > 0 && !isRefreshing && !isLoading && hasPreview;
+  // For Q&A mode, check scenario; otherwise check question. Advisors never have previews.
+  const hasPreview = isAdvisor ? false : (isQAMode && isCoach ? !!scenarioMessage : !!questionMessage);
+  const canRefresh = !isAdvisor && refreshesRemaining > 0 && !isRefreshing && !isLoading && hasPreview;
 
   return (
     <View style={{ flex: 1 }}>
@@ -381,14 +381,14 @@ export function ChatHeroEmptyState({
         {/* Start CTA button */}
         <Pressable
           onPress={onStartChat}
-          disabled={isStarting || (isLoading && !hasPreview)}
+          disabled={isStarting || (!isAdvisor && isLoading && !hasPreview)}
           style={{
             paddingVertical: 16,
             borderRadius: 16,
             backgroundColor: accentColor,
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: (isStarting || (isLoading && !hasPreview)) ? 0.5 : 1,
+            opacity: (isStarting || (!isAdvisor && isLoading && !hasPreview)) ? 0.5 : 1,
           }}
         >
           {isStarting ? (

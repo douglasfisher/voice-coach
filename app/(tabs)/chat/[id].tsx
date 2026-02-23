@@ -213,14 +213,18 @@ export default function ChatScreen() {
   const isFocusMode = focusModeEnabled === true;
 
   // Trait system
-  const personaType = persona?.personaType as 'coach' | 'challenger' | undefined;
-  const { categories: traitCategories, options: traitOptions } = useTraits(personaType, true);
+  const personaType = persona?.personaType as 'coach' | 'challenger' | 'advisor' | undefined;
+  // Advisors don't use traits — pass undefined to skip loading
+  const traitPersonaType = personaType === 'advisor' ? undefined : personaType;
+  const { categories: traitCategories, options: traitOptions } = useTraits(traitPersonaType, true);
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
 
   // Navigate back to the source tab based on persona type
   const goBackToSource = useCallback(() => {
-    if (persona?.personaType === 'coach') {
+    if (persona?.personaType === 'advisor') {
+      router.navigate('/(tabs)/advisors');
+    } else if (persona?.personaType === 'coach') {
       router.navigate('/(tabs)/coaches');
     } else {
       router.navigate('/(tabs)/personas');
@@ -355,16 +359,18 @@ export default function ChatScreen() {
 
   // Generate preview when conversation loads and chat hasn't started
   // For Q&A mode, generate scenario; for Practice mode, generate question
-  const isQAMode = globalInteractionMode === 'question';
+  // Advisors skip preview entirely
+  const isAdvisor = persona?.personaType === 'advisor';
+  const isQAMode = isAdvisor || globalInteractionMode === 'question';
   const isCoach = persona?.personaType === 'coach';
   const hasPreview = isQAMode && isCoach ? !!previewScenario : !!previewQuestion;
 
   useEffect(() => {
-    if (conversation && !chatStarted && !hasPreview && !isGeneratingPreview) {
+    if (conversation && !chatStarted && !hasPreview && !isGeneratingPreview && !isAdvisor) {
       generatePreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation?.id, chatStarted, hasPreview]);
+  }, [conversation?.id, chatStarted, hasPreview, isAdvisor]);
 
   // Clear preview when leaving the screen
   useEffect(() => {

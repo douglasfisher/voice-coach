@@ -83,7 +83,7 @@ export interface CoachingContext {
   scenarioContext?: string;
   scenarioVariant?: { name: string; context: string };
   userGoal?: string;
-  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
+  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode' | 'advisor_mode';
   currentPhase?: 'roleplay' | 'feedback';
   coachingStyle?: string;
   feedbackStyle?: string;
