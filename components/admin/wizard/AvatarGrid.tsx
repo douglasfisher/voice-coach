@@ -83,21 +83,21 @@ export function AvatarGrid({ drafts, selectedId, onSelect, isGenerating }: Avata
 
   if (drafts.length === 0) {
     return (
-      <View
-        style={{
-          height: 200,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: 'rgba(255,255,255,0.03)',
-          borderRadius: 16,
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.08)',
-          borderStyle: 'dashed',
-        }}
-      >
-        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
-          Configure options and generate drafts
-        </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {[0, 1, 2, 3].map((i) => (
+          <View
+            key={i}
+            style={{
+              width: '48.5%',
+              aspectRatio: IMAGE_ASPECT_RATIO,
+              borderRadius: 12,
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+              borderStyle: 'dashed',
+            }}
+          />
+        ))}
       </View>
     );
   }
