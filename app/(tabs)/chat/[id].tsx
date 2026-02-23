@@ -391,7 +391,7 @@ export default function ChatScreen() {
   // For Q&A mode, generate scenario; for Practice mode, generate question
   // Advisors skip preview entirely
   const isAdvisor = persona?.personaType === 'advisor';
-  const isQAMode = isAdvisor || globalInteractionMode === 'question';
+  const isQAMode = !isAdvisor && globalInteractionMode === 'question';
   const isCoach = persona?.personaType === 'coach';
   const hasPreview = isQAMode && isCoach ? !!previewScenario : !!previewQuestion;
 
@@ -621,8 +621,8 @@ export default function ChatScreen() {
         {/* Messages or Full-screen Hero */}
         {chatStarted ? (
           <>
-            {/* Focus mode: scene header + exchange counter above the list */}
-            {isFocusMode && messages.length > 0 && (
+            {/* Focus mode: scene header + exchange counter above the list (not for advisors) */}
+            {isFocusMode && !isAdvisor && messages.length > 0 && (
               <View style={{ paddingHorizontal: 16, paddingTop: showImmersiveLayout ? insets.top + 60 : 16 }}>
                 <CollapsibleSceneHeader
                   message={messages[0]}
