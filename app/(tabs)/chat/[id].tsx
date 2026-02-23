@@ -52,7 +52,9 @@ import {
   SessionTimer,
   ResetConfirmationModal,
   CollapsibleSceneHeader,
+  IntakeOptionsPanel,
 } from '../../../components/chat';
+import { IntakeQuestion } from '../../../types/coaching';
 import { useAppSetting } from '../../../hooks/useAppSetting';
 import { HeaderFade } from '../../../components/ui/HeaderFade';
 import { ChallengeStyle } from '../../../types/persona';
@@ -171,6 +173,7 @@ export default function ChatScreen() {
     fetchMessages: _fetchMessages,
     clearMessages,
     startChat,
+    sendIntakeResponse,
     generatePreview,
     regenerateQuestion,
     regenerateScenario,
@@ -190,6 +193,7 @@ export default function ChatScreen() {
     fetchMessages: s.fetchMessages,
     clearMessages: s.clearMessages,
     startChat: s.startChat,
+    sendIntakeResponse: s.sendIntakeResponse,
     generatePreview: s.generatePreview,
     regenerateQuestion: s.regenerateQuestion,
     regenerateScenario: s.regenerateScenario,
@@ -207,6 +211,32 @@ export default function ChatScreen() {
     setTrait: s.setTrait,
   })));
   const chatStarted = messages.length > 0;
+
+  // Derive advisor intake state from last assistant message metadata
+  const currentIntake = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant' && msg.metadata?.intake) {
+        return {
+          intake: msg.metadata.intake as IntakeQuestion,
+          round: (msg.metadata.intakeRound as number) || 1,
+        };
+      }
+      // Stop looking once we hit a user message (only check the latest assistant msg)
+      if (msg.role === 'user') break;
+    }
+    return null;
+  }, [messages]);
+
+  const handleIntakeSubmit = useCallback(async (selectedLabels: string[], customText?: string) => {
+    const round = currentIntake?.round || 1;
+    const result = await sendIntakeResponse(selectedLabels, customText, round);
+
+    // Auto-play native TTS for advisor response
+    if (result?.response && nativeTtsEnabled) {
+      nativeSpeak(result.response);
+    }
+  }, [currentIntake?.round, sendIntakeResponse, nativeTtsEnabled, nativeSpeak]);
 
   // Focus mode setting
   const { value: focusModeEnabled } = useAppSetting('focus_mode_chat');
@@ -772,31 +802,42 @@ export default function ChatScreen() {
               </View>
             )}
 
-            {/* Chat Input */}
-            <ChatInput
-              onSend={handleSend}
-              disabled={isSending}
-              accentColor={theme?.accent}
-              voiceInputEnabled={voiceInputEnabled}
-              voiceState={voiceState}
-              transcript={voiceTranscript}
-              interimTranscript={interimTranscript}
-              audioLevel={audioLevel}
-              hasVoicePermission={hasVoicePermission}
-              onVoicePressIn={voiceHandlers.onPressIn}
-              onVoicePressOut={voiceHandlers.onPressOut}
-              onVoiceCancel={voiceHandlers.onCancel}
-              immersiveMode={showImmersiveLayout}
-              // Pass control props for voice mode
-              showControls={voiceInputEnabled}
-              onResetPress={handleResetPress}
-              onEndPress={handleEndConversation}
-              sessionStartTime={sessionStartTime}
-              themeAccent={theme?.accent}
-              nativeTtsEnabled={nativeTtsEnabled}
-              nativeMuted={nativeMuted}
-              onToggleNativeMute={toggleNativeMute}
-            />
+            {/* Chat Input or Intake Options */}
+            {currentIntake ? (
+              <IntakeOptionsPanel
+                intake={currentIntake.intake}
+                intakeRound={currentIntake.round}
+                onSubmit={handleIntakeSubmit}
+                disabled={isSending}
+                accentColor={theme?.accent}
+                immersiveMode={showImmersiveLayout}
+              />
+            ) : (
+              <ChatInput
+                onSend={handleSend}
+                disabled={isSending}
+                accentColor={theme?.accent}
+                voiceInputEnabled={voiceInputEnabled}
+                voiceState={voiceState}
+                transcript={voiceTranscript}
+                interimTranscript={interimTranscript}
+                audioLevel={audioLevel}
+                hasVoicePermission={hasVoicePermission}
+                onVoicePressIn={voiceHandlers.onPressIn}
+                onVoicePressOut={voiceHandlers.onPressOut}
+                onVoiceCancel={voiceHandlers.onCancel}
+                immersiveMode={showImmersiveLayout}
+                // Pass control props for voice mode
+                showControls={voiceInputEnabled}
+                onResetPress={handleResetPress}
+                onEndPress={handleEndConversation}
+                sessionStartTime={sessionStartTime}
+                themeAccent={theme?.accent}
+                nativeTtsEnabled={nativeTtsEnabled}
+                nativeMuted={nativeMuted}
+                onToggleNativeMute={toggleNativeMute}
+              />
+            )}
           </View>
         ) : conversation.status !== 'active' ? (
           <View

@@ -233,3 +233,18 @@ export interface TraitSelection {
     promptModifier: string;
   };
 }
+
+// =============================================================================
+// ADVISOR INTAKE
+// =============================================================================
+
+export interface IntakeOption {
+  id: string;       // e.g. "workplace_conflict"
+  label: string;    // e.g. "Workplace conflict"
+}
+
+export interface IntakeQuestion {
+  question: string;         // For accessibility/screen readers
+  options: IntakeOption[];  // 3-6 choices
+  multiSelect: boolean;     // Can pick multiple?
+}

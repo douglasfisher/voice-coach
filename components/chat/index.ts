@@ -15,3 +15,4 @@ export { ResetConfirmationModal } from './ResetConfirmationModal';
 export { ModeToggle } from './ModeToggle';
 export { FocusModeChat } from './FocusModeChat';
 export { CollapsibleSceneHeader } from './CollapsibleSceneHeader';
+export { IntakeOptionsPanel } from './IntakeOptionsPanel';

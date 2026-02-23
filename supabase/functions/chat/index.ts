@@ -66,6 +66,12 @@ interface ChatRequest {
   requestQuickFeedback?: boolean;
   switchPhase?: 'roleplay' | 'feedback';
   promptTokens?: Record<string, string>;
+  // Advisor intake
+  intakeSelections?: {
+    selectedOptions: string[];
+    customText?: string;
+    intakeRound: number;
+  };
 }
 
 interface GroqMessage {
@@ -1047,9 +1053,35 @@ Generate a comprehensive session report.`;
 
     // Helper to generate opening question
     async function generateQuestion() {
-      const questionPrompt = cachedPersonaType === 'advisor'
-        ? `Introduce yourself briefly (1 sentence) and ask 1-2 clarifying questions to understand the user's situation. Be warm and professional. No roleplay — you are an advisor.`
-        : `Ask ONE thought-provoking opening question (1-2 sentences max). Be direct and intriguing. No introduction - just the question.`;
+      if (cachedPersonaType === 'advisor') {
+        // Advisors use JSON mode to return structured intake questions
+        const advisorPrompt = `Introduce yourself briefly (1 sentence) and ask a clarifying question to understand the user's situation. Be warm and professional. No roleplay — you are an advisor.
+
+You MUST respond in this exact JSON format:
+{
+  "message": "Your greeting and question text here",
+  "intake": {
+    "question": "Accessible label for the question",
+    "options": [
+      { "id": "snake_case_id", "label": "Human readable label" }
+    ],
+    "multiSelect": false
+  }
+}
+
+Rules for intake options:
+- Provide 3-6 options that cover common situations in your domain
+- Each option id should be snake_case, label should be short (2-5 words)
+- multiSelect should be false for the first question
+- Options should be specific enough to be useful but broad enough to cover most cases`;
+
+        return callGroq([
+          { role: 'system', content: config.full_system_prompt },
+          { role: 'user', content: advisorPrompt },
+        ], { type: 'json_object' });
+      }
+
+      const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max). Be direct and intriguing. No introduction - just the question.`;
 
       return callGroq([
         { role: 'system', content: config.full_system_prompt },
@@ -1111,13 +1143,35 @@ Generate a comprehensive session report.`;
 
       // Standard greeting generation for coach_leads or challengers
       const questionResponse = await generateQuestion();
-      const questionContent = questionResponse.choices[0]?.message?.content || '';
+      const rawGreetingContent = questionResponse.choices[0]?.message?.content || '';
+
+      // For advisors, parse JSON response to extract message + intake
+      let questionContent = rawGreetingContent;
+      let intakeData: Record<string, unknown> | undefined;
+
+      if (cachedPersonaType === 'advisor') {
+        try {
+          const parsed = JSON.parse(rawGreetingContent);
+          questionContent = parsed.message || rawGreetingContent;
+          if (parsed.intake) {
+            intakeData = { intake: parsed.intake, intakeRound: 1 };
+          }
+        } catch {
+          // Fallback: treat as plain text if JSON parse fails
+          questionContent = rawGreetingContent;
+        }
+      }
 
       const greetingTaskType = isCoachingTask ? 'coaching' : 'greeting';
       let greetingMetadata: Record<string, unknown> | undefined;
       if (questionResponse.usage) {
         const greetingCost = await calculateAICost(supabase, config.model, questionResponse.usage.prompt_tokens, questionResponse.usage.completion_tokens);
         greetingMetadata = { ai_usage: buildAIUsageMetadata(questionResponse.usage, config.model, greetingTaskType, greetingCost) };
+      }
+
+      // Merge intake data into metadata
+      if (intakeData) {
+        greetingMetadata = { ...greetingMetadata, ...intakeData };
       }
 
       await supabase.from('messages').insert({
@@ -1328,15 +1382,56 @@ Generate a comprehensive session report.`;
       created_at: userMessageCreatedAt,
     });
 
-    // Generate response — use JSON mode when emotional progression is active
+    // Check if this is an advisor intake response
+    const isAdvisorIntake = cachedPersonaType === 'advisor' && body.intakeSelections;
+
+    // Generate response — use JSON mode for advisor intake or emotional progression
     const hasEmotionalProgression = config.emotional_progression_active;
+    const useJsonMode = isAdvisorIntake || hasEmotionalProgression;
+
+    // For advisor intake, add system instruction to continue or end intake
+    let intakeSystemSuffix = '';
+    if (isAdvisorIntake) {
+      const round = body.intakeSelections!.intakeRound;
+      intakeSystemSuffix = `
+
+INTAKE ROUND: ${round}. The user just answered a multiple-choice clarifying question.
+
+If you need more context to give good advice (typically 2-3 rounds total), respond in this JSON format:
+{
+  "message": "Your acknowledgment and follow-up text",
+  "intake": {
+    "question": "Accessible label for the next question",
+    "options": [
+      { "id": "snake_case_id", "label": "Human readable label" }
+    ],
+    "multiSelect": false
+  }
+}
+
+If you now have enough context to start advising (usually after 2-3 rounds), respond in this JSON format WITHOUT the intake field:
+{
+  "message": "Your advice and response here, transitioning to freeform conversation"
+}
+
+Rules:
+- Always include "message" with your conversational response
+- Only include "intake" if you need more clarification
+- Keep options to 3-6 choices, relevant to what the user just told you
+- After round 3, you should usually have enough context — stop asking and start advising`;
+    }
+
+    const systemPromptForCall = isAdvisorIntake
+      ? config.full_system_prompt + intakeSystemSuffix
+      : config.full_system_prompt;
+
     const groqResponse = await callGroq(
       [
-        { role: 'system', content: config.full_system_prompt },
+        { role: 'system', content: systemPromptForCall },
         ...history,
         { role: 'user', content: userMessage! },
       ],
-      hasEmotionalProgression ? { type: 'json_object' } : undefined
+      useJsonMode ? { type: 'json_object' } : undefined
     );
 
     let assistantMessage = '';
@@ -1344,7 +1439,22 @@ Generate a comprehensive session report.`;
 
     const rawContent = groqResponse.choices[0]?.message?.content || '';
 
-    if (hasEmotionalProgression) {
+    if (isAdvisorIntake) {
+      // Parse advisor JSON response for intake continuation
+      try {
+        const parsed = JSON.parse(rawContent);
+        assistantMessage = parsed.message || rawContent;
+        if (parsed.intake) {
+          messageMetadata = {
+            intake: parsed.intake,
+            intakeRound: (body.intakeSelections!.intakeRound || 0) + 1,
+          };
+        }
+        // No intake = advisor is done with intake, transitioning to freeform
+      } catch {
+        assistantMessage = rawContent;
+      }
+    } else if (hasEmotionalProgression) {
       try {
         const parsed = JSON.parse(rawContent);
         assistantMessage = parsed.message || rawContent;

@@ -98,6 +98,7 @@ interface ChatState {
     topic?: string
   ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string } | null>;
+  sendIntakeResponse: (selectedLabels: string[], customText?: string, intakeRound?: number) => Promise<{ response: string } | null>;
   startChat: () => Promise<boolean>;
   startChatWithPreview: () => Promise<boolean>;
   generatePreview: () => Promise<void>;
@@ -486,6 +487,70 @@ export const useChatStore = create<ChatState>()(
       return {
         response: data.response,
       };
+    } catch (error) {
+      set({ error: (error as Error).message });
+      return null;
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  sendIntakeResponse: async (selectedLabels, customText, intakeRound = 1) => {
+    const { activeConversation, messages } = get();
+    if (!activeConversation) return null;
+
+    // Format a readable user message from selections
+    let displayMessage = '';
+    if (selectedLabels.length > 0) {
+      displayMessage = selectedLabels.join(' + ');
+    }
+    if (customText) {
+      displayMessage = displayMessage
+        ? `${displayMessage} + ${customText}`
+        : customText;
+    }
+
+    if (!displayMessage) return null;
+
+    set({ isSending: true, error: null });
+    try {
+      const sequence = messages.length + 1;
+
+      // Add optimistic user message
+      const userMessage: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        conversation_id: activeConversation.id,
+        role: 'user',
+        content: displayMessage,
+        audio_url: null,
+        audio_duration_ms: null,
+        sequence,
+        response_time_ms: null,
+        created_at: new Date().toISOString(),
+      };
+
+      set({ messages: [...messages, userMessage] });
+
+      // Call edge function with intake selections
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          conversationId: activeConversation.id,
+          userMessage: displayMessage,
+          personaId: activeConversation.persona_id,
+          intakeSelections: {
+            selectedOptions: selectedLabels,
+            customText,
+            intakeRound,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      // Refresh messages from DB
+      await get().fetchMessages(activeConversation.id);
+
+      return { response: data.response };
     } catch (error) {
       set({ error: (error as Error).message });
       return null;
