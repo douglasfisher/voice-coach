@@ -517,11 +517,9 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       const config = await getAvatarConfig();
       const { draft } = config;
 
-      // Build Runware payload — edge function uploads to storage via service role
+      // Phase 1: Fast proxy — get Runware URLs immediately (no storage upload)
       const { data: runwareResponse, error: invokeError } = await supabase.functions.invoke('runware', {
         body: {
-          uploadToStorage: true,
-          storagePrefix: 'drafts',
           tasks: [
             {
               taskType: 'imageInference',
@@ -560,24 +558,54 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
       const images = runwareResponse?.data || runwareResponse || [];
 
+      // Show Runware URLs immediately — images display now
       const drafts: DraftImage[] = [];
+      const imagesToUpload: Array<{ url: string; id: string; format?: string }> = [];
+
       for (let i = 0; i < images.length; i++) {
         const img = images[i];
-        // Prefer storage URL (permanent), fall back to Runware URL (expires)
-        const url = img.storageUrl || img.imageURL || img.imageUrl;
+        const url = img.imageURL || img.imageUrl;
         if (!url) continue;
 
-        drafts.push({
-          id: img.imageUUID || `draft_${i}`,
-          url,
-          storagePath: img.storagePath || '',
-          selected: false,
-        });
+        const id = img.imageUUID || `draft_${i}`;
+        drafts.push({ id, url, storagePath: '', selected: false });
+        imagesToUpload.push({ url, id, format: img.outputFormat });
       }
 
       set((state) => ({
         avatar: { ...state.avatar, drafts, isGenerating: false },
       }));
+
+      // Phase 2: Upload to storage in background — swap URLs when done
+      if (imagesToUpload.length > 0) {
+        supabase.functions.invoke('runware', {
+          body: {
+            action: 'uploadImages',
+            images: imagesToUpload,
+            storagePrefix: 'drafts',
+          },
+        }).then(({ data: uploadResponse }) => {
+          const uploaded = uploadResponse?.data;
+          if (!uploaded?.length) return;
+
+          const uploadMap = new Map<string, { id: string; storageUrl: string; storagePath: string }>(
+            uploaded.map((u: { id: string; storageUrl: string; storagePath: string }) => [u.id, u]),
+          );
+
+          set((state) => ({
+            avatar: {
+              ...state.avatar,
+              drafts: state.avatar.drafts.map((d) => {
+                const u = uploadMap.get(d.id);
+                return u ? { ...d, url: u.storageUrl, storagePath: u.storagePath } : d;
+              }),
+            },
+          }));
+          console.log(`Uploaded ${uploaded.length} drafts to storage`);
+        }).catch((err) => {
+          console.warn('Background storage upload failed (drafts still visible from Runware):', err);
+        });
+      }
     } catch (err) {
       console.error('Generate drafts error:', err);
       set((state) => ({
