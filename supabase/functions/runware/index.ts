@@ -70,50 +70,41 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const enrichedImages = [];
+    const enrichedImages = await Promise.all(
+      runwareData.data.map(async (img: Record<string, unknown>, i: number) => {
+        const imageUrl = img.imageURL || img.imageUrl;
+        if (!imageUrl) return img;
 
-    for (let i = 0; i < runwareData.data.length; i++) {
-      const img = runwareData.data[i];
-      const imageUrl = img.imageURL || img.imageUrl;
+        try {
+          const imageResponse = await fetch(imageUrl as string);
+          const blob = await imageResponse.blob();
+          const ext = img.outputFormat === 'WEBP' ? 'webp' : 'jpg';
+          const uniqueId = (img.imageUUID as string) || crypto.randomUUID();
+          const fileName = `${storagePrefix}/${uniqueId}_${i}.${ext}`;
 
-      if (!imageUrl) {
-        enrichedImages.push(img);
-        continue;
-      }
+          const { error: uploadError } = await supabase.storage
+            .from('persona-avatars')
+            .upload(fileName, blob, {
+              contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+              upsert: false,
+            });
 
-      try {
-        const imageResponse = await fetch(imageUrl);
-        const blob = await imageResponse.blob();
-        const ext = img.outputFormat === 'WEBP' ? 'webp' : 'jpg';
-        const fileName = `${storagePrefix}/${Date.now()}_${i}.${ext}`;
+          if (uploadError) {
+            console.error(`Upload error for image ${i}:`, uploadError);
+            return img;
+          }
 
-        const { error: uploadError } = await supabase.storage
-          .from('persona-avatars')
-          .upload(fileName, blob, {
-            contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-            upsert: false,
-          });
+          const { data: urlData } = supabase.storage
+            .from('persona-avatars')
+            .getPublicUrl(fileName);
 
-        if (uploadError) {
-          console.error(`Upload error for image ${i}:`, uploadError);
-          enrichedImages.push(img);
-          continue;
+          return { ...img, storageUrl: urlData.publicUrl, storagePath: fileName };
+        } catch (err) {
+          console.error(`Failed to upload image ${i}:`, err);
+          return img;
         }
-
-        const { data: urlData } = supabase.storage
-          .from('persona-avatars')
-          .getPublicUrl(fileName);
-
-        enrichedImages.push({
-          ...img,
-          storageUrl: urlData.publicUrl,
-          storagePath: fileName,
-        });
-      } catch (err) {
-        console.error(`Failed to upload image ${i}:`, err);
-        enrichedImages.push(img);
-      }
-    }
+      })
+    );
 
     return new Response(JSON.stringify({ data: enrichedImages }), {
       status: 200,
