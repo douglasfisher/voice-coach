@@ -91,11 +91,20 @@ export function AdminSidebar({ role }: { role: "admin" | "superadmin" }) {
   const pathname = usePathname()
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-r">
       <SidebarHeader className="border-b">
-        <div className="px-2 py-1.5">
-          <div className="text-sm font-semibold">Dialectica</div>
-          <div className="text-muted-foreground text-xs">Admin console</div>
+        <div className="flex items-center gap-2.5 px-2 py-2">
+          <div className="bg-primary text-primary-foreground grid size-8 shrink-0 place-items-center rounded-md text-sm font-semibold">
+            D
+          </div>
+          <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="text-sm font-semibold tracking-tight">
+              Dialectica
+            </span>
+            <span className="text-muted-foreground text-[11px]">
+              Admin console
+            </span>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -129,8 +138,8 @@ export function AdminSidebar({ role }: { role: "admin" | "superadmin" }) {
         ))}
       </SidebarContent>
       <SidebarFooter className="border-t">
-        <div className="text-muted-foreground px-2 py-1.5 text-xs">
-          v0.1.0
+        <div className="text-muted-foreground px-2 py-1.5 text-[11px] tracking-wide group-data-[collapsible=icon]:hidden">
+          v0.1.0 · Dialectica admin
         </div>
       </SidebarFooter>
     </Sidebar>
