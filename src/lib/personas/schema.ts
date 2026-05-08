@@ -72,6 +72,17 @@ export const personaSchema = z.object({
   system_prompt: z.string().trim().min(1, "System prompt is required"),
   qa_scenario_prompt: z.string().trim().nullable().optional(),
   qa_scene_template: z.string().trim().nullable().optional(),
+  // Five-section breakdown (mobile parity). Each is the editable text the
+  // user works on; system_prompt is the compiled join with double newlines.
+  prompt_sections: z
+    .object({
+      identity: z.string(),
+      trait_tokens: z.string(),
+      character_traits: z.string(),
+      roleplay_behavior: z.string(),
+      coaching_approach: z.string(),
+    })
+    .nullable(),
 
   // Voice
   voice_provider: z.enum(VOICE_PROVIDERS),
@@ -90,6 +101,30 @@ export const personaSchema = z.object({
   // Avatar
   avatar_url: z.string().trim().min(1, "Avatar URL is required"),
   avatar_thumbnail_url: z.string().trim().nullable().optional(),
+  /**
+   * Persisted avatar-generation settings — the 9 parameter values plus the
+   * natural-language prompt that was used. Re-hydrated by the avatar editor
+   * so a tweak-and-regenerate cycle starts from the previous run, not the
+   * global defaults. Null on personas whose avatars were set via URL only
+   * or pre-date this column.
+   */
+  avatar_params: z
+    .object({
+      params: z.object({
+        gender: z.string(),
+        age_range: z.string(),
+        ethnicity: z.string(),
+        appearance: z.string(),
+        lighting: z.string(),
+        clothing: z.string(),
+        expression: z.string(),
+        accessories: z.array(z.string()),
+        pose: z.string(),
+        camera: z.string(),
+      }),
+      prompt: z.string(),
+    })
+    .nullable(),
 })
 
 /** Shape submitted/typed in the form (defaults are optional). */
@@ -171,6 +206,13 @@ export const DEFAULT_PERSONA: PersonaFormValues = {
   system_prompt: DEFAULT_SYSTEM_PROMPT,
   qa_scenario_prompt: null,
   qa_scene_template: null,
+  prompt_sections: {
+    identity: "",
+    trait_tokens: "",
+    character_traits: "",
+    roleplay_behavior: "",
+    coaching_approach: "",
+  },
   voice_provider: "elevenlabs",
   voice_id: "",
   voice_speed: 1,
@@ -183,4 +225,5 @@ export const DEFAULT_PERSONA: PersonaFormValues = {
   ai_max_completion_tokens: 1024,
   avatar_url: "",
   avatar_thumbnail_url: null,
+  avatar_params: null,
 }

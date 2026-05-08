@@ -965,6 +965,7 @@ export type Database = {
           advisor_category_id: string | null
           age_range: string | null
           ai_config: Json | null
+          avatar_params: Json | null
           avatar_thumbnail_url: string | null
           avatar_url: string
           challenge_style: string
@@ -1004,6 +1005,7 @@ export type Database = {
           advisor_category_id?: string | null
           age_range?: string | null
           ai_config?: Json | null
+          avatar_params?: Json | null
           avatar_thumbnail_url?: string | null
           avatar_url: string
           challenge_style: string
@@ -1043,6 +1045,7 @@ export type Database = {
           advisor_category_id?: string | null
           age_range?: string | null
           ai_config?: Json | null
+          avatar_params?: Json | null
           avatar_thumbnail_url?: string | null
           avatar_url?: string
           challenge_style?: string

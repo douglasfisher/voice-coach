@@ -44,12 +44,22 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  render,
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  // When the caller swaps the underlying element via `render` (typically a
+  // <Link> for nav buttons), Base UI's default nativeButton=true triggers an
+  // accessibility warning and strips form semantics. Default it to false in
+  // that case unless the caller explicitly opted in.
+  const inferredNativeButton =
+    nativeButton ?? (render === undefined ? undefined : false)
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      render={render}
+      nativeButton={inferredNativeButton}
       {...props}
     />
   )

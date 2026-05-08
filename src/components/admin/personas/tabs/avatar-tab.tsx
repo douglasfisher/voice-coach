@@ -13,20 +13,97 @@ import {
 import { Input } from "@/components/ui/input"
 import type { PersonaFormValues } from "@/lib/personas/schema"
 
+import type { AvatarConfig } from "@/lib/avatars/config"
+import type { AvatarParams } from "@/lib/avatars/constants"
+
 import { Section } from "./_shared"
+import { PersonaAvatar } from "../persona-avatar"
+import { AvatarGenerator } from "../avatar-generator"
 
 export function AvatarTab({
   form,
+  avatarConfig,
 }: {
   form: UseFormReturn<PersonaFormValues>
+  avatarConfig: AvatarConfig
 }) {
   const url = form.watch("avatar_url")
+  const thumb = form.watch("avatar_thumbnail_url")
+  const name = form.watch("name")
+  const gender = form.watch("gender")
+  const savedAvatarParams = form.watch("avatar_params")
 
   return (
     <>
       <Section
-        title="Avatar"
-        description="Full-resolution image used in the persona detail view. Generation flow with parameter sliders + Runware/Google upscale will land in a follow-up — for now paste a URL or use one already in the avatar library."
+        title="Current avatar"
+        description="The image users see across the app. Generate a new one below or paste a URL manually."
+      >
+        <div className="flex items-start gap-4">
+          <PersonaAvatar
+            name={name}
+            url={url}
+            thumbnailUrl={thumb}
+            className="w-32 rounded-lg text-3xl"
+          />
+          <div className="text-muted-foreground space-y-1 text-xs">
+            <div className="font-medium text-foreground">
+              {name || "(unnamed)"}
+            </div>
+            {url ? (
+              <div className="break-all">
+                <span className="text-muted-foreground">URL:</span> {url}
+              </div>
+            ) : (
+              <div>No avatar URL set yet.</div>
+            )}
+          </div>
+        </div>
+      </Section>
+
+      <Section
+        title="Generate new avatar"
+        description="Two-stage generation: 4 quick concept drafts, then a photoreal upscale of the chosen concept. Same models, parameters, and dimensions as the mobile app."
+      >
+        <AvatarGenerator
+          config={avatarConfig}
+          initial={{
+            avatar_url: url ?? "",
+            avatar_thumbnail_url: thumb ?? null,
+            // Cast: form schema stores params as plain strings so historical
+            // values aren't rejected when option lists change; the generator
+            // treats them as the active literal-union types.
+            avatar_params: savedAvatarParams
+              ? {
+                  params: savedAvatarParams.params as AvatarParams,
+                  prompt: savedAvatarParams.prompt,
+                }
+              : null,
+          }}
+          initialGenderHint={
+            gender === "male" || gender === "female" ? gender : undefined
+          }
+          onChange={(next) => {
+            form.setValue("avatar_url", next.avatar_url, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+            form.setValue(
+              "avatar_thumbnail_url",
+              next.avatar_thumbnail_url,
+              { shouldDirty: true, shouldValidate: true }
+            )
+            form.setValue("avatar_params", next.avatar_params, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
+          }}
+        />
+      </Section>
+
+      <Section
+        title="Manual override"
+        description="Paste an existing public URL (e.g. one from the avatar library). Leave alone if you used the generator above."
       >
         <FormField
           control={form.control}
@@ -61,33 +138,13 @@ export function AvatarTab({
                 />
               </FormControl>
               <FormDescription>
-                Auto-derived during avatar generation. Leave blank if there&apos;s
-                no separate thumbnail.
+                Auto-set during generation. Leave blank if there&apos;s no
+                separate thumbnail.
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        {url ? (
-          <div className="flex items-start gap-4 pt-2">
-            <div className="bg-muted overflow-hidden rounded-md border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt="Avatar preview"
-                className="size-40 object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none"
-                }}
-              />
-            </div>
-            <p className="text-muted-foreground max-w-sm text-xs">
-              Preview. If the image fails to load it&apos;ll be hidden — check
-              the URL is correct and publicly accessible.
-            </p>
-          </div>
-        ) : null}
       </Section>
     </>
   )

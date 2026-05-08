@@ -32,9 +32,7 @@ export function AdminShell({
             <AdminUserMenu email={ctx.email} role={ctx.role} />
           </div>
         </header>
-        <main className="flex-1 px-6 py-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
-        </main>
+        <main className="w-full flex-1 px-6 py-8">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   )

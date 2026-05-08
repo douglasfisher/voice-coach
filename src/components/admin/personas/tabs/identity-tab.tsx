@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { GENDERS, PERSONA_TYPES } from "@/lib/personas/constants"
+import { AGE_RANGE_OPTIONS } from "@/lib/avatars/constants"
 import type { PersonaFormValues } from "@/lib/personas/schema"
 import type { PersonaLookups } from "@/lib/personas/lookups"
 
@@ -142,13 +143,23 @@ export function IdentityTab({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Age range</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    value={field.value ?? ""}
-                    placeholder="e.g. 30-40"
-                  />
-                </FormControl>
+                <Select
+                  value={field.value ?? ""}
+                  onValueChange={(v) => field.onChange(v || null)}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {AGE_RANGE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

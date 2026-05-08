@@ -20,6 +20,63 @@ function readAiConfig(value: unknown): AiConfig {
   return {}
 }
 
+const EMPTY_SECTIONS: NonNullable<PersonaFormValues["prompt_sections"]> = {
+  identity: "",
+  trait_tokens: "",
+  character_traits: "",
+  roleplay_behavior: "",
+  coaching_approach: "",
+}
+
+function readAvatarParams(
+  value: unknown
+): PersonaFormValues["avatar_params"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const v = value as Record<string, unknown>
+  const p = v.params
+  if (!p || typeof p !== "object" || Array.isArray(p)) return null
+  const pp = p as Record<string, unknown>
+  const accessories = Array.isArray(pp.accessories)
+    ? (pp.accessories.filter((a) => typeof a === "string") as string[])
+    : []
+  const str = (k: string) => (typeof pp[k] === "string" ? (pp[k] as string) : "")
+  return {
+    params: {
+      gender: str("gender"),
+      age_range: str("age_range"),
+      ethnicity: str("ethnicity"),
+      appearance: str("appearance"),
+      lighting: str("lighting"),
+      clothing: str("clothing"),
+      expression: str("expression"),
+      accessories,
+      pose: str("pose"),
+      camera: str("camera"),
+    },
+    prompt: typeof v.prompt === "string" ? v.prompt : "",
+  }
+}
+
+function readPromptSections(
+  value: unknown
+): PersonaFormValues["prompt_sections"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null
+  }
+  const v = value as Record<string, unknown>
+  return {
+    identity: typeof v.identity === "string" ? v.identity : "",
+    trait_tokens:
+      typeof v.trait_tokens === "string" ? v.trait_tokens : "",
+    character_traits:
+      typeof v.character_traits === "string" ? v.character_traits : "",
+    roleplay_behavior:
+      typeof v.roleplay_behavior === "string" ? v.roleplay_behavior : "",
+    coaching_approach:
+      typeof v.coaching_approach === "string" ? v.coaching_approach : "",
+  }
+}
+
 /** DB row → form values (for the edit page). */
 export function personaRowToForm(row: PersonaRow): PersonaFormValues {
   const ai = readAiConfig(row.ai_config)
@@ -53,6 +110,8 @@ export function personaRowToForm(row: PersonaRow): PersonaFormValues {
     system_prompt: row.system_prompt ?? DEFAULT_PERSONA.system_prompt,
     qa_scenario_prompt: row.qa_scenario_prompt,
     qa_scene_template: row.qa_scene_template,
+    prompt_sections:
+      readPromptSections(row.prompt_sections) ?? EMPTY_SECTIONS,
 
     voice_provider: (row.voice_provider ?? "elevenlabs") as PersonaFormValues["voice_provider"],
     voice_id: row.voice_id ?? "",
@@ -68,6 +127,7 @@ export function personaRowToForm(row: PersonaRow): PersonaFormValues {
 
     avatar_url: row.avatar_url ?? "",
     avatar_thumbnail_url: row.avatar_thumbnail_url,
+    avatar_params: readAvatarParams(row.avatar_params),
   }
 }
 
@@ -105,6 +165,7 @@ export function formToPersonaPayload(
     system_prompt: form.system_prompt,
     qa_scenario_prompt: form.qa_scenario_prompt ?? null,
     qa_scene_template: form.qa_scene_template ?? null,
+    prompt_sections: form.prompt_sections ?? null,
 
     voice_provider: form.voice_provider,
     voice_id: form.voice_id,
@@ -122,5 +183,6 @@ export function formToPersonaPayload(
 
     avatar_url: form.avatar_url,
     avatar_thumbnail_url: form.avatar_thumbnail_url ?? null,
+    avatar_params: (form.avatar_params ?? null) as PersonaInsert["avatar_params"],
   }
 }

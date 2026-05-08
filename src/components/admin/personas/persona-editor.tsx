@@ -28,6 +28,7 @@ import {
   type PersonaFormValues,
 } from "@/lib/personas/schema"
 import type { PersonaLookups } from "@/lib/personas/lookups"
+import type { AvatarConfig } from "@/lib/avatars/config"
 
 import { IdentityTab } from "./tabs/identity-tab"
 import { PersonalityTab } from "./tabs/personality-tab"
@@ -42,12 +43,14 @@ export function PersonaEditor({
   personaId,
   initialValues,
   lookups,
+  avatarConfig,
   actorRole,
 }: {
   mode: Mode
   personaId?: string
   initialValues: PersonaFormValues
   lookups: PersonaLookups
+  avatarConfig: AvatarConfig
   actorRole: "admin" | "superadmin"
 }) {
   const router = useRouter()
@@ -218,7 +221,7 @@ export function PersonaEditor({
               <VoiceAiTab form={form} lookups={lookups} />
             </TabsContent>
             <TabsContent value="avatar">
-              <AvatarTab form={form} />
+              <AvatarTab form={form} avatarConfig={avatarConfig} />
             </TabsContent>
           </Tabs>
         </form>
