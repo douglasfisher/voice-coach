@@ -157,7 +157,17 @@ export default async function UsersPage({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <RoleBadge role={u.role} />
+                    <div className="flex flex-wrap items-center gap-1">
+                      <RoleBadge role={u.role} />
+                      {u.disabled ? (
+                        <Badge
+                          variant="outline"
+                          className="border-red-500/40 bg-red-500/10 text-[10px] text-red-700 dark:text-red-400"
+                        >
+                          suspended
+                        </Badge>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {u.total_sessions ?? 0}

@@ -330,6 +330,27 @@ serve(async (req) => {
         .select('user_id')
         .eq('id', conversationId)
         .maybeSingle();
+
+      // Suspended-account gate. Mobile checks user_profiles.disabled
+      // at session bootstrap and signs out, but a stale token cached
+      // on a device could still make it here — defense in depth.
+      if (convForQuota?.user_id) {
+        const { data: profileForGate } = await supabase
+          .from('user_profiles')
+          .select('disabled')
+          .eq('id', convForQuota.user_id)
+          .maybeSingle();
+        if (profileForGate?.disabled) {
+          return new Response(
+            JSON.stringify({ error: 'account_suspended' }),
+            {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            },
+          );
+        }
+      }
+
       const quota = await checkDailyQuota(supabase, convForQuota?.user_id);
       if (!quota.ok) {
         return quotaExceededResponse(quota, corsHeaders);

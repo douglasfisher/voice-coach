@@ -1575,6 +1575,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           current_level: number | null
+          disabled: boolean
           display_name: string | null
           id: string
           is_admin: boolean | null
@@ -1590,6 +1591,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           current_level?: number | null
+          disabled?: boolean
           display_name?: string | null
           id: string
           is_admin?: boolean | null
@@ -1605,6 +1607,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           current_level?: number | null
+          disabled?: boolean
           display_name?: string | null
           id?: string
           is_admin?: boolean | null
@@ -1739,6 +1742,7 @@ export type Database = {
           auth_created_at: string | null
           avatar_url: string | null
           current_level: number | null
+          disabled: boolean | null
           display_name: string | null
           email: string | null
           email_confirmed_at: string | null

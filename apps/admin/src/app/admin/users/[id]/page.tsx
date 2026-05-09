@@ -20,6 +20,7 @@ import { requireAdminPage } from "@/lib/auth/require-admin"
 import { RoleControl } from "./role-control"
 import { TierControl } from "./tier-control"
 import { UserSpendTab } from "./spend-tab"
+import { UserActionsPanel } from "./actions-panel"
 
 export const metadata = { title: "User · Dialectica Admin" }
 export const dynamic = "force-dynamic"
@@ -122,6 +123,14 @@ export default async function UserDetailPage({
           >
             tier: {user.subscription_tier ?? "free"}
           </Badge>
+          {user.disabled ? (
+            <Badge
+              variant="outline"
+              className="border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-400"
+            >
+              suspended
+            </Badge>
+          ) : null}
           <span className="text-muted-foreground text-sm">
             Level {user.current_level ?? 1} · {user.total_sessions ?? 0}{" "}
             sessions · {user.streak_days ?? 0}-day streak
@@ -145,6 +154,7 @@ export default async function UserDetailPage({
             Conversations ({conversations.length})
           </TabsTrigger>
           <TabsTrigger value="auth">Auth</TabsTrigger>
+          <TabsTrigger value="actions">Actions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="pt-4">
@@ -222,6 +232,19 @@ export default async function UserDetailPage({
             />
             <Field label="User ID" value={user.id} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="actions" className="pt-4">
+          {user.id ? (
+            <UserActionsPanel
+              userId={user.id}
+              email={user.email ?? null}
+              isSelf={user.id === ctx.userId}
+              isDisabled={Boolean(user.disabled)}
+              targetRole={user.role}
+              actorRole={ctx.role}
+            />
+          ) : null}
         </TabsContent>
       </Tabs>
     </div>

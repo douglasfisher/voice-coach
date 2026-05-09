@@ -255,6 +255,24 @@ export const useAuthStore = create<AuthState>()(
       return;
     }
 
+    // Suspended-account gate. If an admin has flipped
+    // user_profiles.disabled, refuse the session entirely — sign out
+    // before the rest of the app boots so the suspended user can't
+    // see any cached data. The web admin's actions-panel sets this
+    // flag; only admins can clear it.
+    if (profileResult.data?.disabled) {
+      await supabase.auth.signOut();
+      set({
+        session: null,
+        user: null,
+        profile: null,
+        preferences: null,
+      });
+      throw new Error(
+        'This account has been suspended. Contact support if you think this is a mistake.',
+      );
+    }
+
     set({
       profile: profileResult.data,
       preferences: preferencesResult.data,
