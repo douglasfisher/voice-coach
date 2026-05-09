@@ -288,6 +288,7 @@ export type Database = {
           created_at: string | null
           estimated_cost_cents: number
           id: string
+          latency_ms: number | null
           model: string
           persona_id: string | null
           prompt_tokens: number
@@ -301,6 +302,7 @@ export type Database = {
           created_at?: string | null
           estimated_cost_cents?: number
           id?: string
+          latency_ms?: number | null
           model: string
           persona_id?: string | null
           prompt_tokens?: number
@@ -314,6 +316,7 @@ export type Database = {
           created_at?: string | null
           estimated_cost_cents?: number
           id?: string
+          latency_ms?: number | null
           model?: string
           persona_id?: string | null
           prompt_tokens?: number
@@ -926,6 +929,47 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      persona_prompt_history: {
+        Row: {
+          edited_at: string
+          edited_by: string | null
+          edited_by_email: string | null
+          id: string
+          persona_id: string
+          prompt_sections: Json | null
+          reason: string | null
+          system_prompt: string | null
+        }
+        Insert: {
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_email?: string | null
+          id?: string
+          persona_id: string
+          prompt_sections?: Json | null
+          reason?: string | null
+          system_prompt?: string | null
+        }
+        Update: {
+          edited_at?: string
+          edited_by?: string | null
+          edited_by_email?: string | null
+          id?: string
+          persona_id?: string
+          prompt_sections?: Json | null
+          reason?: string | null
+          system_prompt?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_prompt_history_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "personas"
             referencedColumns: ["id"]
           },
         ]

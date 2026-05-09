@@ -1,3 +1,6 @@
+import { Download } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -93,6 +96,23 @@ export async function UserSpendTab({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          render={
+            <a
+              href={`/api/admin/usage/export?userId=${encodeURIComponent(userId)}&days=30`}
+              download
+            >
+              <Download className="mr-1 size-4" />
+              Export CSV
+            </a>
+          }
+        />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="24h spend" value={`$${(cost24 / 100).toFixed(2)}`} />
         <Kpi label="24h tokens" value={tokens24.toLocaleString()} />

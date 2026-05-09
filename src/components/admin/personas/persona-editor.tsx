@@ -36,6 +36,8 @@ import { PersonalityTab } from "./tabs/personality-tab"
 import { PromptsTab } from "./tabs/prompts-tab"
 import { VoiceAiTab } from "./tabs/voice-ai-tab"
 import { AvatarTab } from "./tabs/avatar-tab"
+import { PerformanceTab } from "./tabs/performance-tab"
+import { PromptHistoryTab } from "./tabs/prompt-history-tab"
 import { GeneratePersonaDialog } from "./generate-persona-dialog"
 
 type Mode = "create" | "edit"
@@ -251,6 +253,12 @@ export function PersonaEditor({
               <TabsTrigger value="avatar">
                 Avatar{tabHasError(AVATAR_FIELDS) ? " ●" : ""}
               </TabsTrigger>
+              {mode === "edit" && personaId ? (
+                <>
+                  <TabsTrigger value="performance">Performance</TabsTrigger>
+                  <TabsTrigger value="history">Prompt history</TabsTrigger>
+                </>
+              ) : null}
             </TabsList>
 
             <TabsContent value="identity">
@@ -272,6 +280,16 @@ export function PersonaEditor({
                 personaId={personaId}
               />
             </TabsContent>
+            {mode === "edit" && personaId ? (
+              <>
+                <TabsContent value="performance">
+                  <PerformanceTab personaId={personaId} />
+                </TabsContent>
+                <TabsContent value="history">
+                  <PromptHistoryTab personaId={personaId} />
+                </TabsContent>
+              </>
+            ) : null}
           </Tabs>
         </form>
       </Form>

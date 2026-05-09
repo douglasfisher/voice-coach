@@ -65,6 +65,31 @@ export async function PATCH(
   }
 
   const payload = formToPersonaPayload(parsed.data)
+
+  // Snapshot the BEFORE state of system_prompt + prompt_sections to
+  // persona_prompt_history if either has changed. Lets admins restore
+  // a prior version when an edit goes wrong. Snapshot is best-effort —
+  // a failure here doesn't block the update, but we log loudly.
+  const promptChanged =
+    before.system_prompt !== payload.system_prompt ||
+    JSON.stringify(before.prompt_sections ?? null) !==
+      JSON.stringify(payload.prompt_sections ?? null)
+  if (promptChanged) {
+    const { error: histErr } = await admin
+      .from("persona_prompt_history")
+      .insert({
+        persona_id: id,
+        edited_by: gate.ctx.userId,
+        edited_by_email: gate.ctx.email,
+        system_prompt: before.system_prompt,
+        prompt_sections: before.prompt_sections,
+        reason: "edit",
+      })
+    if (histErr) {
+      console.error("persona_prompt_history insert failed", histErr)
+    }
+  }
+
   const { data: after, error: writeErr } = await admin
     .from("personas")
     .update(payload)
