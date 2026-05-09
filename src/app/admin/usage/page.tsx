@@ -1,3 +1,6 @@
+import { Download } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -138,7 +141,22 @@ export default async function UsagePage() {
     <div>
       <PageHeader
         title="AI usage"
-        description="Spend across chat, prompt generation, and image generation. 30-day rolling window. Tracking covers Groq calls (chat function) plus Runware spend (web admin avatar routes)."
+        description="Spend across chat, prompt generation, image generation, and TTS. 30-day rolling window."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            render={
+              <a
+                href="/api/admin/usage/export?days=30"
+                download
+              >
+                <Download className="mr-1 size-4" />
+                Export CSV
+              </a>
+            }
+          />
+        }
       />
 
       <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

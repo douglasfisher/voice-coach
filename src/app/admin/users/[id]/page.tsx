@@ -18,8 +18,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { formatDateTime, formatRelative } from "@/lib/format"
 import { requireAdminPage } from "@/lib/auth/require-admin"
 import { RoleControl } from "./role-control"
+import { TierControl } from "./tier-control"
+import { UserSpendTab } from "./spend-tab"
 
 export const metadata = { title: "User · Dialectica Admin" }
+export const dynamic = "force-dynamic"
 
 async function loadUser(id: string) {
   const supabase = await createSupabaseServerClient()
@@ -90,7 +93,7 @@ export default async function UserDetailPage({
         }
       />
 
-      <div className="mb-6 flex items-center gap-4">
+      <div className="mb-6 flex flex-wrap items-center gap-4">
         <Avatar className="size-14">
           {user.avatar_url ? <AvatarImage src={user.avatar_url} /> : null}
           <AvatarFallback>{initials}</AvatarFallback>
@@ -107,16 +110,37 @@ export default async function UserDetailPage({
           >
             {user.role}
           </Badge>
+          <Badge
+            variant="outline"
+            className={
+              user.subscription_tier === "pro" ||
+              user.subscription_tier === "enterprise" ||
+              user.subscription_tier === "team"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                : ""
+            }
+          >
+            tier: {user.subscription_tier ?? "free"}
+          </Badge>
           <span className="text-muted-foreground text-sm">
             Level {user.current_level ?? 1} · {user.total_sessions ?? 0}{" "}
             sessions · {user.streak_days ?? 0}-day streak
           </span>
         </div>
+        {user.id ? (
+          <div className="ml-auto">
+            <TierControl
+              userId={user.id}
+              currentTier={user.subscription_tier ?? "free"}
+            />
+          </div>
+        ) : null}
       </div>
 
       <Tabs defaultValue="profile">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="spend">Spend</TabsTrigger>
           <TabsTrigger value="conversations">
             Conversations ({conversations.length})
           </TabsTrigger>
@@ -141,6 +165,10 @@ export default async function UserDetailPage({
               value={formatDateTime(user.auth_created_at)}
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="spend" className="pt-4">
+          {user.id ? <UserSpendTab userId={user.id} /> : null}
         </TabsContent>
 
         <TabsContent value="conversations" className="pt-4">

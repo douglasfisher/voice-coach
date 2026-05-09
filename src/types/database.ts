@@ -1538,6 +1538,7 @@ export type Database = {
           onboarding_completed: boolean | null
           role: Database["public"]["Enums"]["user_role"]
           streak_days: number | null
+          subscription_tier: Database["public"]["Enums"]["subscription_tier"]
           total_sessions: number | null
           updated_at: string | null
         }
@@ -1552,6 +1553,7 @@ export type Database = {
           onboarding_completed?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
           streak_days?: number | null
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           total_sessions?: number | null
           updated_at?: string | null
         }
@@ -1566,6 +1568,7 @@ export type Database = {
           onboarding_completed?: boolean | null
           role?: Database["public"]["Enums"]["user_role"]
           streak_days?: number | null
+          subscription_tier?: Database["public"]["Enums"]["subscription_tier"]
           total_sessions?: number | null
           updated_at?: string | null
         }
@@ -1702,6 +1705,9 @@ export type Database = {
           onboarding_completed: boolean | null
           role: Database["public"]["Enums"]["user_role"] | null
           streak_days: number | null
+          subscription_tier:
+            | Database["public"]["Enums"]["subscription_tier"]
+            | null
           total_sessions: number | null
         }
         Relationships: []
@@ -1744,6 +1750,13 @@ export type Database = {
       update_user_streak: { Args: { p_user_id: string }; Returns: number }
     }
     Enums: {
+      subscription_tier:
+        | "free"
+        | "freemium"
+        | "basic"
+        | "pro"
+        | "enterprise"
+        | "team"
       user_role: "user" | "admin" | "superadmin"
     }
     CompositeTypes: {
@@ -1872,6 +1885,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      subscription_tier: [
+        "free",
+        "freemium",
+        "basic",
+        "pro",
+        "enterprise",
+        "team",
+      ],
       user_role: ["user", "admin", "superadmin"],
     },
   },
