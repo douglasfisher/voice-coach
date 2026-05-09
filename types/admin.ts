@@ -182,9 +182,7 @@ export interface AppSettingsMap {
   daily_challenges_batch: DailyChallengesBatch | null;
   fullscreen_card_mode: boolean;
   focus_mode_chat: boolean;
-<<<<<<< HEAD
   ai_avatar_config: AvatarGenerationConfig | null;
-=======
   /**
    * Meta-prompts for AI persona generation. Shared with the web admin so a
    * single edit in /admin/ai-config/persona-generator propagates to both
@@ -221,7 +219,6 @@ export interface AiPersonaGeneratorConfig {
     coaching_approach: string;
   };
   persona_context_template: string;
->>>>>>> feature/admin-web-app
 }
 
 // =============================================================================

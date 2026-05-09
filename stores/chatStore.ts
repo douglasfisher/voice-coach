@@ -133,14 +133,11 @@ interface ChatState {
   // Filter actions
   setCoachesActiveDomain: (domain: string) => void;
   setChallengersActiveFilter: (filter: ChallengeStyle | 'all') => void;
-<<<<<<< HEAD
   setAdvisorsActiveCategory: (category: string) => void;
-  // Logout cleanup
-  clearAllState: () => void;
-=======
   // Quota
   clearQuotaError: () => void;
->>>>>>> feature/admin-web-app
+  // Logout cleanup
+  clearAllState: () => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
@@ -1072,9 +1069,12 @@ export const useChatStore = create<ChatState>()(
     set({ challengersActiveFilter: filter });
   },
 
-<<<<<<< HEAD
   setAdvisorsActiveCategory: (category) => {
     set({ advisorsActiveCategory: category });
+  },
+
+  clearQuotaError: () => {
+    set({ quotaError: null });
   },
 
   clearAllState: () => {
@@ -1087,6 +1087,7 @@ export const useChatStore = create<ChatState>()(
       isSending: false,
       isGeneratingReport: false,
       error: null,
+      quotaError: null,
       previewQuestion: null,
       previewScenario: null,
       questionRefreshCount: 0,
@@ -1099,10 +1100,6 @@ export const useChatStore = create<ChatState>()(
       coachingOptions: null,
       selectedTraits: {},
     });
-=======
-  clearQuotaError: () => {
-    set({ quotaError: null });
->>>>>>> feature/admin-web-app
   },
 
   setActiveChallengeIndex: (index) => {

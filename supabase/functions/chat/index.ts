@@ -550,55 +550,10 @@ serve(async (req) => {
         task: 'challenge',
       });
 
-<<<<<<< HEAD
-=======
-      const batchChallengeT0 = performance.now();
-      const challengeResponse = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [
-            { role: 'system', content: challengePrompt },
-            { role: 'user', content: 'Generate 10 unique, thought-provoking questions for today. Each should cover a different topic area.' },
-          ],
-          temperature: 0.9,
-          max_tokens: 1500,
-        }),
-      });
-
-      if (!challengeResponse.ok) {
-        throw new Error(`Groq API error: ${challengeResponse.status}`);
-      }
-
-      const challengeData = await challengeResponse.json();
-      const batchChallengeLatency = Math.round(
-        performance.now() - batchChallengeT0,
-      );
-      const content = challengeData.choices[0]?.message?.content || '';
-
-      const batchPromptTokens = challengeData.usage?.prompt_tokens ?? 0;
-      const batchCompletionTokens =
-        challengeData.usage?.completion_tokens ?? 0;
-      await recordAIUsage(supabase, {
-        userId: null,
-        conversationId: null,
-        personaId: null,
-        model: config.model,
-        promptTokens: batchPromptTokens,
-        completionTokens: batchCompletionTokens,
-        totalTokens: batchPromptTokens + batchCompletionTokens,
-        taskType: 'daily_challenge',
-        latencyMs: batchChallengeLatency,
-      });
-
->>>>>>> feature/admin-web-app
       let challenges: { question: string; topic: string }[] = [];
       try {
         console.log('[challenges] Calling Groq API with model:', config.model);
+        const batchChallengeT0 = performance.now();
         const challengeResponse = await fetch(GROQ_API_URL, {
           method: 'POST',
           headers: {
@@ -626,7 +581,26 @@ serve(async (req) => {
         }
 
         const challengeData = await challengeResponse.json();
+        const batchChallengeLatency = Math.round(
+          performance.now() - batchChallengeT0,
+        );
         const content = challengeData.choices[0]?.message?.content || '';
+
+        // Track usage so the daily challenge batch shows up in /admin/usage.
+        const batchPromptTokens = challengeData.usage?.prompt_tokens ?? 0;
+        const batchCompletionTokens =
+          challengeData.usage?.completion_tokens ?? 0;
+        await recordAIUsage(supabase, {
+          userId: null,
+          conversationId: null,
+          personaId: null,
+          model: config.model,
+          promptTokens: batchPromptTokens,
+          completionTokens: batchCompletionTokens,
+          totalTokens: batchPromptTokens + batchCompletionTokens,
+          taskType: 'daily_challenge',
+          latencyMs: batchChallengeLatency,
+        });
 
         try {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -1146,16 +1120,12 @@ Generate a comprehensive session report.`;
       personaId,
     });
 
-<<<<<<< HEAD
-    // Helper to call Groq using resolved config
-    async function callGroq(messages: GroqMessage[], responseFormat?: { type: string }) {
-=======
     // Helper to call Groq using resolved config. Latency is captured by
     // wrapping the call site with performance.now(); doing it inside the
     // helper would force a return-shape change that ripples through
-    // every caller.
-    async function callGroq(messages: GroqMessage[]) {
->>>>>>> feature/admin-web-app
+    // every caller. responseFormat is optional and used for JSON-mode
+    // calls (emotional progression analysis).
+    async function callGroq(messages: GroqMessage[], responseFormat?: { type: string }) {
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -1286,7 +1256,7 @@ Rules for intake options:
       // Standard greeting generation for coach_leads or challengers
       const greetingT0 = performance.now();
       const questionResponse = await generateQuestion();
-<<<<<<< HEAD
+      const greetingLatency = Math.round(performance.now() - greetingT0);
       const rawGreetingContent = questionResponse.choices[0]?.message?.content || '';
 
       // For advisors, parse JSON response to extract message + intake
@@ -1305,10 +1275,6 @@ Rules for intake options:
           questionContent = rawGreetingContent;
         }
       }
-=======
-      const greetingLatency = Math.round(performance.now() - greetingT0);
-      const questionContent = questionResponse.choices[0]?.message?.content || '';
->>>>>>> feature/admin-web-app
 
       const greetingTaskType = isCoachingTask ? 'coaching' : 'greeting';
       let greetingMetadata: Record<string, unknown> | undefined;
@@ -1541,19 +1507,8 @@ Rules for intake options:
       created_at: userMessageCreatedAt,
     });
 
-<<<<<<< HEAD
     // Check if this is an advisor intake response
     const isAdvisorIntake = cachedPersonaType === 'advisor' && body.intakeSelections;
-=======
-    // Generate response
-    const chatT0 = performance.now();
-    const groqResponse = await callGroq([
-      { role: 'system', content: config.full_system_prompt },
-      ...history,
-      { role: 'user', content: userMessage! },
-    ]);
-    const chatLatency = Math.round(performance.now() - chatT0);
->>>>>>> feature/admin-web-app
 
     // Generate response — use JSON mode for advisor intake or emotional progression
     const hasEmotionalProgression = config.emotional_progression_active;
@@ -1617,6 +1572,7 @@ Rules:
       ? config.full_system_prompt + intakeSystemSuffix
       : config.full_system_prompt;
 
+    const chatT0 = performance.now();
     const groqResponse = await callGroq(
       [
         { role: 'system', content: systemPromptForCall },
@@ -1625,6 +1581,7 @@ Rules:
       ],
       useJsonMode ? { type: 'json_object' } : undefined
     );
+    const chatLatency = Math.round(performance.now() - chatT0);
 
     let assistantMessage = '';
     let messageMetadata: Record<string, unknown> | null = null;

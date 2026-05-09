@@ -1,25 +1,18 @@
 /**
-<<<<<<< HEAD
- * Runware Edge Function — Fast Proxy + Deferred Storage Upload
+ * Runware Edge Function — Proxy + Storage Upload + Usage Tracking
  *
  * Two modes:
  * 1. Proxy (default): Forwards to Runware API and returns URLs immediately.
  *    Also supports uploadToStorage for single-image flows (upscale).
  * 2. Upload: Accepts pre-generated image URLs and uploads them to storage.
  *    Called separately after client already has images displayed.
-=======
- * Runware Edge Function — Proxy + Storage Upload + Usage Tracking
  *
- * Forwards requests to the Runware API and optionally uploads resulting
- * images to Supabase storage (using service role). Records ai_usage rows
- * after each successful generation so mobile-initiated avatar spend is
- * visible in /admin/usage alongside Groq + admin-side image gen.
- *
- * The web admin's avatar routes record their own usage rows (they call
- * Runware via this function but write usage server-side in the route).
- * To avoid double-counting, the web admin passes `skipUsageTracking: true`
- * in the request body.
->>>>>>> feature/admin-web-app
+ * Records ai_usage rows after each successful generation so mobile-initiated
+ * avatar spend is visible in /admin/usage alongside Groq + admin-side image
+ * gen. The web admin's avatar routes record their own usage rows (they call
+ * Runware via this function but write usage server-side in the route). To
+ * avoid double-counting, the web admin passes `skipUsageTracking: true` in
+ * the request body.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -109,14 +102,14 @@ Deno.serve(async (req: Request) => {
       runwarePayload = requestBody.tasks;
       shouldUpload = true;
       storagePrefix = requestBody.storagePrefix || 'drafts';
-<<<<<<< HEAD
-    } else if (requestBody?.tasks) {
-      runwarePayload = requestBody.tasks;
-=======
       attribUserId = requestBody.userId ?? null;
       attribPersonaId = requestBody.personaId ?? null;
       skipUsageTracking = requestBody.skipUsageTracking === true;
->>>>>>> feature/admin-web-app
+    } else if (requestBody?.tasks) {
+      // Fast-proxy path: tasks present but no upload requested. Client
+      // already has the URLs and will display them; usage tracking is
+      // skipped here because the caller decides whether to retain.
+      runwarePayload = requestBody.tasks;
     } else {
       runwarePayload = requestBody;
     }
