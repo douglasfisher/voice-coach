@@ -1,4 +1,5 @@
 /**
+<<<<<<< HEAD
  * Runware Edge Function — Fast Proxy + Deferred Storage Upload
  *
  * Two modes:
@@ -6,6 +7,19 @@
  *    Also supports uploadToStorage for single-image flows (upscale).
  * 2. Upload: Accepts pre-generated image URLs and uploads them to storage.
  *    Called separately after client already has images displayed.
+=======
+ * Runware Edge Function — Proxy + Storage Upload + Usage Tracking
+ *
+ * Forwards requests to the Runware API and optionally uploads resulting
+ * images to Supabase storage (using service role). Records ai_usage rows
+ * after each successful generation so mobile-initiated avatar spend is
+ * visible in /admin/usage alongside Groq + admin-side image gen.
+ *
+ * The web admin's avatar routes record their own usage rows (they call
+ * Runware via this function but write usage server-side in the route).
+ * To avoid double-counting, the web admin passes `skipUsageTracking: true`
+ * in the request body.
+>>>>>>> feature/admin-web-app
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -85,16 +99,34 @@ Deno.serve(async (req: Request) => {
     let runwarePayload: unknown;
     let shouldUpload = false;
     let storagePrefix = 'drafts';
+    let attribUserId: string | null = null;
+    let attribPersonaId: string | null = null;
+    // Web admin passes this so its server-side ai_usage write isn't
+    // duplicated by ours. Mobile clients omit it (default false).
+    let skipUsageTracking = false;
 
     if (requestBody?.tasks && requestBody?.uploadToStorage) {
       runwarePayload = requestBody.tasks;
       shouldUpload = true;
       storagePrefix = requestBody.storagePrefix || 'drafts';
+<<<<<<< HEAD
     } else if (requestBody?.tasks) {
       runwarePayload = requestBody.tasks;
+=======
+      attribUserId = requestBody.userId ?? null;
+      attribPersonaId = requestBody.personaId ?? null;
+      skipUsageTracking = requestBody.skipUsageTracking === true;
+>>>>>>> feature/admin-web-app
     } else {
       runwarePayload = requestBody;
     }
+
+    // Best-effort task model extraction for usage attribution. If the
+    // payload is an array of tasks (our wrapper case), use the first
+    // task's model — they're typically all the same in our flows.
+    const taskModel: string | undefined = Array.isArray(runwarePayload)
+      ? (runwarePayload[0] as { model?: string } | undefined)?.model
+      : undefined;
 
     // Forward to Runware
     const response = await fetch('https://api.runware.ai/v1', {
@@ -139,6 +171,33 @@ Deno.serve(async (req: Request) => {
       const u = uploadMap.get(id);
       return u ? { ...img, storageUrl: u.storageUrl, storagePath: u.storagePath } : img;
     });
+
+    // Record one ai_usage row per generate call (not per image) so the
+    // dashboard's "requests" count reflects user actions, not image
+    // multiplicity. completion_tokens = images produced gives a volume
+    // axis. Cost is summed across all images from Runware's response
+    // (Runware reports cost in USD per image; we store integer cents).
+    if (!skipUsageTracking && enrichedImages.length > 0) {
+      const totalCostUsd = enrichedImages.reduce(
+        (sum: number, img: { cost?: number }) => sum + (img.cost ?? 0),
+        0,
+      );
+      const { error: usageErr } = await supabase.from('ai_usage').insert({
+        user_id: attribUserId,
+        conversation_id: null,
+        persona_id: attribPersonaId,
+        model: taskModel ?? 'runware:unknown',
+        prompt_tokens: 0,
+        completion_tokens: enrichedImages.length,
+        total_tokens: enrichedImages.length,
+        estimated_cost_cents: Math.max(0, Math.round(totalCostUsd * 100)),
+        task_type: 'image_generation',
+      });
+      if (usageErr) {
+        // Tracking failure must never break the user request.
+        console.error('ai_usage insert failed (runware)', usageErr);
+      }
+    }
 
     return new Response(JSON.stringify({ data: enrichedImages }), {
       status: 200,

@@ -10,6 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-resolver.ts';
 import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
 import { recordAIUsage, calculateAICost } from '../_shared/cost-calculator.ts';
+import { checkDailyQuota, quotaExceededResponse } from '../_shared/quota.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -313,10 +314,34 @@ serve(async (req) => {
     }
 
     // =========================================================================
+    // Per-user daily token quota enforcement (P1).
+    //
+    // Runs once per request, gated on having a conversationId — that's
+    // every user-initiated path (chat, coaching, reports). Admin /
+    // system paths (action=complete, generateChallenge*, generateScenario
+    // pre-conversation) intentionally skip the check.
+    //
+    // Tier limits live in app_settings.ai_tier_limits and are tunable
+    // without a redeploy. enterprise/team are tracked but not enforced.
+    // =========================================================================
+    if (conversationId) {
+      const { data: convForQuota } = await supabase
+        .from('conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .maybeSingle();
+      const quota = await checkDailyQuota(supabase, convForQuota?.user_id);
+      if (!quota.ok) {
+        return quotaExceededResponse(quota, corsHeaders);
+      }
+    }
+
+    // =========================================================================
     // Generic completion — lightweight AI call, no conversation context
     // =========================================================================
     if (action === 'complete' && systemPrompt && userPrompt) {
       const model = settings?.model || 'llama-3.1-8b-instant';
+      const completeT0 = performance.now();
       const groqResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -344,7 +369,25 @@ serve(async (req) => {
       }
 
       const groqData = await groqResponse.json();
+      const completeLatency = Math.round(performance.now() - completeT0);
       const content = groqData.choices?.[0]?.message?.content || '';
+
+      // Track usage so admin AI calls show up in /admin/usage. user_id is
+      // null on admin-initiated completes (no end-user) — task_type
+      // 'complete' distinguishes these from regular chat traffic.
+      const promptTokens = groqData.usage?.prompt_tokens ?? 0;
+      const completionTokens = groqData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: null,
+        model,
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        taskType: 'complete',
+        latencyMs: completeLatency,
+      });
 
       return new Response(JSON.stringify({ content }), {
         status: 200,
@@ -375,6 +418,7 @@ serve(async (req) => {
         personaId,
       });
 
+      const singleChallengeT0 = performance.now();
       const challengeResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -397,7 +441,25 @@ serve(async (req) => {
       }
 
       const challengeData = await challengeResponse.json();
+      const singleChallengeLatency = Math.round(
+        performance.now() - singleChallengeT0,
+      );
       const content = challengeData.choices[0]?.message?.content || '';
+
+      const challengePromptTokens = challengeData.usage?.prompt_tokens ?? 0;
+      const challengeCompletionTokens =
+        challengeData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: personaId ?? null,
+        model: config.model,
+        promptTokens: challengePromptTokens,
+        completionTokens: challengeCompletionTokens,
+        totalTokens: challengePromptTokens + challengeCompletionTokens,
+        taskType: 'daily_challenge',
+        latencyMs: singleChallengeLatency,
+      });
 
       let result: { question: string; topic: string };
       try {
@@ -488,6 +550,52 @@ serve(async (req) => {
         task: 'challenge',
       });
 
+<<<<<<< HEAD
+=======
+      const batchChallengeT0 = performance.now();
+      const challengeResponse = await fetch(GROQ_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: 'system', content: challengePrompt },
+            { role: 'user', content: 'Generate 10 unique, thought-provoking questions for today. Each should cover a different topic area.' },
+          ],
+          temperature: 0.9,
+          max_tokens: 1500,
+        }),
+      });
+
+      if (!challengeResponse.ok) {
+        throw new Error(`Groq API error: ${challengeResponse.status}`);
+      }
+
+      const challengeData = await challengeResponse.json();
+      const batchChallengeLatency = Math.round(
+        performance.now() - batchChallengeT0,
+      );
+      const content = challengeData.choices[0]?.message?.content || '';
+
+      const batchPromptTokens = challengeData.usage?.prompt_tokens ?? 0;
+      const batchCompletionTokens =
+        challengeData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: null,
+        model: config.model,
+        promptTokens: batchPromptTokens,
+        completionTokens: batchCompletionTokens,
+        totalTokens: batchPromptTokens + batchCompletionTokens,
+        taskType: 'daily_challenge',
+        latencyMs: batchChallengeLatency,
+      });
+
+>>>>>>> feature/admin-web-app
       let challenges: { question: string; topic: string }[] = [];
       try {
         console.log('[challenges] Calling Groq API with model:', config.model);
@@ -652,6 +760,7 @@ serve(async (req) => {
 
       const systemPrompt = sceneTemplate.replace('{{scenario_prompt}}', scenarioPrompt);
 
+      const scenarioT0 = performance.now();
       const scenarioResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -674,7 +783,23 @@ serve(async (req) => {
       }
 
       const scenarioData = await scenarioResponse.json();
+      const scenarioLatency = Math.round(performance.now() - scenarioT0);
       const scenario = scenarioData.choices[0]?.message?.content || '';
+
+      const scenarioPromptTokens = scenarioData.usage?.prompt_tokens ?? 0;
+      const scenarioCompletionTokens =
+        scenarioData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: personaId ?? null,
+        model: scenarioConfig.model,
+        promptTokens: scenarioPromptTokens,
+        completionTokens: scenarioCompletionTokens,
+        totalTokens: scenarioPromptTokens + scenarioCompletionTokens,
+        taskType: 'scenario',
+        latencyMs: scenarioLatency,
+      });
 
       return new Response(
         JSON.stringify({ scenario }),
@@ -770,6 +895,7 @@ Generate a comprehensive session report.`;
 
       for (const model of modelsToTry) {
         try {
+          const reportT0 = performance.now();
           const reportGroqResponse = await fetch(GROQ_API_URL, {
             method: 'POST',
             headers: {
@@ -795,6 +921,11 @@ Generate a comprehensive session report.`;
           }
 
           reportGroqData = await reportGroqResponse.json();
+          // Captured at the loop's `reportT0` declaration above; this is
+          // the winning model's latency (loop breaks on success below).
+          (reportGroqData as { _latencyMs?: number })._latencyMs = Math.round(
+            performance.now() - reportT0,
+          );
           const reportContent = (reportGroqData as { choices: { message: { content: string } }[] }).choices[0]?.message?.content || '';
 
           const jsonMatch = reportContent.match(/\{[\s\S]*\}/);
@@ -881,6 +1012,8 @@ Generate a comprehensive session report.`;
       }
 
       const groqUsage = (reportGroqData as { usage?: GroqUsage })?.usage;
+      const reportLatency = (reportGroqData as { _latencyMs?: number })
+        ?._latencyMs;
       if (groqUsage) {
         await recordAIUsage(supabase, {
           userId: conversation.user_id,
@@ -891,6 +1024,7 @@ Generate a comprehensive session report.`;
           completionTokens: groqUsage.completion_tokens,
           totalTokens: groqUsage.total_tokens,
           taskType: 'report',
+          latencyMs: reportLatency,
         });
       }
 
@@ -1012,8 +1146,16 @@ Generate a comprehensive session report.`;
       personaId,
     });
 
+<<<<<<< HEAD
     // Helper to call Groq using resolved config
     async function callGroq(messages: GroqMessage[], responseFormat?: { type: string }) {
+=======
+    // Helper to call Groq using resolved config. Latency is captured by
+    // wrapping the call site with performance.now(); doing it inside the
+    // helper would force a return-shape change that ripples through
+    // every caller.
+    async function callGroq(messages: GroqMessage[]) {
+>>>>>>> feature/admin-web-app
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -1142,7 +1284,9 @@ Rules for intake options:
       }
 
       // Standard greeting generation for coach_leads or challengers
+      const greetingT0 = performance.now();
       const questionResponse = await generateQuestion();
+<<<<<<< HEAD
       const rawGreetingContent = questionResponse.choices[0]?.message?.content || '';
 
       // For advisors, parse JSON response to extract message + intake
@@ -1161,6 +1305,10 @@ Rules for intake options:
           questionContent = rawGreetingContent;
         }
       }
+=======
+      const greetingLatency = Math.round(performance.now() - greetingT0);
+      const questionContent = questionResponse.choices[0]?.message?.content || '';
+>>>>>>> feature/admin-web-app
 
       const greetingTaskType = isCoachingTask ? 'coaching' : 'greeting';
       let greetingMetadata: Record<string, unknown> | undefined;
@@ -1192,6 +1340,7 @@ Rules for intake options:
           completionTokens: questionResponse.usage.completion_tokens,
           totalTokens: questionResponse.usage.total_tokens,
           taskType: greetingTaskType,
+          latencyMs: greetingLatency,
         });
       }
 
@@ -1231,11 +1380,15 @@ Rules for intake options:
           promptTokens,
         });
 
+        const switchFeedbackT0 = performance.now();
         const feedbackResponse = await callGroq([
           { role: 'system', content: feedbackConfig.full_system_prompt },
           ...history,
           { role: 'user', content: 'Please give me feedback on how I did in that practice session.' },
         ]);
+        const switchFeedbackLatency = Math.round(
+          performance.now() - switchFeedbackT0,
+        );
 
         const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
         const nextSequence = (messages?.length || 0) + 1;
@@ -1265,6 +1418,7 @@ Rules for intake options:
             completionTokens: feedbackResponse.usage.completion_tokens,
             totalTokens: feedbackResponse.usage.total_tokens,
             taskType: 'feedback',
+            latencyMs: switchFeedbackLatency,
           });
         }
 
@@ -1306,11 +1460,15 @@ Rules for intake options:
       const quickFeedbackPrompt = getQuickFeedbackPrompt(feedbackStyle, config.coaching_prompts);
       const nextSequence = (messages?.length || 0) + 1;
 
+      const quickFeedbackT0 = performance.now();
       const feedbackResponse = await callGroq([
         { role: 'system', content: config.full_system_prompt + '\n\n' + quickFeedbackPrompt },
         ...history,
         { role: 'user', content: 'Quick check - how am I doing?' },
       ]);
+      const quickFeedbackLatency = Math.round(
+        performance.now() - quickFeedbackT0,
+      );
 
       const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
 
@@ -1339,6 +1497,7 @@ Rules for intake options:
           completionTokens: feedbackResponse.usage.completion_tokens,
           totalTokens: feedbackResponse.usage.total_tokens,
           taskType: 'feedback',
+          latencyMs: quickFeedbackLatency,
         });
       }
 
@@ -1382,8 +1541,19 @@ Rules for intake options:
       created_at: userMessageCreatedAt,
     });
 
+<<<<<<< HEAD
     // Check if this is an advisor intake response
     const isAdvisorIntake = cachedPersonaType === 'advisor' && body.intakeSelections;
+=======
+    // Generate response
+    const chatT0 = performance.now();
+    const groqResponse = await callGroq([
+      { role: 'system', content: config.full_system_prompt },
+      ...history,
+      { role: 'user', content: userMessage! },
+    ]);
+    const chatLatency = Math.round(performance.now() - chatT0);
+>>>>>>> feature/admin-web-app
 
     // Generate response — use JSON mode for advisor intake or emotional progression
     const hasEmotionalProgression = config.emotional_progression_active;
@@ -1540,6 +1710,7 @@ Rules:
         completionTokens: groqResponse.usage.completion_tokens,
         totalTokens: groqResponse.usage.total_tokens,
         taskType: chatTaskType,
+        latencyMs: chatLatency,
       });
     }
 

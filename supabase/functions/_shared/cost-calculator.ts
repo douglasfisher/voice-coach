@@ -141,15 +141,18 @@ export async function calculateAICost(
  * Task types for service breakdown tracking
  */
 export type AITaskType =
-  | 'chat'           // Regular chat messages
-  | 'greeting'       // Initial greeting generation
-  | 'report'         // Session report generation
-  | 'analyze'        // Message analysis
-  | 'daily_challenge'// Daily challenge question
-  | 'coaching'       // Coaching roleplay
-  | 'feedback'       // Coaching feedback
-  | 'complete'       // Generic completion
-  | 'unknown';       // Fallback
+  | 'chat'             // Regular chat messages
+  | 'greeting'         // Initial greeting generation
+  | 'report'           // Session report generation
+  | 'analyze'          // Message analysis
+  | 'daily_challenge'  // Daily challenge question
+  | 'coaching'         // Coaching roleplay
+  | 'feedback'         // Coaching feedback
+  | 'complete'         // Generic completion
+  | 'scenario'         // Q&A scenario generation
+  | 'image_generation' // Avatar image generation (Runware)
+  | 'tts'              // Text-to-speech (ElevenLabs)
+  | 'unknown';         // Fallback
 
 /**
  * Insert AI usage record with calculated cost
@@ -165,6 +168,10 @@ export async function recordAIUsage(
     completionTokens: number;
     totalTokens: number;
     taskType?: AITaskType;
+    /** Wall-clock duration of the provider request in ms. Optional —
+     * callers that don't time themselves (e.g. image generation where
+     * latency includes user-side upload time) leave it null. */
+    latencyMs?: number | null;
   }
 ): Promise<void> {
   const costCents = await calculateAICost(
@@ -184,6 +191,7 @@ export async function recordAIUsage(
     total_tokens: params.totalTokens,
     estimated_cost_cents: costCents,
     task_type: params.taskType || 'unknown',
+    latency_ms: params.latencyMs ?? null,
   });
 
   if (error) {

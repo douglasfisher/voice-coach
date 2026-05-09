@@ -182,7 +182,46 @@ export interface AppSettingsMap {
   daily_challenges_batch: DailyChallengesBatch | null;
   fullscreen_card_mode: boolean;
   focus_mode_chat: boolean;
+<<<<<<< HEAD
   ai_avatar_config: AvatarGenerationConfig | null;
+=======
+  /**
+   * Meta-prompts for AI persona generation. Shared with the web admin so a
+   * single edit in /admin/ai-config/persona-generator propagates to both
+   * apps. See migration 078 for the canonical shape.
+   */
+  ai_persona_generator: AiPersonaGeneratorConfig | null;
+}
+
+/**
+ * Shape of app_settings.ai_persona_generator. Keep in sync with
+ * migration 078 and dialectica-admin/src/lib/personas/generator-config.ts.
+ *
+ * Templates use {{token}} placeholders; the renderer also supports
+ * {{var|or 'fallback'}} for graceful empty-field handling.
+ */
+export interface AiPersonaGeneratorConfig {
+  model_settings: {
+    temperature: number;
+    max_completion_tokens: number;
+  };
+  details: {
+    system: string;
+    user_template: string;
+  };
+  system_prompt: {
+    system: string;
+    user_template: string;
+  };
+  sections: {
+    _system: string;
+    identity: string;
+    character_traits: string;
+    roleplay_behavior: string;
+    coaching_approach: string;
+  };
+  persona_context_template: string;
+>>>>>>> feature/admin-web-app
 }
 
 // =============================================================================

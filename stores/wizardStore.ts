@@ -37,6 +37,7 @@ import {
   PromptSectionKey,
 } from '../types/wizard';
 import { TRAIT_TOKENS } from '../components/admin/shared/TraitTokenBadges';
+<<<<<<< HEAD
 import { AvatarGenerationConfig } from '../types/admin';
 import { buildHiresPrompt } from '../types/avatarOptions';
 
@@ -109,6 +110,13 @@ async function getAvatarConfig(): Promise<AvatarGenerationConfig> {
 
   return _avatarConfigPromise;
 }
+=======
+import {
+  buildContextVars,
+  loadPersonaGeneratorConfig,
+  renderTemplate,
+} from '../lib/personaGenerator';
+>>>>>>> feature/admin-web-app
 
 // =============================================================================
 // DEFAULTS
@@ -787,6 +795,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     const { formData, avatar, aiComplete } = get();
     set({ isGeneratingSection: key });
 
+<<<<<<< HEAD
     const personaContext = `Name: ${formData.name || 'Unknown'}
 Tagline: ${formData.tagline || 'None'}
 Cultural Background: ${formData.cultural_background || 'None'}
@@ -805,6 +814,8 @@ Avatar: ${avatar.params.ageRange} ${avatar.params.ethnicity} ${avatar.params.gen
       coaching_approach: `Write a "COACHING APPROACH:" section for this AI coaching persona. Start with "COACHING APPROACH:" on its own line, then 4-6 bullet points describing specific coaching methods and philosophy. Each bullet should be one concise sentence.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
     };
 
+=======
+>>>>>>> feature/admin-web-app
     try {
       if (key === 'trait_tokens') {
         // Not AI-generated — insert standard 12 tokens
@@ -816,9 +827,27 @@ Avatar: ${avatar.params.ageRange} ${avatar.params.ethnicity} ${avatar.params.gen
         return;
       }
 
+      // Templates come from app_settings.ai_persona_generator (DB-driven so
+      // edits in /admin/ai-config/persona-generator propagate to mobile too,
+      // no app deploy needed). Falls back to a hardcoded copy on offline /
+      // missing row — see lib/personaGenerator.ts.
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const personaContext = renderTemplate(
+        config.persona_context_template,
+        vars,
+      );
+      const userPrompt = renderTemplate(config.sections[key], {
+        ...vars,
+        persona_context: personaContext,
+      });
+
       const responseText = await aiComplete(
-        'You are an expert prompt engineer designing AI coaching personas. Write natural, engaging system prompt sections.',
-        sectionPrompts[key],
+        config.sections._system,
+        userPrompt,
       );
 
       if (responseText.trim()) {
@@ -868,13 +897,18 @@ Avatar: ${avatar.params.ageRange} ${avatar.params.ethnicity} ${avatar.params.gen
   },
 
   generatePersonaDetails: async () => {
-    const { avatar, aiComplete } = get();
+    const { avatar, formData, aiComplete } = get();
     set({ isGeneratingDetails: true });
 
     try {
-      const { params } = avatar;
-      const prompt = `Based on this avatar description, generate persona details for a coaching app character.
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const userPrompt = renderTemplate(config.details.user_template, vars);
 
+<<<<<<< HEAD
 Avatar: ${params.ageRange} ${params.ethnicity} ${params.gender}, ${params.expression}, wearing ${params.clothing} attire, ${params.accessories.join(', ')}.
 
 Generate a JSON object with these fields:
@@ -895,6 +929,9 @@ Return ONLY valid JSON, no markdown or explanation.`;
         'You are a creative character designer for a coaching app. Return only valid JSON.',
         prompt,
       );
+=======
+      const responseText = await aiComplete(config.details.system, userPrompt);
+>>>>>>> feature/admin-web-app
 
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON in response');
@@ -928,6 +965,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
     set({ isGeneratingPrompt: true });
 
     try {
+<<<<<<< HEAD
       const prompt = `Create a system prompt for an AI coaching persona with these characteristics:
 
 Name: ${formData.name || 'Unknown'}
@@ -947,10 +985,21 @@ Write a detailed system prompt (200-400 words) that:
 4. Includes these trait token placeholders where appropriate: {{character_demeanor}}, {{conversation_register}}, {{vocabulary_complexity}}, {{emotional_tone}}, {{response_pacing}}, {{cultural_context}}
 
 Return ONLY the system prompt text, no explanation or markdown.`;
+=======
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const userPrompt = renderTemplate(
+        config.system_prompt.user_template,
+        vars,
+      );
+>>>>>>> feature/admin-web-app
 
       const responseText = await aiComplete(
-        'You are an expert prompt engineer designing AI coaching personas. Write natural, engaging system prompts.',
-        prompt,
+        config.system_prompt.system,
+        userPrompt,
       );
 
       if (responseText.trim()) {

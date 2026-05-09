@@ -4,6 +4,7 @@ import { Home, Users, GraduationCap, TrendingUp, Lightbulb } from 'lucide-react-
 import { useSharedValue } from 'react-native-reanimated';
 import { ScrollHideContext } from '../../hooks/useScrollHideAnimation';
 import { AnimatedTabBar } from '../../components/navigation/AnimatedTabBar';
+import { QuotaErrorListener } from '../../components/chat/QuotaErrorListener';
 import { useAuthStore } from '../../stores/authStore';
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
@@ -47,6 +48,7 @@ export default function TabsLayout() {
 
   return (
     <ScrollHideContext.Provider value={tabBarProgress}>
+      <QuotaErrorListener />
       <Tabs
         screenOptions={{
           headerShown: false,

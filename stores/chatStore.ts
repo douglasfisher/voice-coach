@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { invokeChatFunction, isQuotaError, QuotaExceededError } from '../lib/chat-invoke';
 import { Conversation, Message } from '../types/database';
 import { InteractionMode, SessionPhase, SituationVariant, TraitSelection } from '../types/coaching';
 import { ChallengeStyle } from '../types/persona';
@@ -53,6 +54,15 @@ interface ChatState {
   isSending: boolean;
   isGeneratingReport: boolean;
   error: string | null;
+  /** Set when the chat fn returns 429 daily_token_limit_exceeded. Null
+   * otherwise. UI subscribes to surface a tier-aware upgrade prompt
+   * instead of a generic error toast. */
+  quotaError: {
+    tier: string;
+    limit: number;
+    used: number;
+    message: string;
+  } | null;
 
   // Preview state (question only, no intro)
   previewQuestion: string | null;
@@ -123,12 +133,30 @@ interface ChatState {
   // Filter actions
   setCoachesActiveDomain: (domain: string) => void;
   setChallengersActiveFilter: (filter: ChallengeStyle | 'all') => void;
+<<<<<<< HEAD
   setAdvisorsActiveCategory: (category: string) => void;
   // Logout cleanup
   clearAllState: () => void;
+=======
+  // Quota
+  clearQuotaError: () => void;
+>>>>>>> feature/admin-web-app
 }
 
 const MAX_QUESTION_REFRESHES = 3;
+
+/** Build the partial state to set when a chat-fn 429 is caught.
+ * Centralises the shape so all 14 catch blocks stay one-line. */
+function quotaStateFrom(err: QuotaExceededError) {
+  return {
+    quotaError: {
+      tier: err.tier,
+      limit: err.limit,
+      used: err.used,
+      message: err.message,
+    },
+  };
+}
 
 /** Build promptTokens for scenario generation from traits + gender preferences */
 function buildScenarioPromptTokens(selectedTraits: TraitSelection): Record<string, string> {
@@ -158,6 +186,7 @@ export const useChatStore = create<ChatState>()(
   isSending: false,
   isGeneratingReport: false,
   error: null,
+  quotaError: null,
 
   // Preview state (question only, no intro)
   previewQuestion: null,
@@ -199,7 +228,11 @@ export const useChatStore = create<ChatState>()(
       if (error) throw error;
       set({ conversations: (data ?? []) as unknown as Conversation[] });
     } catch (error) {
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
     } finally {
       set({ isLoading: false });
     }
@@ -248,7 +281,11 @@ export const useChatStore = create<ChatState>()(
 
       await get().fetchMessages(id);
     } catch (error) {
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
     } finally {
       set({ isLoading: false });
     }
@@ -371,7 +408,11 @@ export const useChatStore = create<ChatState>()(
       return data.id;
     } catch (error) {
       console.error('createConversation error:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isLoading: false });
@@ -412,7 +453,11 @@ export const useChatStore = create<ChatState>()(
       return data.id;
     } catch (error) {
       console.error('startChallengeChat error:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isLoading: false });
@@ -475,7 +520,7 @@ export const useChatStore = create<ChatState>()(
       }
 
       // Call Edge Function for AI response
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: requestBody,
       });
 
@@ -488,7 +533,11 @@ export const useChatStore = create<ChatState>()(
         response: data.response,
       };
     } catch (error) {
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isSending: false });
@@ -587,7 +636,7 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
-      const { error } = await supabase.functions.invoke('chat', {
+      const { error } = await invokeChatFunction<any>({
         body: requestBody,
       });
 
@@ -598,7 +647,11 @@ export const useChatStore = create<ChatState>()(
       return true;
     } catch (error) {
       console.error('Start chat failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return false;
     } finally {
       set({ isSending: false });
@@ -618,7 +671,7 @@ export const useChatStore = create<ChatState>()(
     set({ isGeneratingPreview: true, error: null });
     try {
       if (isQAMode) {
-        const { data, error } = await supabase.functions.invoke('chat', {
+        const { data, error } = await invokeChatFunction<any>({
           body: {
             personaId: activeConversation.persona_id,
             generateScenario: true,
@@ -632,7 +685,7 @@ export const useChatStore = create<ChatState>()(
           scenarioRefreshCount: 0,
         });
       } else {
-        const { data, error } = await supabase.functions.invoke('chat', {
+        const { data, error } = await invokeChatFunction<any>({
           body: {
             conversationId: activeConversation.id,
             personaId: activeConversation.persona_id,
@@ -648,7 +701,11 @@ export const useChatStore = create<ChatState>()(
       }
     } catch (error) {
       console.error('Generate preview failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
     } finally {
       set({ isGeneratingPreview: false });
     }
@@ -661,7 +718,7 @@ export const useChatStore = create<ChatState>()(
 
     set({ isGeneratingPreview: true, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: {
           conversationId: activeConversation.id,
           personaId: activeConversation.persona_id,
@@ -677,7 +734,11 @@ export const useChatStore = create<ChatState>()(
       return true;
     } catch (error) {
       console.error('Regenerate question failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return false;
     } finally {
       set({ isGeneratingPreview: false });
@@ -691,7 +752,7 @@ export const useChatStore = create<ChatState>()(
 
     set({ isGeneratingPreview: true, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: {
           personaId: activeConversation.persona_id,
           generateScenario: true,
@@ -707,7 +768,11 @@ export const useChatStore = create<ChatState>()(
       return true;
     } catch (error) {
       console.error('Regenerate scenario failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return false;
     } finally {
       set({ isGeneratingPreview: false });
@@ -770,7 +835,11 @@ export const useChatStore = create<ChatState>()(
       return true;
     } catch (error) {
       console.error('Start chat with preview failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return false;
     } finally {
       set({ isSending: false });
@@ -789,16 +858,21 @@ export const useChatStore = create<ChatState>()(
   generateReport: async (conversationId: string) => {
     set({ isGeneratingReport: true, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: { conversationId, generateReport: true },
       });
 
       if (error) {
         // Extract the actual error body from the edge function response
+        // (supabase-js attaches the original Response on `.context` for
+        // FunctionsHttpError; for QuotaExceededError we re-throw so the
+        // catch path's isQuotaError branch handles it).
+        if (isQuotaError(error)) throw error;
+        const ctx = (error as unknown as { context?: Response }).context;
         let detail = error.message;
-        if (error.context && typeof error.context.json === 'function') {
+        if (ctx && typeof ctx.json === 'function') {
           try {
-            const body = await error.context.json();
+            const body = await ctx.clone().json();
             detail = body?.error || JSON.stringify(body);
           } catch { /* use default message */ }
         }
@@ -807,7 +881,11 @@ export const useChatStore = create<ChatState>()(
       return data.report as SessionReport;
     } catch (error) {
       console.error('Generate report failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isGeneratingReport: false });
@@ -854,7 +932,11 @@ export const useChatStore = create<ChatState>()(
       set({ messages: [] });
     } catch (error) {
       console.error('Clear messages error:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
     }
   },
 
@@ -894,7 +976,7 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: requestBody,
       });
 
@@ -907,7 +989,11 @@ export const useChatStore = create<ChatState>()(
       return { response: data.response || data.message };
     } catch (error) {
       console.error('Switch phase failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isSending: false });
@@ -934,7 +1020,7 @@ export const useChatStore = create<ChatState>()(
         requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: requestBody,
       });
 
@@ -945,7 +1031,11 @@ export const useChatStore = create<ChatState>()(
       return { response: data.response };
     } catch (error) {
       console.error('Quick feedback failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isSending: false });
@@ -982,6 +1072,7 @@ export const useChatStore = create<ChatState>()(
     set({ challengersActiveFilter: filter });
   },
 
+<<<<<<< HEAD
   setAdvisorsActiveCategory: (category) => {
     set({ advisorsActiveCategory: category });
   },
@@ -1008,6 +1099,10 @@ export const useChatStore = create<ChatState>()(
       coachingOptions: null,
       selectedTraits: {},
     });
+=======
+  clearQuotaError: () => {
+    set({ quotaError: null });
+>>>>>>> feature/admin-web-app
   },
 
   setActiveChallengeIndex: (index) => {
@@ -1035,7 +1130,7 @@ export const useChatStore = create<ChatState>()(
       } | null = null;
 
       for (let attempt = 0; attempt < 2; attempt++) {
-        const result = await supabase.functions.invoke('chat', {
+        const result = await invokeChatFunction<any>({
           body: { generateChallengeBatch: true },
         });
 
