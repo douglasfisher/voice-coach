@@ -21,7 +21,9 @@
     "nativewind-env.d.ts"
   ],
   "exclude": [
-    "supabase/**/*",
-    "node_modules"
+    "node_modules",
+    ".expo",
+    "dist",
+    "web-build"
   ]
 }

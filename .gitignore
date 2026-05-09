@@ -1,15 +1,24 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
+# dependencies (each workspace + pnpm shared store)
 node_modules/
+.pnpm-store/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+# Expo (apply to any apps/* workspace)
+**/.expo/
+**/dist/
+**/web-build/
+**/expo-env.d.ts
 
-# Native
+# Next.js (admin app)
+**/.next/
+**/out/
+
+# Native folders (Expo prebuild output — mobile workspace only)
+apps/mobile/ios/
+apps/mobile/android/
+
+# Editor / OS
 .kotlin/
 *.orig.*
 *.jks
@@ -17,26 +26,25 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
-
-# Metro
 .metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
 .DS_Store
 *.pem
 
-# local env files
+# Debug logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.log*
+
+# Local env (every workspace; never commit secrets)
 .env
 .env*.local
+**/.env
+**/.env*.local
 
-# typescript
-*.tsbuildinfo
+# TypeScript build cache
+**/*.tsbuildinfo
 
-# generated native folders
-/ios
-/android
+# Test artefacts
+.test-status
+**/coverage/
