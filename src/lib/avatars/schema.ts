@@ -27,4 +27,11 @@ export const generateRequestSchema = z.object({
 
 export const upscaleRequestSchema = z.object({
   draftUrl: z.string().url(),
+  /** Optional — when present, the produced hi-res row is linked to the
+   * same generation_batch_id as the source drafts so the library browser
+   * can show drafts + hi-res together. Generated server-side if absent. */
+  batchId: z.string().uuid().optional(),
+  /** Optional snapshot of the params used for the source draft. Stored on
+   * the hi-res library row for filterability. */
+  params: avatarParamsSchema.partial().optional(),
 })

@@ -5,6 +5,9 @@ import { audit } from "@/lib/audit"
 import { upscaleRequestSchema } from "@/lib/avatars/schema"
 import { loadAvatarConfig } from "@/lib/avatars/config"
 import { invokeRunware, pickImage } from "@/lib/avatars/runware"
+import { recordAvatarLibraryRow } from "@/lib/avatars/library"
+import { recordAdminAiUsage } from "@/lib/ai/usage"
+import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 
 /**
  * Upscale a selected draft to a 1792x2400 photoreal portrait.
@@ -63,6 +66,34 @@ export async function POST(req: Request) {
         { status: 502 }
       )
     }
+
+    // Record the hi-res in avatar_library, linked back to the draft batch
+    // when the client provided one. is_hi_res=true so the library browser
+    // can filter for "ready to use" avatars vs concept drafts.
+    const batchId = parsed.data.batchId ?? randomUUID()
+    const params = parsed.data.params
+    const admin = createSupabaseAdminClient()
+    await recordAvatarLibraryRow(admin, {
+      storage_path: picked.storagePath,
+      public_url: picked.url,
+      prompt: hires.prompt,
+      params: params ?? null,
+      gender: params?.gender ?? null,
+      ethnicity: params?.ethnicity ?? null,
+      created_by: gate.ctx.userId,
+      generation_batch_id: batchId,
+      is_hi_res: true,
+    })
+
+    // Cost tracking — Runware reports cost per upscale.
+    await recordAdminAiUsage(admin, {
+      userId: gate.ctx.userId,
+      model: hires.model,
+      promptTokens: 0,
+      completionTokens: 1,
+      estimatedCostCents: Math.round((picked.cost ?? 0) * 100),
+      taskType: "image_generation",
+    })
 
     await audit(gate.ctx, {
       action: "avatar.upscale",

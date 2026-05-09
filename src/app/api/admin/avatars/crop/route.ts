@@ -3,6 +3,7 @@ import { z } from "zod"
 
 import { requireAdminApi } from "@/lib/auth/require-admin"
 import { audit } from "@/lib/audit"
+import { recordAvatarLibraryRow } from "@/lib/avatars/library"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 
 const MAX_BYTES = 3 * 1024 * 1024
@@ -70,6 +71,22 @@ export async function POST(req: Request) {
   }
 
   const { data } = admin.storage.from("persona-avatars").getPublicUrl(path)
+
+  // Record in library so the cropped variant shows up in /admin/avatars
+  // and can be re-picked. is_hi_res=false (cropped concept, not a
+  // photoreal upscale). The source draft URL is preserved in the prompt
+  // field so the lineage is visible at a glance.
+  await recordAvatarLibraryRow(admin, {
+    storage_path: path,
+    public_url: data.publicUrl,
+    prompt: sourceUrl ? `[cropped from] ${sourceUrl}` : null,
+    params: null,
+    gender: null,
+    ethnicity: null,
+    created_by: gate.ctx.userId,
+    generation_batch_id: null,
+    is_hi_res: false,
+  })
 
   await audit(gate.ctx, {
     action: "avatar.crop",

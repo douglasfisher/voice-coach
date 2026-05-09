@@ -5,6 +5,9 @@ import { audit } from "@/lib/audit"
 import { generateRequestSchema } from "@/lib/avatars/schema"
 import { loadAvatarConfig } from "@/lib/avatars/config"
 import { invokeRunware, pickImage } from "@/lib/avatars/runware"
+import { recordAvatarLibraryRows } from "@/lib/avatars/library"
+import { recordAdminAiUsage } from "@/lib/ai/usage"
+import { createSupabaseAdminClient } from "@/lib/supabase/admin"
 
 /**
  * Generate four 896x1152 draft portraits via the runware edge function.
@@ -79,6 +82,41 @@ export async function POST(req: Request) {
         { status: 502 }
       )
     }
+
+    // Record drafts in avatar_library so they show up in /admin/avatars
+    // immediately — even before the persona is saved. Mirrors mobile's
+    // saveDraftsToLibrary semantics but inserts up-front rather than on
+    // persona save, so the web admin's library browser always reflects
+    // every Runware spend regardless of whether the persona was kept.
+    const admin = createSupabaseAdminClient()
+    await recordAvatarLibraryRows(
+      admin,
+      drafts.map((d) => ({
+        storage_path: d.storagePath,
+        public_url: d.url,
+        prompt: parsed.data.prompt,
+        params: parsed.data.params,
+        gender: parsed.data.params.gender ?? null,
+        ethnicity: parsed.data.params.ethnicity ?? null,
+        created_by: gate.ctx.userId,
+        generation_batch_id: batchId,
+        is_hi_res: false,
+      }))
+    )
+
+    // Cost tracking. Runware returns cost per image (USD); we sum and
+    // store cents so the /admin/usage page can show admin spend alongside
+    // chat spend. completion_tokens=number of images so 'token' axes
+    // still convey volume.
+    const totalCostUsd = drafts.reduce((s, d) => s + (d.cost ?? 0), 0)
+    await recordAdminAiUsage(admin, {
+      userId: gate.ctx.userId,
+      model: draft.model,
+      promptTokens: 0,
+      completionTokens: drafts.length,
+      estimatedCostCents: Math.round(totalCostUsd * 100),
+      taskType: "image_generation",
+    })
 
     await audit(gate.ctx, {
       action: "avatar.generate",

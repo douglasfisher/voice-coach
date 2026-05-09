@@ -266,7 +266,11 @@ export function PersonaEditor({
               <VoiceAiTab form={form} lookups={lookups} />
             </TabsContent>
             <TabsContent value="avatar">
-              <AvatarTab form={form} avatarConfig={avatarConfig} />
+              <AvatarTab
+                form={form}
+                avatarConfig={avatarConfig}
+                personaId={personaId}
+              />
             </TabsContent>
           </Tabs>
         </form>
