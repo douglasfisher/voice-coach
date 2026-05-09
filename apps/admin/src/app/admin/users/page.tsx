@@ -15,6 +15,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { formatRelative } from "@/lib/format"
 import type { Database } from "@/types/database"
 import { UsersFilterBar } from "./filter-bar"
+import { InviteUserDialog } from "./invite-dialog"
 import { SortHeader } from "./sort-header"
 
 export const metadata = { title: "Users · Dialectica Admin" }
@@ -188,6 +189,7 @@ export default async function UsersPage({
       <PageHeader
         title="Users"
         description="People with accounts on Dialectica."
+        actions={<InviteUserDialog />}
       />
 
       <UsersFilterBar
