@@ -21,6 +21,8 @@ import { RoleControl } from "./role-control"
 import { TierControl } from "./tier-control"
 import { UserSpendTab } from "./spend-tab"
 import { UserActionsPanel } from "./actions-panel"
+import { AdminNotesEditor } from "./admin-notes"
+import { UserAuditLog } from "./user-audit-log"
 
 export const metadata = { title: "User · Dialectica Admin" }
 export const dynamic = "force-dynamic"
@@ -155,6 +157,7 @@ export default async function UserDetailPage({
           </TabsTrigger>
           <TabsTrigger value="auth">Auth</TabsTrigger>
           <TabsTrigger value="actions">Actions</TabsTrigger>
+          <TabsTrigger value="notes-audit">Notes &amp; audit</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="pt-4">
@@ -244,6 +247,18 @@ export default async function UserDetailPage({
               targetRole={user.role}
               actorRole={ctx.role}
             />
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="notes-audit" className="space-y-4 pt-4">
+          {user.id ? (
+            <>
+              <AdminNotesEditor
+                userId={user.id}
+                initialNotes={user.admin_notes ?? null}
+              />
+              <UserAuditLog userId={user.id} />
+            </>
           ) : null}
         </TabsContent>
       </Tabs>

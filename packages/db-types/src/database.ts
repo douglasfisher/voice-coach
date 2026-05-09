@@ -1572,6 +1572,7 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          admin_notes: string | null
           avatar_url: string | null
           created_at: string | null
           current_level: number | null
@@ -1588,6 +1589,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          admin_notes?: string | null
           avatar_url?: string | null
           created_at?: string | null
           current_level?: number | null
@@ -1604,6 +1606,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          admin_notes?: string | null
           avatar_url?: string | null
           created_at?: string | null
           current_level?: number | null
@@ -1739,6 +1742,7 @@ export type Database = {
     Views: {
       admin_users_overview: {
         Row: {
+          admin_notes: string | null
           auth_created_at: string | null
           avatar_url: string | null
           current_level: number | null
