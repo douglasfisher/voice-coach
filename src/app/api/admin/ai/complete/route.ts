@@ -2,7 +2,7 @@ import { z } from "zod"
 
 import { requireAdminApi } from "@/lib/auth/require-admin"
 import { audit } from "@/lib/audit"
-import { createSupabaseAdminClient } from "@/lib/supabase/admin"
+import { aiComplete } from "@/lib/ai/complete"
 
 const bodySchema = z.object({
   systemPrompt: z.string().min(1).max(8000),
@@ -23,13 +23,13 @@ const bodySchema = z.object({
     .optional(),
 })
 
-const DEFAULT_SETTINGS = { temperature: 0.9, max_completion_tokens: 1024 }
-
 /**
  * Generic admin proxy to the `chat` edge function's "complete" task.
  *
- * Re-uses the existing cost-tracked, model-resolved chat function the
- * mobile app already uses. Auditing happens here, not in the edge fn.
+ * The persona-specific routes (/persona-details, /system-prompt, /section)
+ * render their prompts from app_settings.ai_persona_generator and call
+ * aiComplete() directly. This generic route is kept for any free-form
+ * complete call from the admin UI.
  */
 export async function POST(req: Request) {
   const gate = await requireAdminApi()
@@ -49,36 +49,15 @@ export async function POST(req: Request) {
     )
   }
 
-  const admin = createSupabaseAdminClient()
-  const { data, error } = await admin.functions.invoke("chat", {
-    body: {
-      action: "complete",
-      systemPrompt: parsed.data.systemPrompt,
-      userPrompt: parsed.data.userPrompt,
-      settings: { ...DEFAULT_SETTINGS, ...(parsed.data.settings ?? {}) },
-    },
+  const result = await aiComplete({
+    systemPrompt: parsed.data.systemPrompt,
+    userPrompt: parsed.data.userPrompt,
+    settings: parsed.data.settings,
   })
-
-  if (error) {
-    let detail: string | undefined
-    try {
-      const ctx = (error as { context?: { text?: () => Promise<string> } })
-        .context
-      detail = await ctx?.text?.()
-    } catch {
-      // ignore
-    }
+  if (!result.ok) {
     return Response.json(
-      { error: "chat_failed", message: error.message, detail },
-      { status: 502 }
-    )
-  }
-
-  const content = (data as { content?: string } | undefined)?.content ?? ""
-  if (!content) {
-    return Response.json(
-      { error: "empty_response" },
-      { status: 502 }
+      { error: result.error, message: result.message, detail: result.detail },
+      { status: result.status }
     )
   }
 
@@ -91,10 +70,10 @@ export async function POST(req: Request) {
       after: {
         kind: parsed.data.context?.kind ?? "complete",
         section_key: parsed.data.context?.sectionKey ?? null,
-        chars: content.length,
+        chars: result.content.length,
       },
     },
   })
 
-  return Response.json({ data: { content } })
+  return Response.json({ data: { content: result.content } })
 }

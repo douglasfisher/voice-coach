@@ -25,6 +25,7 @@ import type { PersonaFormValues } from "@/lib/personas/schema"
 import type { PersonaLookups } from "@/lib/personas/lookups"
 
 import { Grid, Row, Section } from "./_shared"
+import { IdentityAiFill } from "../identity-ai-fill"
 
 export function IdentityTab({
   form,
@@ -37,6 +38,10 @@ export function IdentityTab({
 
   return (
     <>
+      <div className="mb-4 flex items-center justify-end">
+        <IdentityAiFill form={form} />
+      </div>
+
       <Section title="Basics" description="The user-visible identity.">
         <Grid>
           <FormField

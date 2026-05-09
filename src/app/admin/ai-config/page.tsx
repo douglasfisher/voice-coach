@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, ImageIcon } from "lucide-react"
+import { ArrowRight, AudioLines, ImageIcon, Sparkles } from "lucide-react"
 
 import { PageHeader } from "@/components/admin/page-header"
 import {
@@ -15,11 +15,25 @@ export const metadata = { title: "AI config · Dialectica Admin" }
 
 const PANELS = [
   {
+    href: "/admin/ai-config/persona-generator",
+    title: "Persona generator",
+    description:
+      "Meta-prompts that produce a full persona via AI. Used by the 'Generate persona' button and the per-section AI write actions.",
+    Icon: Sparkles,
+  },
+  {
     href: "/admin/ai-config/avatar-composition",
     title: "Avatar composition",
     description:
       "Silhouette and safe-zone overlay used on persona drafts and inside the crop modal.",
     Icon: ImageIcon,
+  },
+  {
+    href: "/admin/ai-config/voice-defaults",
+    title: "Voice defaults",
+    description:
+      "Voice IDs auto-picked when a persona is created. Per-gender, with manual-override preservation.",
+    Icon: AudioLines,
   },
 ]
 

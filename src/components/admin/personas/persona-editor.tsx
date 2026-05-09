@@ -2,10 +2,10 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ArrowLeft, Save, Trash2 } from "lucide-react"
+import { ArrowLeft, Save, Sparkles, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -29,12 +29,14 @@ import {
 } from "@/lib/personas/schema"
 import type { PersonaLookups } from "@/lib/personas/lookups"
 import type { AvatarConfig } from "@/lib/avatars/config"
+import type { VoiceDefaultsClient } from "@/lib/personas/voice-defaults"
 
 import { IdentityTab } from "./tabs/identity-tab"
 import { PersonalityTab } from "./tabs/personality-tab"
 import { PromptsTab } from "./tabs/prompts-tab"
 import { VoiceAiTab } from "./tabs/voice-ai-tab"
 import { AvatarTab } from "./tabs/avatar-tab"
+import { GeneratePersonaDialog } from "./generate-persona-dialog"
 
 type Mode = "create" | "edit"
 
@@ -44,6 +46,7 @@ export function PersonaEditor({
   initialValues,
   lookups,
   avatarConfig,
+  voiceDefaults,
   actorRole,
 }: {
   mode: Mode
@@ -51,6 +54,7 @@ export function PersonaEditor({
   initialValues: PersonaFormValues
   lookups: PersonaLookups
   avatarConfig: AvatarConfig
+  voiceDefaults: VoiceDefaultsClient
   actorRole: "admin" | "superadmin"
 }) {
   const router = useRouter()
@@ -65,6 +69,31 @@ export function PersonaEditor({
 
   const personaName = form.watch("name")
   const isActive = form.watch("is_active")
+  const [generateOpen, setGenerateOpen] = useState(false)
+
+  // Auto-fill voice_id when gender changes — but only if the current
+  // voice_id is empty or one we previously auto-picked. Manual overrides
+  // (admin pasted a custom ID) are preserved. The set of "auto-picked"
+  // values comes from app_settings.ai_voice_defaults.all_default_ids.
+  const watchedGender = form.watch("gender")
+  const watchedVoiceId = form.watch("voice_id")
+  const lastAutoPickRef = useRef<string | null>(null)
+  useEffect(() => {
+    const desired = voiceDefaults.byGender[watchedGender]
+    if (!desired) return
+    const current = watchedVoiceId ?? ""
+    const isOnDefault =
+      current === "" ||
+      voiceDefaults.allDefaultIds.includes(current) ||
+      current === lastAutoPickRef.current
+    if (isOnDefault && current !== desired) {
+      lastAutoPickRef.current = desired
+      form.setValue("voice_id", desired, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    }
+  }, [watchedGender, watchedVoiceId, voiceDefaults, form])
 
   function onSubmit(values: PersonaFormValues) {
     startTransition(async () => {
@@ -160,6 +189,15 @@ export function PersonaEditor({
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setGenerateOpen(true)}
+              disabled={pending}
+            >
+              <Sparkles className="mr-1 size-4" />
+              Generate persona
+            </Button>
             {mode === "edit" && personaId ? (
               <DeleteMenu
                 actorRole={actorRole}
@@ -182,6 +220,13 @@ export function PersonaEditor({
             </Button>
           </div>
         }
+      />
+
+      <GeneratePersonaDialog
+        form={form}
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        avatarConfig={avatarConfig}
       />
 
       <Form {...form}>

@@ -100,10 +100,31 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 ```
 
-## What's not yet built
+## What's built
 
-- DB type generation: `supabase gen types typescript --project-id enatcutnrtuauykqyajc > src/types/database.ts`
-- MFA challenge flow (`/mfa` is a stub)
-- Per-feature pages: users, personas, ai-config, subscriptions, etc.
-- Recharts-based usage/cost charts
+- **Users** list + detail + role mutation.
+- **Personas** list (grid + table views) + create/edit with tabbed editor
+  (Identity · Personality & Style · Prompts · Voice & AI · Avatar). All
+  AI persona generation: per-section AI write, master "Generate persona"
+  dialog with 5 pre-flight constraint selects, identity AI fill button.
+- **Avatar generation:** 4-up FLUX drafts → crop modal with composition
+  silhouette overlay → photoreal hi-res upscale (nano-banana). Saved
+  avatar params persist on `personas.avatar_params`.
+- **AI config:** `/admin/ai-config` index + editors for
+  `ai_persona_generator`, `ai_avatar_composition`, `ai_voice_defaults`.
+- **Audit log:** every admin mutation logs to `admin_audit_log`. Viewer
+  at `/admin/audit-log` (superadmin only).
+
+## Follow-ups
+
+See [`docs/FOLLOW_UPS.md`](./docs/FOLLOW_UPS.md) for known deferred
+items (avatar library browser, mobile composition overlay parity,
+trait-token reconciliation, subscriptions page, etc.).
+
+## Still bare-bones
+
+- MFA challenge flow (`/mfa` is a stub — Supabase MFA enrolment must be
+  done via the dashboard for now)
+- Recharts-based usage / cost / budget charts (sidebar links exist;
+  pages are 404)
 - Rate limiting (Upstash or Vercel KV) on `/api/admin/*`

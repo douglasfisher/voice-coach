@@ -5,6 +5,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { loadPersonaLookups } from "@/lib/personas/lookups"
 import { personaRowToForm } from "@/lib/personas/mappers"
 import { loadAvatarConfig } from "@/lib/avatars/config"
+import {
+  loadVoiceDefaults,
+  toClient as toClientVoiceDefaults,
+} from "@/lib/personas/voice-defaults"
 import { PersonaEditor } from "@/components/admin/personas/persona-editor"
 
 export const metadata = { title: "Persona · Dialectica Admin" }
@@ -21,11 +25,13 @@ export default async function PersonaEditPage({
   const { id } = await params
   const supabase = await createSupabaseServerClient()
 
-  const [{ data: persona, error }, lookups, avatarConfig] = await Promise.all([
-    supabase.from("personas").select("*").eq("id", id).maybeSingle(),
-    loadPersonaLookups(),
-    loadAvatarConfig(),
-  ])
+  const [{ data: persona, error }, lookups, avatarConfig, voiceDefaults] =
+    await Promise.all([
+      supabase.from("personas").select("*").eq("id", id).maybeSingle(),
+      loadPersonaLookups(),
+      loadAvatarConfig(),
+      loadVoiceDefaults(),
+    ])
 
   if (error) throw new Error(error.message)
   if (!persona) notFound()
@@ -37,6 +43,7 @@ export default async function PersonaEditPage({
       initialValues={personaRowToForm(persona)}
       lookups={lookups}
       avatarConfig={avatarConfig}
+      voiceDefaults={toClientVoiceDefaults(voiceDefaults)}
       actorRole={ctx.role}
     />
   )

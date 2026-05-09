@@ -5,6 +5,11 @@ import type { PersonaFormValues } from "./schema"
  * The five-section breakdown that compiles into system_prompt.
  * Order is significant — sections are joined in this order with a blank
  * line between them when compiling the final prompt.
+ *
+ * Mobile parity: per-section AI prompts now live in
+ * app_settings.ai_persona_generator and are rendered server-side by
+ * /api/admin/ai/section. The client only needs the keys/meta and the
+ * pure helpers below.
  */
 export const SECTION_KEYS = [
   "identity",
@@ -67,59 +72,6 @@ export const SECTION_META: Record<
 /** Default trait_tokens content — all 12 placeholders, one per line. */
 export function defaultTraitTokensSection(): string {
   return TRAIT_TOKENS.map((t) => `{{${t}}}`).join("\n")
-}
-
-/**
- * Builds the persona context block included in every AI section call.
- * Mirrors the mobile wizard's persona snapshot.
- */
-export function personaContextFor(form: PersonaFormValues): string {
-  const lines: string[] = []
-  if (form.name) lines.push(`Name: ${form.name}`)
-  if (form.tagline) lines.push(`Tagline: ${form.tagline}`)
-  if (form.cultural_background)
-    lines.push(`Cultural Background: ${form.cultural_background}`)
-  if (form.age_range) lines.push(`Age range: ${form.age_range}`)
-  lines.push(`Type: ${form.persona_type}`)
-  lines.push(`Gender: ${form.gender}`)
-  if (form.coaching_style)
-    lines.push(`Coaching Style: ${form.coaching_style}`)
-  if (form.challenge_style)
-    lines.push(`Challenge Style: ${form.challenge_style}`)
-  if (form.feedback_style)
-    lines.push(`Feedback Style: ${form.feedback_style}`)
-  lines.push(
-    `Personality (0–100): warmth ${form.warmth}, directness ${form.directness}, patience ${form.patience}, humor ${form.humor}, formality ${form.formality}`
-  )
-  if (form.specialty_areas.length)
-    lines.push(`Specialty areas: ${form.specialty_areas.join(", ")}`)
-  return lines.join("\n")
-}
-
-/**
- * Per-section AI generation prompts. Returned as a system + user pair sent
- * to the chat edge function with action: 'complete'.
- */
-export function sectionPromptFor(
-  section: SectionKey,
-  form: PersonaFormValues
-): { systemPrompt: string; userPrompt: string } {
-  const context = personaContextFor(form)
-  const systemPrompt =
-    "You are an expert prompt engineer who writes concise, specific persona instructions for an AI coaching app. Your output is plain text only — no markdown, no commentary, no quoted code blocks."
-
-  const tasks: Record<SectionKey, string> = {
-    identity: `Write the opening identity paragraph for this AI coaching persona. Start with "You are ${form.name || "[Name]"}, a [role descriptor]…" and establish who they are, their background, and how they approach their work. 2–4 sentences. No headers, no bullets — just the paragraph.`,
-    trait_tokens:
-      "Output exactly the 12 trait token placeholders, one per line, with no surrounding text. Tokens: " +
-      TRAIT_TOKENS.map((t) => `{{${t}}}`).join(" "),
-    character_traits: `Write a CHARACTER TRAITS section. Start with "CHARACTER TRAITS:" on its own line. Then on the next line, the placeholder "{{character_demeanor}}" alone. Then 4–6 bullet points (each starting with "- "), each one concise sentence describing a specific character trait of this persona.`,
-    roleplay_behavior: `Write a "WHEN IN ROLEPLAY:" section. Start with "WHEN IN ROLEPLAY:" on its own line. Then 5–7 bullet points (each starting with "- ") describing specific roleplay behaviors and rules — one concise directive per bullet.`,
-    coaching_approach: `Write a "COACHING APPROACH:" section. Start with "COACHING APPROACH:" on its own line. Then 4–6 bullet points (each starting with "- ") describing specific coaching methods and philosophy — one concise sentence per bullet.`,
-  }
-
-  const userPrompt = `${tasks[section]}\n\nPersona context:\n${context}`
-  return { systemPrompt, userPrompt }
 }
 
 /**

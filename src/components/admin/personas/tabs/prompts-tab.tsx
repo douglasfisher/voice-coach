@@ -21,7 +21,6 @@ import {
   SECTION_META,
   compileSections,
   defaultTraitTokensSection,
-  sectionPromptFor,
   type SectionKey,
 } from "@/lib/personas/prompt-sections"
 import type { PersonaFormValues } from "@/lib/personas/schema"
@@ -57,18 +56,11 @@ export function PromptsTab({
   }
 
   async function callAi(key: SectionKey): Promise<string> {
-    const { systemPrompt: sys, userPrompt } = sectionPromptFor(
-      key,
-      form.getValues()
-    )
-    const res = await fetch("/api/admin/ai/complete", {
+    if (key === "trait_tokens") return defaultTraitTokensSection()
+    const res = await fetch("/api/admin/ai/section", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemPrompt: sys,
-        userPrompt,
-        context: { kind: "persona_section", sectionKey: key },
-      }),
+      body: JSON.stringify({ key, form: form.getValues() }),
     })
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
