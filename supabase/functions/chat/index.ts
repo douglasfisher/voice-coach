@@ -10,6 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-resolver.ts';
 import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
 import { recordAIUsage, calculateAICost } from '../_shared/cost-calculator.ts';
+import { checkDailyQuota, quotaExceededResponse } from '../_shared/quota.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -200,6 +201,29 @@ serve(async (req) => {
       switchPhase,
       promptTokens,
     } = await req.json() as ChatRequest;
+
+    // =========================================================================
+    // Per-user daily token quota enforcement (P1).
+    //
+    // Runs once per request, gated on having a conversationId — that's
+    // every user-initiated path (chat, coaching, reports). Admin /
+    // system paths (action=complete, generateChallenge*, generateScenario
+    // pre-conversation) intentionally skip the check.
+    //
+    // Tier limits live in app_settings.ai_tier_limits and are tunable
+    // without a redeploy. enterprise/team are tracked but not enforced.
+    // =========================================================================
+    if (conversationId) {
+      const { data: convForQuota } = await supabase
+        .from('conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .maybeSingle();
+      const quota = await checkDailyQuota(supabase, convForQuota?.user_id);
+      if (!quota.ok) {
+        return quotaExceededResponse(quota, corsHeaders);
+      }
+    }
 
     // =========================================================================
     // Generic completion — lightweight AI call, no conversation context
