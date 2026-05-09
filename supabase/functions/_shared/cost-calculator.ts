@@ -151,6 +151,7 @@ export type AITaskType =
   | 'complete'         // Generic completion
   | 'scenario'         // Q&A scenario generation
   | 'image_generation' // Avatar image generation (Runware)
+  | 'tts'              // Text-to-speech (ElevenLabs)
   | 'unknown';         // Fallback
 
 /**
