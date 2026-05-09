@@ -50,7 +50,13 @@ export async function invokeRunware(body: {
   tasks: unknown[]
 }): Promise<{ data: RunwareImage[]; raw: unknown }> {
   const admin = createSupabaseAdminClient()
-  const { data, error } = await admin.functions.invoke("runware", { body })
+  // skipUsageTracking is set so the runware edge function doesn't write
+  // an ai_usage row — the calling admin route writes its own (with the
+  // admin actor's user_id and full audit trail) immediately after.
+  // Without this we'd double-count every web-admin avatar generation.
+  const { data, error } = await admin.functions.invoke("runware", {
+    body: { ...body, skipUsageTracking: true },
+  })
   if (error) {
     let detail: string | undefined
     try {
