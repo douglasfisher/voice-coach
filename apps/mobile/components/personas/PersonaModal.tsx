@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, Modal, Pressable, Image, ImageSourcePropType, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X, Sparkles, Zap, Brain, Heart, Scale, Eye, Play, Volume2, ChevronRight, GraduationCap, Lightbulb, Pencil } from 'lucide-react-native';
+import { X, Sparkles, Zap, Brain, Heart, Scale, Eye, Play, Volume2, ChevronRight, GraduationCap, Lightbulb } from 'lucide-react-native';
 import {
   PersonaDisplay,
   ChallengeStyle,
@@ -14,7 +14,6 @@ import { ModeToggle } from '../chat/ModeToggle';
 import { useChatStore } from '../../stores/chatStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useAppSetting } from '../../hooks';
-import { PersonaEditModal } from './PersonaEditModal';
 
 // Coaching style labels for coaches
 const COACHING_STYLE_LABELS: Record<string, string> = {
@@ -95,7 +94,6 @@ export function PersonaModal({
   isPlayingVoice = false,
   onPersonaUpdated,
 }: PersonaModalProps) {
-  const [editModalVisible, setEditModalVisible] = useState(false);
   const globalInteractionMode = useChatStore((s) => s.globalInteractionMode);
   const setGlobalInteractionMode = useChatStore((s) => s.setGlobalInteractionMode);
   const isAdmin = useAuthStore((s) => s.profile?.is_admin);
@@ -257,23 +255,8 @@ export function PersonaModal({
                 <Text style={{ color: '#fff', fontSize: 36, fontWeight: 'bold' }}>
                   {persona.name}
                 </Text>
-                {isAdmin && (
-                  <Pressable
-                    onPress={() => setEditModalVisible(true)}
-                    style={{
-                      marginLeft: 12,
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: 'rgba(255,255,255,0.15)',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    hitSlop={8}
-                  >
-                    <Pencil size={16} color="#fff" />
-                  </Pressable>
-                )}
+                {/* Inline persona-edit affordance removed — admins now
+                    edit personas via the web admin (/admin/personas). */}
               </View>
 
               {/* Tagline */}
@@ -398,19 +381,6 @@ export function PersonaModal({
             <ChevronRight size={22} color="#0f0f12" style={{ marginLeft: 4 }} />
           </Pressable>
         </View>
-        {isAdmin && persona.id && (
-          <PersonaEditModal
-            personaId={persona.id}
-            personaName={persona.name}
-            currentAvatarSource={imageSource as ImageSourcePropType}
-            visible={editModalVisible}
-            onClose={() => setEditModalVisible(false)}
-            onSaved={() => {
-              setEditModalVisible(false);
-              onPersonaUpdated?.(persona);
-            }}
-          />
-        )}
       </View>
     </Modal>
   );

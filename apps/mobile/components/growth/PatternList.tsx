@@ -131,8 +131,11 @@ export function PatternList({ patterns, maxItems = 10 }: PatternListProps) {
 }
 
 function PatternItem({ pattern }: { pattern: UserPattern }) {
-  const trend = pattern.trend ?? 'stable';
-  const trendInfo = trendConfig[trend];
+  // pattern.trend is freeform text in the DB; narrow to a known key
+  // and fall back to "stable" for nulls or unexpected values so the
+  // lookup is always safe.
+  const trendKey = (pattern.trend ?? 'stable') as keyof typeof trendConfig;
+  const trendInfo = trendConfig[trendKey] ?? trendConfig.stable;
   const TrendIcon = trendInfo.Icon;
 
   const typeInfo = typeConfig[pattern.pattern_type] || {

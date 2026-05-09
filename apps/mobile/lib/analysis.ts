@@ -57,9 +57,13 @@ export function calculateOverallTrend(
 }
 
 export function getRecommendedFocusAreas(
-  patterns: { pattern_type: string; pattern_code: string; occurrence_count: number }[]
+  patterns: { pattern_type: string; pattern_code: string; occurrence_count: number | null }[]
 ): { type: string; code: string; priority: 'high' | 'medium' | 'low' }[] {
-  const sorted = [...patterns].sort((a, b) => b.occurrence_count - a.occurrence_count);
+  // occurrence_count is nullable in the DB; treat null as 0 so the
+  // sort is stable rather than NaN.
+  const sorted = [...patterns].sort(
+    (a, b) => (b.occurrence_count ?? 0) - (a.occurrence_count ?? 0)
+  );
 
   return sorted.slice(0, 5).map((pattern, index) => ({
     type: pattern.pattern_type,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { AppSettingsMap } from '../types/admin';
+import { AppSettingsMap } from '../types/appSettings';
 
 // Module-level cache shared across all hook instances
 const cache: Record<string, { value: unknown; fetchedAt: number }> = {};
