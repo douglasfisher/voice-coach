@@ -168,6 +168,10 @@ export async function recordAIUsage(
     completionTokens: number;
     totalTokens: number;
     taskType?: AITaskType;
+    /** Wall-clock duration of the provider request in ms. Optional —
+     * callers that don't time themselves (e.g. image generation where
+     * latency includes user-side upload time) leave it null. */
+    latencyMs?: number | null;
   }
 ): Promise<void> {
   const costCents = await calculateAICost(
@@ -187,6 +191,7 @@ export async function recordAIUsage(
     total_tokens: params.totalTokens,
     estimated_cost_cents: costCents,
     task_type: params.taskType || 'unknown',
+    latency_ms: params.latencyMs ?? null,
   });
 
   if (error) {
