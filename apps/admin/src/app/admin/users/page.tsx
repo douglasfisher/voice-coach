@@ -1,16 +1,7 @@
 import Link from "next/link"
-import { Search } from "lucide-react"
 
 import { PageHeader } from "@/components/admin/page-header"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -23,23 +14,55 @@ import { Button } from "@/components/ui/button"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { formatRelative } from "@/lib/format"
 import type { Database } from "@/types/database"
+import { UsersFilterBar } from "./filter-bar"
+import { SortHeader } from "./sort-header"
 
 export const metadata = { title: "Users · Dialectica Admin" }
+export const dynamic = "force-dynamic"
 
 const PAGE_SIZE = 25
 
 type UserRow = Database["public"]["Views"]["admin_users_overview"]["Row"]
 
+type Role = "all" | "user" | "admin" | "superadmin"
+type Tier =
+  | "all"
+  | "free"
+  | "freemium"
+  | "basic"
+  | "pro"
+  | "enterprise"
+  | "team"
+type Status = "all" | "active" | "suspended"
+type Joined = "all" | "7d" | "30d" | "90d"
+type Inactive = "all" | "30d" | "60d" | "90d" | "never"
+type SortField = "joined" | "last_signin" | "sessions" | "streak" | "last_session"
+type SortDir = "asc" | "desc"
+
 type Filters = {
   q: string
-  role: "all" | "user" | "admin" | "superadmin"
+  role: Role
+  tier: Tier
+  status: Status
+  joined: Joined
+  inactive: Inactive
+  sort: SortField
+  dir: SortDir
   page: number
 }
 
-function parseFilters(sp: Record<string, string | string[] | undefined>): Filters {
+function parseFilters(
+  sp: Record<string, string | string[] | undefined>
+): Filters {
   const get = (k: string) =>
     Array.isArray(sp[k]) ? sp[k]?.[0] : (sp[k] as string | undefined)
   const role = get("role")
+  const tier = get("tier")
+  const status = get("status")
+  const joined = get("joined")
+  const inactive = get("inactive")
+  const sort = get("sort")
+  const dir = get("dir")
   const pageRaw = Number(get("page") ?? 1)
   return {
     q: (get("q") ?? "").trim(),
@@ -47,8 +70,55 @@ function parseFilters(sp: Record<string, string | string[] | undefined>): Filter
       role === "user" || role === "admin" || role === "superadmin"
         ? role
         : "all",
+    tier:
+      tier === "free" ||
+      tier === "freemium" ||
+      tier === "basic" ||
+      tier === "pro" ||
+      tier === "enterprise" ||
+      tier === "team"
+        ? tier
+        : "all",
+    status: status === "active" || status === "suspended" ? status : "all",
+    joined:
+      joined === "7d" || joined === "30d" || joined === "90d" ? joined : "all",
+    inactive:
+      inactive === "30d" ||
+      inactive === "60d" ||
+      inactive === "90d" ||
+      inactive === "never"
+        ? inactive
+        : "all",
+    sort:
+      sort === "last_signin" ||
+      sort === "sessions" ||
+      sort === "streak" ||
+      sort === "last_session"
+        ? sort
+        : "joined",
+    dir: dir === "asc" ? "asc" : "desc",
     page: Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1,
   }
+}
+
+function joinedSinceIso(joined: Joined): string | null {
+  if (joined === "all") return null
+  const days = joined === "7d" ? 7 : joined === "30d" ? 30 : 90
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+}
+
+function inactiveCutoffIso(inactive: Inactive): string | null {
+  if (inactive === "all" || inactive === "never") return null
+  const days = inactive === "30d" ? 30 : inactive === "60d" ? 60 : 90
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+}
+
+const SORT_COLUMN: Record<SortField, string> = {
+  joined: "auth_created_at",
+  last_signin: "last_sign_in_at",
+  sessions: "total_sessions",
+  streak: "streak_days",
+  last_session: "last_session_at",
 }
 
 async function loadUsers(filters: Filters) {
@@ -59,14 +129,30 @@ async function loadUsers(filters: Filters) {
   let query = supabase
     .from("admin_users_overview")
     .select("*", { count: "exact" })
-    .order("auth_created_at", { ascending: false })
+    .order(SORT_COLUMN[filters.sort], {
+      ascending: filters.dir === "asc",
+      // Push nulls last regardless of direction — admins almost always
+      // want them out of the way (especially for last_signin sort).
+      nullsFirst: false,
+    })
     .range(from, to)
 
-  if (filters.role !== "all") {
-    query = query.eq("role", filters.role)
+  if (filters.role !== "all") query = query.eq("role", filters.role)
+  if (filters.tier !== "all") query = query.eq("subscription_tier", filters.tier)
+  if (filters.status === "active") query = query.eq("disabled", false)
+  if (filters.status === "suspended") query = query.eq("disabled", true)
+
+  const joinedSince = joinedSinceIso(filters.joined)
+  if (joinedSince) query = query.gte("auth_created_at", joinedSince)
+
+  if (filters.inactive === "never") {
+    query = query.is("last_sign_in_at", null)
+  } else {
+    const cutoff = inactiveCutoffIso(filters.inactive)
+    if (cutoff) query = query.lt("last_sign_in_at", cutoff)
   }
+
   if (filters.q) {
-    // OR across email + display_name, case-insensitive contains.
     query = query.or(
       `email.ilike.%${filters.q}%,display_name.ilike.%${filters.q}%`
     )
@@ -90,6 +176,13 @@ export default async function UsersPage({
   const start = total === 0 ? 0 : (filters.page - 1) * PAGE_SIZE + 1
   const end = Math.min(filters.page * PAGE_SIZE, total)
 
+  // Plain string map for the sort-header URL builder (drop arrays/undefined).
+  const flatSp: Record<string, string | undefined> = {}
+  for (const [k, v] of Object.entries(sp)) {
+    if (typeof v === "string") flatSp[k] = v
+    else if (Array.isArray(v)) flatSp[k] = v[0]
+  }
+
   return (
     <div>
       <PageHeader
@@ -97,49 +190,73 @@ export default async function UsersPage({
         description="People with accounts on Dialectica."
       />
 
-      <form className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-64">
-          <Search className="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-          <Input
-            name="q"
-            defaultValue={filters.q}
-            placeholder="Search email or display name…"
-            className="pl-8"
-          />
-        </div>
-        <Select name="role" defaultValue={filters.role}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All roles</SelectItem>
-            <SelectItem value="user">User</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="superadmin">Superadmin</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button type="submit" variant="secondary">
-          Apply
-        </Button>
-      </form>
+      <UsersFilterBar
+        initialQ={filters.q}
+        initialRole={filters.role}
+        initialTier={filters.tier}
+        initialStatus={filters.status}
+        initialJoined={filters.joined}
+        initialInactive={filters.inactive}
+      />
 
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>User</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead className="text-right">Sessions</TableHead>
-              <TableHead className="text-right">Streak</TableHead>
-              <TableHead>Last sign-in</TableHead>
-              <TableHead>Joined</TableHead>
+              <TableHead>Role · Tier</TableHead>
+              <TableHead className="text-right">
+                <SortHeader
+                  field="sessions"
+                  currentSort={filters.sort}
+                  currentDir={filters.dir}
+                  searchParams={flatSp}
+                  align="right"
+                >
+                  Sessions
+                </SortHeader>
+              </TableHead>
+              <TableHead className="text-right">
+                <SortHeader
+                  field="streak"
+                  currentSort={filters.sort}
+                  currentDir={filters.dir}
+                  searchParams={flatSp}
+                  align="right"
+                >
+                  Streak
+                </SortHeader>
+              </TableHead>
+              <TableHead>
+                <SortHeader
+                  field="last_signin"
+                  currentSort={filters.sort}
+                  currentDir={filters.dir}
+                  searchParams={flatSp}
+                >
+                  Last sign-in
+                </SortHeader>
+              </TableHead>
+              <TableHead>
+                <SortHeader
+                  field="joined"
+                  currentSort={filters.sort}
+                  currentDir={filters.dir}
+                  searchParams={flatSp}
+                >
+                  Joined
+                </SortHeader>
+              </TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground py-12 text-center text-sm">
+                <TableCell
+                  colSpan={7}
+                  className="text-muted-foreground py-12 text-center text-sm"
+                >
                   No users match this filter.
                 </TableCell>
               </TableRow>
@@ -159,6 +276,7 @@ export default async function UsersPage({
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">
                       <RoleBadge role={u.role} />
+                      <TierBadge tier={u.subscription_tier} />
                       {u.disabled ? (
                         <Badge
                           variant="outline"
@@ -205,8 +323,25 @@ export default async function UsersPage({
 function RoleBadge({ role }: { role: string | null }) {
   if (role === "superadmin") return <Badge>superadmin</Badge>
   if (role === "admin") return <Badge variant="secondary">admin</Badge>
+  return <span className="text-muted-foreground text-xs">user</span>
+}
+
+function TierBadge({ tier }: { tier: string | null }) {
+  if (!tier || tier === "free")
+    return <span className="text-muted-foreground text-[10px]">{tier ?? "free"}</span>
+  const paid =
+    tier === "pro" || tier === "enterprise" || tier === "team"
   return (
-    <span className="text-muted-foreground text-xs">user</span>
+    <Badge
+      variant="outline"
+      className={
+        paid
+          ? "border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-400"
+          : "text-[10px]"
+      }
+    >
+      {tier}
+    </Badge>
   )
 }
 
@@ -227,6 +362,12 @@ function Pager({
     const sp = new URLSearchParams()
     if (filters.q) sp.set("q", filters.q)
     if (filters.role !== "all") sp.set("role", filters.role)
+    if (filters.tier !== "all") sp.set("tier", filters.tier)
+    if (filters.status !== "all") sp.set("status", filters.status)
+    if (filters.joined !== "all") sp.set("joined", filters.joined)
+    if (filters.inactive !== "all") sp.set("inactive", filters.inactive)
+    if (filters.sort !== "joined") sp.set("sort", filters.sort)
+    if (filters.dir !== "desc") sp.set("dir", filters.dir)
     if (page !== 1) sp.set("page", String(page))
     const qs = sp.toString()
     return qs ? `/admin/users?${qs}` : "/admin/users"
