@@ -36,6 +36,11 @@ import {
   PromptSectionKey,
 } from '../types/wizard';
 import { TRAIT_TOKENS } from '../components/admin/shared/TraitTokenBadges';
+import {
+  buildContextVars,
+  loadPersonaGeneratorConfig,
+  renderTemplate,
+} from '../lib/personaGenerator';
 
 // =============================================================================
 // DEFAULTS
@@ -513,24 +518,6 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     const { formData, avatar, aiComplete } = get();
     set({ isGeneratingSection: key });
 
-    const personaContext = `Name: ${formData.name || 'Unknown'}
-Tagline: ${formData.tagline || 'None'}
-Cultural Background: ${formData.cultural_background || 'None'}
-Type: ${formData.persona_type}
-Coaching Style: ${formData.coaching_style || 'Not set'}
-Challenge Style: ${formData.challenge_style}
-Feedback Style: ${formData.feedback_style}
-Personality: Warmth ${formData.warmth}/100, Directness ${formData.directness}/100, Patience ${formData.patience}/100, Humor ${formData.humor}/100, Formality ${formData.formality}/100
-Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}`;
-
-    const sectionPrompts: Record<PromptSectionKey, string> = {
-      identity: `Write an opening identity paragraph for this AI coaching persona. Start with "You are [Name], a [role]..." and establish who they are, their background, and their approach. 2-4 sentences.\n\nPersona:\n${personaContext}\n\nReturn ONLY the paragraph, no explanation.`,
-      trait_tokens: '', // Not AI-generated
-      character_traits: `Write a CHARACTER TRAITS section for this AI coaching persona. Start with "CHARACTER TRAITS:" on its own line, then include the placeholder {{character_demeanor}} on its own line, followed by 4-6 bullet points describing specific character traits. Each bullet should be one concise sentence.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
-      roleplay_behavior: `Write a "WHEN IN ROLEPLAY:" section for this AI coaching persona. Start with "WHEN IN ROLEPLAY:" on its own line, then 5-7 bullet points describing specific roleplay behaviors and rules. Each bullet should be one concise directive.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
-      coaching_approach: `Write a "COACHING APPROACH:" section for this AI coaching persona. Start with "COACHING APPROACH:" on its own line, then 4-6 bullet points describing specific coaching methods and philosophy. Each bullet should be one concise sentence.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
-    };
-
     try {
       if (key === 'trait_tokens') {
         // Not AI-generated — insert standard 12 tokens
@@ -542,9 +529,27 @@ Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expr
         return;
       }
 
+      // Templates come from app_settings.ai_persona_generator (DB-driven so
+      // edits in /admin/ai-config/persona-generator propagate to mobile too,
+      // no app deploy needed). Falls back to a hardcoded copy on offline /
+      // missing row — see lib/personaGenerator.ts.
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const personaContext = renderTemplate(
+        config.persona_context_template,
+        vars,
+      );
+      const userPrompt = renderTemplate(config.sections[key], {
+        ...vars,
+        persona_context: personaContext,
+      });
+
       const responseText = await aiComplete(
-        'You are an expert prompt engineer designing AI coaching personas. Write natural, engaging system prompt sections.',
-        sectionPrompts[key],
+        config.sections._system,
+        userPrompt,
       );
 
       if (responseText.trim()) {
@@ -594,33 +599,18 @@ Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expr
   },
 
   generatePersonaDetails: async () => {
-    const { avatar, aiComplete } = get();
+    const { avatar, formData, aiComplete } = get();
     set({ isGeneratingDetails: true });
 
     try {
-      const { params } = avatar;
-      const prompt = `Based on this avatar description, generate persona details for a coaching app character.
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const userPrompt = renderTemplate(config.details.user_template, vars);
 
-Avatar: ${params.ethnicity} ${params.gender}, ${params.expression}, wearing ${params.clothing} attire, ${params.accessories.join(', ')}.
-
-Generate a JSON object with these fields:
-- name: A culturally appropriate full name (first + last)
-- tagline: A short catchy tagline (5-8 words) describing their coaching style
-- cultural_background: A brief cultural/professional background (e.g., "Japanese-American, Executive Coach")
-- coaching_style: One of: supportive_guide, tough_love, playful_mentor, expert_advisor, confidence_builder
-- challenge_style: One of: socratic, devils_advocate, steelman, empathetic_probe, logical_surgeon, perspective_shifter
-- warmth: number 0-100
-- directness: number 0-100
-- patience: number 0-100
-- humor: number 0-100
-- formality: number 0-100
-
-Return ONLY valid JSON, no markdown or explanation.`;
-
-      const responseText = await aiComplete(
-        'You are a creative character designer for a coaching app. Return only valid JSON.',
-        prompt,
-      );
+      const responseText = await aiComplete(config.details.system, userPrompt);
 
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON in response');
@@ -654,29 +644,19 @@ Return ONLY valid JSON, no markdown or explanation.`;
     set({ isGeneratingPrompt: true });
 
     try {
-      const prompt = `Create a system prompt for an AI coaching persona with these characteristics:
-
-Name: ${formData.name || 'Unknown'}
-Tagline: ${formData.tagline || 'None'}
-Cultural Background: ${formData.cultural_background || 'None'}
-Type: ${formData.persona_type}
-Coaching Style: ${formData.coaching_style || 'Not set'}
-Challenge Style: ${formData.challenge_style}
-Feedback Style: ${formData.feedback_style}
-Personality: Warmth ${formData.warmth}/100, Directness ${formData.directness}/100, Patience ${formData.patience}/100, Humor ${formData.humor}/100, Formality ${formData.formality}/100
-Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}
-
-Write a detailed system prompt (200-400 words) that:
-1. Establishes the persona's voice and communication style
-2. Defines how they coach/challenge users
-3. Sets boundaries and personality traits
-4. Includes these trait token placeholders where appropriate: {{character_demeanor}}, {{conversation_register}}, {{vocabulary_complexity}}, {{emotional_tone}}, {{response_pacing}}, {{cultural_context}}
-
-Return ONLY the system prompt text, no explanation or markdown.`;
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const userPrompt = renderTemplate(
+        config.system_prompt.user_template,
+        vars,
+      );
 
       const responseText = await aiComplete(
-        'You are an expert prompt engineer designing AI coaching personas. Write natural, engaging system prompts.',
-        prompt,
+        config.system_prompt.system,
+        userPrompt,
       );
 
       if (responseText.trim()) {
