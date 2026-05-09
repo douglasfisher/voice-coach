@@ -58,7 +58,7 @@ Write a detailed system prompt (200-400 words) that:
 1. Establishes the persona's voice and communication style
 2. Defines how they coach/challenge users
 3. Sets boundaries and personality traits
-4. Includes these trait token placeholders where appropriate: {{character_demeanor}}, {{conversation_register}}, {{vocabulary_complexity}}, {{emotional_tone}}, {{response_pacing}}, {{cultural_context}}
+4. Includes these trait token placeholders where appropriate: {{character_demeanor}}, {{conversation_register}}, {{directness}}, {{emotional_attunement}}, {{challenge_intensity}}, {{coaching_method}}
 
 Return ONLY the system prompt text, no explanation or markdown.`,
   },

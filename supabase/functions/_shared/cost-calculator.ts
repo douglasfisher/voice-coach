@@ -141,15 +141,17 @@ export async function calculateAICost(
  * Task types for service breakdown tracking
  */
 export type AITaskType =
-  | 'chat'           // Regular chat messages
-  | 'greeting'       // Initial greeting generation
-  | 'report'         // Session report generation
-  | 'analyze'        // Message analysis
-  | 'daily_challenge'// Daily challenge question
-  | 'coaching'       // Coaching roleplay
-  | 'feedback'       // Coaching feedback
-  | 'complete'       // Generic completion
-  | 'unknown';       // Fallback
+  | 'chat'             // Regular chat messages
+  | 'greeting'         // Initial greeting generation
+  | 'report'           // Session report generation
+  | 'analyze'          // Message analysis
+  | 'daily_challenge'  // Daily challenge question
+  | 'coaching'         // Coaching roleplay
+  | 'feedback'         // Coaching feedback
+  | 'complete'         // Generic completion
+  | 'scenario'         // Q&A scenario generation
+  | 'image_generation' // Avatar image generation (Runware)
+  | 'unknown';         // Fallback
 
 /**
  * Insert AI usage record with calculated cost

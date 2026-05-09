@@ -235,6 +235,22 @@ serve(async (req) => {
       const groqData = await groqResponse.json();
       const content = groqData.choices?.[0]?.message?.content || '';
 
+      // Track usage so admin AI calls show up in /admin/usage. user_id is
+      // null on admin-initiated completes (no end-user) — task_type
+      // 'complete' distinguishes these from regular chat traffic.
+      const promptTokens = groqData.usage?.prompt_tokens ?? 0;
+      const completionTokens = groqData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: null,
+        model,
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        taskType: 'complete',
+      });
+
       return new Response(JSON.stringify({ content }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -287,6 +303,20 @@ serve(async (req) => {
 
       const challengeData = await challengeResponse.json();
       const content = challengeData.choices[0]?.message?.content || '';
+
+      const challengePromptTokens = challengeData.usage?.prompt_tokens ?? 0;
+      const challengeCompletionTokens =
+        challengeData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: personaId ?? null,
+        model: config.model,
+        promptTokens: challengePromptTokens,
+        completionTokens: challengeCompletionTokens,
+        totalTokens: challengePromptTokens + challengeCompletionTokens,
+        taskType: 'daily_challenge',
+      });
 
       let result: { question: string; topic: string };
       try {
@@ -425,6 +455,20 @@ serve(async (req) => {
       const challengeData = await challengeResponse.json();
       const content = challengeData.choices[0]?.message?.content || '';
 
+      const batchPromptTokens = challengeData.usage?.prompt_tokens ?? 0;
+      const batchCompletionTokens =
+        challengeData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: null,
+        model: config.model,
+        promptTokens: batchPromptTokens,
+        completionTokens: batchCompletionTokens,
+        totalTokens: batchPromptTokens + batchCompletionTokens,
+        taskType: 'daily_challenge',
+      });
+
       let challenges: { question: string; topic: string }[] = [];
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -554,6 +598,20 @@ serve(async (req) => {
 
       const scenarioData = await scenarioResponse.json();
       const scenario = scenarioData.choices[0]?.message?.content || '';
+
+      const scenarioPromptTokens = scenarioData.usage?.prompt_tokens ?? 0;
+      const scenarioCompletionTokens =
+        scenarioData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: personaId ?? null,
+        model: scenarioConfig.model,
+        promptTokens: scenarioPromptTokens,
+        completionTokens: scenarioCompletionTokens,
+        totalTokens: scenarioPromptTokens + scenarioCompletionTokens,
+        taskType: 'scenario',
+      });
 
       return new Response(
         JSON.stringify({ scenario }),
