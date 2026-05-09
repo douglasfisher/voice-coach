@@ -47,7 +47,7 @@ function PillButton({
 }
 
 export default function DatingPreferencesScreen() {
-  const { updatePreferences } = useAuthStore();
+  const updatePreferences = useAuthStore((s) => s.updatePreferences);
   const [userGender, setUserGender] = useState<Gender | null>(null);
   const [interestedIn, setInterestedIn] = useState<Interest | null>(null);
 

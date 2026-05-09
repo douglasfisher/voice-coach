@@ -32,25 +32,104 @@ import {
   POSE_OPTIONS,
   CAMERA_OPTIONS,
   APPEARANCE_OPTIONS,
+  AGE_RANGE_OPTIONS,
   PROMPT_SECTION_KEYS,
   PromptSectionKey,
 } from '../types/wizard';
 import { TRAIT_TOKENS } from '../components/admin/shared/TraitTokenBadges';
+import { AvatarGenerationConfig } from '../types/admin';
+import { buildHiresPrompt } from '../types/avatarOptions';
+import {
+  buildContextVars,
+  loadPersonaGeneratorConfig,
+  renderTemplate,
+} from '../lib/personaGenerator';
+
+// =============================================================================
+// AVATAR CONFIG (fetched from DB, with hardcoded fallbacks)
+// =============================================================================
+
+const DEFAULT_AVATAR_CONFIG: AvatarGenerationConfig = {
+  draft: {
+    prompt_template: 'A classic mid-length head and shoulders portrait of a {{age_range}} {{appearance}} {{ethnicity}} {{gender}}, {{expression}}, wearing {{clothing}} attire, {{accessories}}, {{pose}} composition, lit with {{lighting}} lighting on a dark charcoal background with space around. Shot on {{camera}}.',
+    negative_prompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
+    model: 'runware:400@1',
+    width: 896,
+    height: 1152,
+    number_results: 4,
+    cfg_scale: 3.5,
+    scheduler: 'FlowMatchEulerDiscreteScheduler',
+  },
+  hires: {
+    prompt_template: 'Reconstruct this image as an {{style}}, preserving the exact pose, body position, composition and framing precisely as shown. Apply full human-accurate detail: {{skin}}. Eyes must have realistic iris detail, moisture reflection and precise specular catch lights. Hair should show individual strand separation, natural flyaways and light-transmissive edges. All fabrics and materials must exhibit true-to-life weave texture, weight, drape and surface response to light. Preserve the existing lighting direction and camera perspective exactly as-is. Apply {{film}} colour science, {{retouching}}, {{mood}}. {{detail}}, {{grading}}. {{negative_prompt}}.',
+    style: 'Studio portrait',
+    grading: 'Cinematic warm',
+    film: 'Digital clean',
+    skin: 'Hyper-realistic',
+    retouching: 'Full editorial',
+    mood: 'Clean & polished',
+    detail: 'Ultra (150MP)',
+    negative_prompt: 'Standard',
+    model: 'google:4@2',
+    width: 1792,
+    height: 2400,
+  },
+};
+
+let _avatarConfigCache: { config: AvatarGenerationConfig; fetchedAt: number } | null = null;
+let _avatarConfigPromise: Promise<AvatarGenerationConfig> | null = null;
+const AVATAR_CONFIG_TTL = 60_000; // 60s cache
+
+async function getAvatarConfig(): Promise<AvatarGenerationConfig> {
+  if (_avatarConfigCache && Date.now() - _avatarConfigCache.fetchedAt < AVATAR_CONFIG_TTL) {
+    return _avatarConfigCache.config;
+  }
+  // Deduplicate concurrent requests
+  if (_avatarConfigPromise) return _avatarConfigPromise;
+
+  _avatarConfigPromise = (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'ai_avatar_config')
+        .single();
+      if (error) throw error;
+      const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+      const hires = { ...DEFAULT_AVATAR_CONFIG.hires, ...parsed?.hires };
+      // Backwards compat: if legacy `prompt` exists but no `prompt_template`, use defaults
+      if (hires.prompt && !hires.prompt_template) {
+        hires.prompt_template = DEFAULT_AVATAR_CONFIG.hires.prompt_template;
+      }
+      const config = { ...DEFAULT_AVATAR_CONFIG, ...parsed, draft: { ...DEFAULT_AVATAR_CONFIG.draft, ...parsed?.draft }, hires };
+      _avatarConfigCache = { config, fetchedAt: Date.now() };
+      return config;
+    } catch (err) {
+      console.warn('Failed to fetch avatar config, using defaults:', err);
+      return DEFAULT_AVATAR_CONFIG;
+    } finally {
+      _avatarConfigPromise = null;
+    }
+  })();
+
+  return _avatarConfigPromise;
+}
 
 // =============================================================================
 // DEFAULTS
 // =============================================================================
 
 const DEFAULT_AVATAR_PARAMS: AvatarParams = {
-  ethnicity: 'Northern European',
+  ageRange: 'late twenties',
+  ethnicity: 'English',
   gender: 'male',
   appearance: 'classically attractive',
-  lighting: 'soft studio',
-  clothing: 'business casual',
+  lighting: 'Rembrandt lighting with butterfly kicker and edge-lit hair light',
+  clothing: 'formal',
   expression: 'warm smile',
   accessories: ['none'],
   pose: 'slight angle',
-  camera: 'Canon 85mm f/1.4',
+  camera: 'shot on medium format, f/2.8 shallow depth',
 };
 
 const DEFAULT_FORM_DATA: WizardFormData = {
@@ -91,6 +170,9 @@ const DEFAULT_FORM_DATA: WizardFormData = {
   feedback_style: 'sandwich',
   emotional_progression_enabled: false,
   prompt_sections: null,
+  mode_prompts: null,
+  age_range: null,
+  gender: 'male' as const,
 };
 
 // =============================================================================
@@ -106,10 +188,11 @@ function randomizeParams(): AvatarParams {
   const accessories = numAccessories === 0
     ? ['none']
     : Array.from({ length: numAccessories }, () =>
-        pickRandom(ACCESSORY_OPTIONS.filter((a) => a !== 'none'))
-      );
+      pickRandom(ACCESSORY_OPTIONS.filter((a) => a !== 'none'))
+    );
 
   return {
+    ageRange: pickRandom(AGE_RANGE_OPTIONS),
     ethnicity: pickRandom(ETHNICITY_OPTIONS),
     gender: pickRandom(GENDER_OPTIONS),
     appearance: pickRandom(APPEARANCE_OPTIONS),
@@ -122,12 +205,26 @@ function randomizeParams(): AvatarParams {
   };
 }
 
-function buildPromptFromParams(params: AvatarParams): string {
+function buildPromptFromParams(params: AvatarParams, template?: string): string {
   const accessoriesText = params.accessories.filter((a) => a !== 'none').join(', ');
   const accessoriesPart = accessoriesText ? `wearing ${accessoriesText}` : 'no accessories';
 
+  if (template) {
+    return template
+      .replace(/\{\{age_range\}\}/g, params.ageRange)
+      .replace(/\{\{appearance\}\}/g, params.appearance)
+      .replace(/\{\{ethnicity\}\}/g, params.ethnicity)
+      .replace(/\{\{gender\}\}/g, params.gender)
+      .replace(/\{\{expression\}\}/g, params.expression)
+      .replace(/\{\{clothing\}\}/g, params.clothing)
+      .replace(/\{\{accessories\}\}/g, accessoriesPart)
+      .replace(/\{\{pose\}\}/g, params.pose)
+      .replace(/\{\{lighting\}\}/g, params.lighting)
+      .replace(/\{\{camera\}\}/g, params.camera);
+  }
+
   return [
-    `A classic mid-length head and shoulders portrait of a ${params.appearance} ${params.ethnicity} ${params.gender},`,
+    `A classic mid-length head and shoulders portrait of a ${params.ageRange} ${params.appearance} ${params.ethnicity} ${params.gender},`,
     `${params.expression},`,
     `wearing ${params.clothing} attire,`,
     `${accessoriesPart},`,
@@ -142,6 +239,11 @@ function buildPromptFromParams(params: AvatarParams): string {
 // =============================================================================
 
 interface WizardState {
+  // Edit mode
+  editingPersonaId: string | null;
+  isLoadingPersona: boolean;
+  loadPersona: (id: string) => Promise<void>;
+
   // Step navigation
   currentStep: WizardStep;
   nextStep: () => void;
@@ -183,6 +285,7 @@ interface WizardState {
   isGeneratingPrompt: boolean;
 
   // Save
+  saveAvatarOnly: () => Promise<{ error: Error | null }>;
   savePersona: () => Promise<{ id: string | null; error: Error | null }>;
 
   // Reset
@@ -191,6 +294,141 @@ interface WizardState {
 }
 
 export const useWizardStore = create<WizardState>((set, get) => ({
+  // =========================================================================
+  // EDIT MODE
+  // =========================================================================
+
+  editingPersonaId: null,
+  isLoadingPersona: false,
+
+  loadPersona: async (id: string) => {
+    set({ isLoadingPersona: true, editingPersonaId: id });
+
+    try {
+      const store = useAdminPersonaStore.getState();
+
+      // Fetch persona data and trait defaults in parallel
+      await Promise.all([
+        store.fetchPersona(id),
+        store.fetchPersonaTraitDefaults(id),
+      ]);
+
+      const persona = useAdminPersonaStore.getState().selectedPersona;
+      if (!persona) throw new Error('Persona not found');
+
+      // Check avatar_library for existing Supabase Storage URL + avatar params
+      const { data: avatarEntry } = await supabase
+        .from('avatar_library')
+        .select('params, public_url, storage_path')
+        .eq('used_by_persona_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Resolve avatar URL: prefer avatar_library, then DB value (skip 'local' marker)
+      const resolvedAvatarUrl = avatarEntry?.public_url
+        || (persona.avatar_url && persona.avatar_url !== 'local' ? persona.avatar_url : '');
+      const resolvedThumbnailUrl = persona.avatar_thumbnail_url && persona.avatar_thumbnail_url !== 'local'
+        ? persona.avatar_thumbnail_url
+        : (avatarEntry?.public_url || null);
+
+      const formData: WizardFormData = {
+        name: persona.name,
+        title: persona.title,
+        tagline: persona.tagline || '',
+        avatar_url: resolvedAvatarUrl,
+        avatar_thumbnail_url: resolvedThumbnailUrl,
+        voice_provider: persona.voice_provider,
+        voice_id: persona.voice_id,
+        voice_speed: persona.voice_speed,
+        voice_pitch: persona.voice_pitch,
+        voice_stability: persona.voice_stability,
+        warmth: persona.warmth,
+        directness: persona.directness,
+        patience: persona.patience,
+        humor: persona.humor,
+        formality: persona.formality,
+        challenge_style: persona.challenge_style,
+        specialty_areas: persona.specialty_areas || [],
+        cultural_background: persona.cultural_background || '',
+        system_prompt: persona.system_prompt,
+        is_active: persona.is_active,
+        is_premium: persona.is_premium,
+        sort_order: persona.sort_order,
+        ai_config: persona.ai_config || {
+          model: 'llama-3.1-8b-instant',
+          fallback_model: 'llama-3.1-8b-instant',
+          temperature: 0.7,
+          top_p: 0.9,
+          max_completion_tokens: 1024,
+          stop: [],
+        },
+        persona_type: persona.persona_type || 'challenger',
+        domain_id: persona.domain_id,
+        coaching_style: persona.coaching_style,
+        default_interaction_mode: persona.default_interaction_mode || 'coach_leads',
+        feedback_style: persona.feedback_style || 'sandwich',
+        emotional_progression_enabled: persona.emotional_progression_enabled ?? false,
+        prompt_sections: persona.prompt_sections || null,
+        mode_prompts: persona.mode_prompts || null,
+        age_range: persona.age_range || null,
+        gender: (persona.gender as 'male' | 'female') || 'male',
+      };
+
+      // Map trait defaults: categorySlug → optionId
+      const traitDefaults: Record<string, string> = {};
+      const defaults = useAdminPersonaStore.getState().personaTraitDefaults;
+      for (const d of defaults) {
+        if (d.categorySlug && d.optionId) {
+          traitDefaults[d.categorySlug] = d.optionId;
+        }
+      }
+
+      // Map prompt_sections from JSONB
+      const promptSections: Record<string, string> = {
+        identity: '',
+        trait_tokens: '',
+        character_traits: '',
+        roleplay_behavior: '',
+        coaching_approach: '',
+      };
+      if (persona.prompt_sections && typeof persona.prompt_sections === 'object') {
+        const sections = persona.prompt_sections as Record<string, string>;
+        for (const key of PROMPT_SECTION_KEYS) {
+          if (sections[key]) {
+            promptSections[key] = sections[key];
+          }
+        }
+      }
+
+      const avatarParams = avatarEntry?.params
+        ? (avatarEntry.params as unknown as AvatarParams)
+        : { ...DEFAULT_AVATAR_PARAMS };
+
+      set({
+        formData,
+        traitDefaults,
+        promptSections,
+        currentStep: 0 as WizardStep,
+        isLoadingPersona: false,
+        avatar: {
+          params: avatarParams,
+          editablePrompt: buildPromptFromParams(avatarParams),
+          drafts: [],
+          selectedDraftId: null,
+          hiResUrl: avatarEntry?.public_url
+            || (persona.avatar_url && persona.avatar_url !== 'local' ? persona.avatar_url : null),
+          hiResStoragePath: avatarEntry?.storage_path || null,
+          isGenerating: false,
+          isUpscaling: false,
+        },
+      });
+    } catch (err) {
+      console.error('Failed to load persona for editing:', err);
+      set({ isLoadingPersona: false, editingPersonaId: null });
+    }
+  },
+
   // =========================================================================
   // STEP NAVIGATION
   // =========================================================================
@@ -244,23 +482,25 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
   randomizeAvatarParams: () => {
     const newParams = randomizeParams();
+    const cachedTemplate = _avatarConfigCache?.config.draft.prompt_template;
     set((state) => ({
       avatar: {
         ...state.avatar,
         params: newParams,
-        editablePrompt: buildPromptFromParams(newParams),
+        editablePrompt: buildPromptFromParams(newParams, cachedTemplate),
       },
     }));
   },
 
   updateAvatarParams: (params) => {
+    const cachedTemplate = _avatarConfigCache?.config.draft.prompt_template;
     set((state) => {
       const newParams = { ...state.avatar.params, ...params };
       return {
         avatar: {
           ...state.avatar,
           params: newParams,
-          editablePrompt: buildPromptFromParams(newParams),
+          editablePrompt: buildPromptFromParams(newParams, cachedTemplate),
         },
       };
     });
@@ -279,24 +519,25 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     }));
 
     try {
-      // Build Runware payload — edge function uploads to storage via service role
+      const config = await getAvatarConfig();
+      const { draft } = config;
+
+      // Phase 1: Fast proxy — get Runware URLs immediately (no storage upload)
       const { data: runwareResponse, error: invokeError } = await supabase.functions.invoke('runware', {
         body: {
-          uploadToStorage: true,
-          storagePrefix: 'drafts',
           tasks: [
             {
               taskType: 'imageInference',
               taskUUID: generateUUID(),
-              model: 'runware:400@1',
+              model: draft.model,
               positivePrompt: avatar.editablePrompt,
-              negativePrompt: 'cartoon, anime, 3d render, distorted, blurry, low quality, text, watermark',
-              width: 896,
-              height: 1152,
-              numberResults: 4,
+              negativePrompt: draft.negative_prompt,
+              width: draft.width,
+              height: draft.height,
+              numberResults: draft.number_results,
               outputFormat: 'JPEG',
-              CFGScale: 3.5,
-              scheduler: 'FlowMatchEulerDiscreteScheduler',
+              CFGScale: draft.cfg_scale,
+              scheduler: draft.scheduler,
               includeCost: true,
               outputType: ['URL'],
               acceleration: 'high',
@@ -322,24 +563,54 @@ export const useWizardStore = create<WizardState>((set, get) => ({
 
       const images = runwareResponse?.data || runwareResponse || [];
 
+      // Show Runware URLs immediately — images display now
       const drafts: DraftImage[] = [];
+      const imagesToUpload: Array<{ url: string; id: string; format?: string }> = [];
+
       for (let i = 0; i < images.length; i++) {
         const img = images[i];
-        // Prefer storage URL (permanent), fall back to Runware URL (expires)
-        const url = img.storageUrl || img.imageURL || img.imageUrl;
+        const url = img.imageURL || img.imageUrl;
         if (!url) continue;
 
-        drafts.push({
-          id: img.imageUUID || `draft_${i}`,
-          url,
-          storagePath: img.storagePath || '',
-          selected: false,
-        });
+        const id = img.imageUUID || `draft_${i}`;
+        drafts.push({ id, url, storagePath: '', selected: false });
+        imagesToUpload.push({ url, id, format: img.outputFormat });
       }
 
       set((state) => ({
         avatar: { ...state.avatar, drafts, isGenerating: false },
       }));
+
+      // Phase 2: Upload to storage in background — swap URLs when done
+      if (imagesToUpload.length > 0) {
+        supabase.functions.invoke('runware', {
+          body: {
+            action: 'uploadImages',
+            images: imagesToUpload,
+            storagePrefix: 'drafts',
+          },
+        }).then(({ data: uploadResponse }) => {
+          const uploaded = uploadResponse?.data;
+          if (!uploaded?.length) return;
+
+          const uploadMap = new Map<string, { id: string; storageUrl: string; storagePath: string }>(
+            uploaded.map((u: { id: string; storageUrl: string; storagePath: string }) => [u.id, u]),
+          );
+
+          set((state) => ({
+            avatar: {
+              ...state.avatar,
+              drafts: state.avatar.drafts.map((d) => {
+                const u = uploadMap.get(d.id);
+                return u ? { ...d, url: u.storageUrl, storagePath: u.storagePath } : d;
+              }),
+            },
+          }));
+          console.log(`Uploaded ${uploaded.length} drafts to storage`);
+        }).catch((err) => {
+          console.warn('Background storage upload failed (drafts still visible from Runware):', err);
+        });
+      }
     } catch (err) {
       console.error('Generate drafts error:', err);
       set((state) => ({
@@ -369,6 +640,14 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     set((state) => ({ avatar: { ...state.avatar, isUpscaling: true } }));
 
     try {
+      const config = await getAvatarConfig();
+      const { hires } = config;
+
+      // Assemble prompt from composable config; fall back to legacy prompt field
+      const hiresPrompt = hires.prompt_template
+        ? buildHiresPrompt(hires)
+        : (hires.prompt || '');
+
       const { data: runwareResponse, error: invokeError } = await supabase.functions.invoke('runware', {
         body: {
           uploadToStorage: true,
@@ -377,11 +656,11 @@ export const useWizardStore = create<WizardState>((set, get) => ({
             {
               taskType: 'imageInference',
               taskUUID: generateUUID(),
-              model: 'google:4@2',
-              positivePrompt: 'make this is more photorealistic, with full ultra photorealistic details but keep the same pose and position in the frame',
+              model: hires.model,
+              positivePrompt: hiresPrompt,
               referenceImages: [selected.url],
-              width: 1792,
-              height: 2400,
+              width: hires.width,
+              height: hires.height,
               numberResults: 1,
               outputFormat: 'JPEG',
               includeCost: true,
@@ -513,24 +792,6 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     const { formData, avatar, aiComplete } = get();
     set({ isGeneratingSection: key });
 
-    const personaContext = `Name: ${formData.name || 'Unknown'}
-Tagline: ${formData.tagline || 'None'}
-Cultural Background: ${formData.cultural_background || 'None'}
-Type: ${formData.persona_type}
-Coaching Style: ${formData.coaching_style || 'Not set'}
-Challenge Style: ${formData.challenge_style}
-Feedback Style: ${formData.feedback_style}
-Personality: Warmth ${formData.warmth}/100, Directness ${formData.directness}/100, Patience ${formData.patience}/100, Humor ${formData.humor}/100, Formality ${formData.formality}/100
-Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}`;
-
-    const sectionPrompts: Record<PromptSectionKey, string> = {
-      identity: `Write an opening identity paragraph for this AI coaching persona. Start with "You are [Name], a [role]..." and establish who they are, their background, and their approach. 2-4 sentences.\n\nPersona:\n${personaContext}\n\nReturn ONLY the paragraph, no explanation.`,
-      trait_tokens: '', // Not AI-generated
-      character_traits: `Write a CHARACTER TRAITS section for this AI coaching persona. Start with "CHARACTER TRAITS:" on its own line, then include the placeholder {{character_demeanor}} on its own line, followed by 4-6 bullet points describing specific character traits. Each bullet should be one concise sentence.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
-      roleplay_behavior: `Write a "WHEN IN ROLEPLAY:" section for this AI coaching persona. Start with "WHEN IN ROLEPLAY:" on its own line, then 5-7 bullet points describing specific roleplay behaviors and rules. Each bullet should be one concise directive.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
-      coaching_approach: `Write a "COACHING APPROACH:" section for this AI coaching persona. Start with "COACHING APPROACH:" on its own line, then 4-6 bullet points describing specific coaching methods and philosophy. Each bullet should be one concise sentence.\n\nPersona:\n${personaContext}\n\nReturn ONLY the section text, no explanation.`,
-    };
-
     try {
       if (key === 'trait_tokens') {
         // Not AI-generated — insert standard 12 tokens
@@ -542,9 +803,27 @@ Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expr
         return;
       }
 
+      // Templates come from app_settings.ai_persona_generator (DB-driven so
+      // edits in /admin/ai-config/persona-generator propagate to mobile too,
+      // no app deploy needed). Falls back to a hardcoded copy on offline /
+      // missing row — see lib/personaGenerator.ts.
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const personaContext = renderTemplate(
+        config.persona_context_template,
+        vars,
+      );
+      const userPrompt = renderTemplate(config.sections[key], {
+        ...vars,
+        persona_context: personaContext,
+      });
+
       const responseText = await aiComplete(
-        'You are an expert prompt engineer designing AI coaching personas. Write natural, engaging system prompt sections.',
-        sectionPrompts[key],
+        config.sections._system,
+        userPrompt,
       );
 
       if (responseText.trim()) {
@@ -594,33 +873,18 @@ Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expr
   },
 
   generatePersonaDetails: async () => {
-    const { avatar, aiComplete } = get();
+    const { avatar, formData, aiComplete } = get();
     set({ isGeneratingDetails: true });
 
     try {
-      const { params } = avatar;
-      const prompt = `Based on this avatar description, generate persona details for a coaching app character.
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const userPrompt = renderTemplate(config.details.user_template, vars);
 
-Avatar: ${params.ethnicity} ${params.gender}, ${params.expression}, wearing ${params.clothing} attire, ${params.accessories.join(', ')}.
-
-Generate a JSON object with these fields:
-- name: A culturally appropriate full name (first + last)
-- tagline: A short catchy tagline (5-8 words) describing their coaching style
-- cultural_background: A brief cultural/professional background (e.g., "Japanese-American, Executive Coach")
-- coaching_style: One of: supportive_guide, tough_love, playful_mentor, expert_advisor, confidence_builder
-- challenge_style: One of: socratic, devils_advocate, steelman, empathetic_probe, logical_surgeon, perspective_shifter
-- warmth: number 0-100
-- directness: number 0-100
-- patience: number 0-100
-- humor: number 0-100
-- formality: number 0-100
-
-Return ONLY valid JSON, no markdown or explanation.`;
-
-      const responseText = await aiComplete(
-        'You are a creative character designer for a coaching app. Return only valid JSON.',
-        prompt,
-      );
+      const responseText = await aiComplete(config.details.system, userPrompt);
 
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('No JSON in response');
@@ -654,29 +918,19 @@ Return ONLY valid JSON, no markdown or explanation.`;
     set({ isGeneratingPrompt: true });
 
     try {
-      const prompt = `Create a system prompt for an AI coaching persona with these characteristics:
-
-Name: ${formData.name || 'Unknown'}
-Tagline: ${formData.tagline || 'None'}
-Cultural Background: ${formData.cultural_background || 'None'}
-Type: ${formData.persona_type}
-Coaching Style: ${formData.coaching_style || 'Not set'}
-Challenge Style: ${formData.challenge_style}
-Feedback Style: ${formData.feedback_style}
-Personality: Warmth ${formData.warmth}/100, Directness ${formData.directness}/100, Patience ${formData.patience}/100, Humor ${formData.humor}/100, Formality ${formData.formality}/100
-Avatar: ${avatar.params.ethnicity} ${avatar.params.gender}, ${avatar.params.expression}
-
-Write a detailed system prompt (200-400 words) that:
-1. Establishes the persona's voice and communication style
-2. Defines how they coach/challenge users
-3. Sets boundaries and personality traits
-4. Includes these trait token placeholders where appropriate: {{character_demeanor}}, {{conversation_register}}, {{vocabulary_complexity}}, {{emotional_tone}}, {{response_pacing}}, {{cultural_context}}
-
-Return ONLY the system prompt text, no explanation or markdown.`;
+      const config = await loadPersonaGeneratorConfig();
+      const vars = buildContextVars({
+        form: formData,
+        avatarParams: avatar.params,
+      });
+      const userPrompt = renderTemplate(
+        config.system_prompt.user_template,
+        vars,
+      );
 
       const responseText = await aiComplete(
-        'You are an expert prompt engineer designing AI coaching personas. Write natural, engaging system prompts.',
-        prompt,
+        config.system_prompt.system,
+        userPrompt,
       );
 
       if (responseText.trim()) {
@@ -697,19 +951,74 @@ Return ONLY the system prompt text, no explanation or markdown.`;
   // SAVE
   // =========================================================================
 
-  savePersona: async () => {
-    const { formData, avatar, saveDraftsToLibrary, traitDefaults, promptSections } = get();
+  saveAvatarOnly: async () => {
+    const { formData, avatar, saveDraftsToLibrary, editingPersonaId } = get();
+    if (!editingPersonaId) return { error: new Error('No persona being edited') };
+
     const store = useAdminPersonaStore.getState();
 
-    // Include prompt_sections in the form data
+    const avatarData: { avatar_url: string; avatar_thumbnail_url: string | null } = {
+      avatar_url: formData.avatar_url,
+      avatar_thumbnail_url: formData.avatar_thumbnail_url,
+    };
+
+    const { error } = await store.updatePersona(editingPersonaId, avatarData as Partial<typeof formData>);
+
+    if (!error && avatar.drafts.length > 0) {
+      try {
+        await saveDraftsToLibrary(editingPersonaId);
+      } catch (err) {
+        console.warn('Failed to save drafts to library:', err);
+      }
+    }
+
+    return { error };
+  },
+
+  savePersona: async () => {
+    const { formData, avatar, saveDraftsToLibrary, traitDefaults, promptSections, editingPersonaId } = get();
+    const store = useAdminPersonaStore.getState();
+
+    // Include prompt_sections and age_range in the form data
     const dataWithSections = {
       ...formData,
+      age_range: avatar.params.ageRange || null,
       prompt_sections: Object.values(promptSections).some((v) => v.trim())
         ? promptSections
         : null,
     };
 
-    // Images are already in Supabase storage (uploaded by edge function)
+    if (editingPersonaId) {
+      // UPDATE existing persona
+      const { error } = await store.updatePersona(editingPersonaId, dataWithSections as typeof formData);
+
+      if (!error) {
+        // Save trait defaults
+        const traitEntries = Object.entries(traitDefaults);
+        if (traitEntries.length > 0) {
+          try {
+            for (const [, optionId] of traitEntries) {
+              await store.updatePersonaTraitDefault(editingPersonaId, optionId);
+            }
+          } catch (err) {
+            console.warn('Failed to save trait defaults:', err);
+          }
+        }
+
+        // Save new drafts to library if any were generated
+        if (avatar.drafts.length > 0) {
+          try {
+            await saveDraftsToLibrary(editingPersonaId);
+          } catch (err) {
+            console.warn('Failed to save drafts to library:', err);
+          }
+        }
+      }
+
+      return { id: editingPersonaId, error };
+    }
+
+    // CREATE new persona
     const result = await store.createPersona(dataWithSections as typeof formData);
 
     if (result.id) {
@@ -755,6 +1064,8 @@ Return ONLY the system prompt text, no explanation or markdown.`;
         coaching_approach: '',
       },
       isGeneratingSection: null,
+      editingPersonaId: null,
+      isLoadingPersona: false,
       avatar: {
         params: { ...DEFAULT_AVATAR_PARAMS },
         editablePrompt: buildPromptFromParams(DEFAULT_AVATAR_PARAMS),

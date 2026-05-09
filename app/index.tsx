@@ -10,7 +10,8 @@ const DEV_SKIP_AUTH = false;
 const DEV_SKIP_ONBOARDING = false;
 
 export default function Index() {
-  const { session, profile } = useAuthStore();
+  const session = useAuthStore((s) => s.session);
+  const profile = useAuthStore((s) => s.profile);
   const [onboardingState, setOnboardingState] = useState<{
     loaded: boolean;
     hasSeenSplash: boolean;

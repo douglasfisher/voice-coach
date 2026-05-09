@@ -13,6 +13,7 @@ import {
 } from 'lucide-react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
+import { usePersonaStore } from '../../../stores/personaStore';
 import { AvatarGrid } from '../wizard/AvatarGrid';
 import { AvatarLibraryModal } from '../wizard/AvatarLibraryModal';
 import { OptionChips } from './OptionChips';
@@ -116,6 +117,8 @@ export function AvatarGeneratorSection({ personaId, onAvatarApproved }: AvatarGe
         avatar_url: avatarUrl,
         avatar_thumbnail_url: thumbnailUrl,
       });
+      // Refresh main persona store so cards/headers show the new avatar
+      usePersonaStore.getState().fetchPersonas();
     }
   };
 

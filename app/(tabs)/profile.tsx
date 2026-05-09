@@ -29,9 +29,12 @@ import { useFeedbackStore } from '../../stores/feedbackStore';
 import { LevelBadge } from '../../components/growth/LevelBadge';
 
 export default function ProfileScreen() {
-  const { profile, preferences, user, signOut, updatePreferences, updateProfile: _updateProfile } =
-    useAuthStore();
-  const { openModalManual } = useFeedbackStore();
+  const profile = useAuthStore((s) => s.profile);
+  const preferences = useAuthStore((s) => s.preferences);
+  const user = useAuthStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
+  const updatePreferences = useAuthStore((s) => s.updatePreferences);
+  const openModalManual = useFeedbackStore((s) => s.openModalManual);
 
   const [intensity, setIntensity] = useState(
     preferences?.preferred_challenge_intensity ?? 5
@@ -46,6 +49,9 @@ export default function ProfileScreen() {
   );
   const [immersiveChatEnabled, setImmersiveChatEnabled] = useState(
     preferences?.immersive_chat_enabled ?? true
+  );
+  const [nativeTtsEnabled, setNativeTtsEnabled] = useState(
+    preferences?.native_tts_enabled ?? false
   );
   const [userGender, setUserGender] = useState<string | null>(
     preferences?.user_gender ?? null
@@ -62,6 +68,7 @@ export default function ProfileScreen() {
       setVoiceInputEnabled(preferences.voice_input_enabled ?? false);
       setNotifications(preferences.notification_daily_challenge ?? true);
       setImmersiveChatEnabled(preferences.immersive_chat_enabled ?? true);
+      setNativeTtsEnabled(preferences.native_tts_enabled ?? false);
       setUserGender(preferences.user_gender ?? null);
       setInterestedIn(preferences.interested_in ?? null);
     }
@@ -150,6 +157,11 @@ export default function ProfileScreen() {
   const toggleImmersiveChat = async (value: boolean) => {
     setImmersiveChatEnabled(value);
     await updatePreferences({ immersive_chat_enabled: value });
+  };
+
+  const toggleNativeTts = async (value: boolean) => {
+    setNativeTtsEnabled(value);
+    await updatePreferences({ native_tts_enabled: value });
   };
 
   const selectUserGender = async (value: string | null) => {
@@ -433,12 +445,22 @@ export default function ProfileScreen() {
           </LinearGradient>
         </View>
 
-        {/* Voice Settings */}
+        {/* Read Aloud (Native TTS) */}
+        <SettingToggle
+          icon={MessageSquareText}
+          iconColor="#a78bfa"
+          title="Read Aloud"
+          description="AI responses are spoken using your device voice"
+          value={nativeTtsEnabled}
+          onValueChange={toggleNativeTts}
+        />
+
+        {/* ElevenLabs Voice Responses (Premium) */}
         <SettingToggle
           icon={Volume2}
           iconColor="#60a5fa"
-          title="Voice Responses"
-          description="Hear personas speak their responses"
+          title="ElevenLabs Voice"
+          description="Premium realistic voice responses"
           value={ttsEnabled}
           onValueChange={toggleTTS}
         />

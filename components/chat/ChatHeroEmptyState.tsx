@@ -1,7 +1,7 @@
 import { View, Text, Pressable, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap, HelpCircle } from 'lucide-react-native';
-import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS } from '../../types/persona';
+import { Sparkles, Zap, Brain, Heart, Scale, Eye, RefreshCw, GraduationCap, Lightbulb, HelpCircle } from 'lucide-react-native';
+import { PersonaDisplay, ChallengeStyle, CHALLENGE_STYLE_LABELS, ADVISORY_STYLE_LABELS } from '../../types/persona';
 import { useChatStore } from '../../stores/chatStore';
 import { TraitCategory, TraitOption, TraitSelection } from '../../types/coaching';
 import { TraitPicker } from './TraitPicker';
@@ -116,18 +116,21 @@ export function ChatHeroEmptyState({
   selectedTraits,
   onTraitSelect,
 }: ChatHeroEmptyStateProps) {
-  const { globalInteractionMode } = useChatStore();
-  const isQAMode = globalInteractionMode === 'question';
+  const globalInteractionMode = useChatStore((s) => s.globalInteractionMode);
   const isCoach = persona.personaType === 'coach';
+  const isAdvisor = persona.personaType === 'advisor';
+  const isQAMode = isAdvisor || globalInteractionMode === 'question';
   const theme = STYLE_THEMES[persona.challengeStyle];
-  const StyleIcon = isCoach ? GraduationCap : theme.Icon;
-  const accentColor = isCoach ? '#10b981' : theme.accent;
+  const StyleIcon = isAdvisor ? Lightbulb : isCoach ? GraduationCap : theme.Icon;
+  const accentColor = isAdvisor ? '#8b5cf6' : isCoach ? '#10b981' : theme.accent;
   const imageSource = typeof persona.avatarUrl === 'string'
     ? { uri: persona.avatarUrl }
     : persona.avatarUrl;
 
   // Get style label based on persona type
-  const styleLabel = isCoach && persona.coachingStyle
+  const styleLabel = isAdvisor && persona.coachingStyle
+    ? ADVISORY_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
+    : isCoach && persona.coachingStyle
     ? COACHING_STYLE_LABELS[persona.coachingStyle] || persona.coachingStyle
     : CHALLENGE_STYLE_LABELS[persona.challengeStyle];
 
@@ -135,9 +138,9 @@ export function ChatHeroEmptyState({
   const currentRefreshCount = isQAMode && isCoach ? scenarioRefreshCount : refreshCount;
   const refreshesRemaining = maxRefreshes - currentRefreshCount;
 
-  // For Q&A mode, check scenario; otherwise check question
-  const hasPreview = isQAMode && isCoach ? !!scenarioMessage : !!questionMessage;
-  const canRefresh = refreshesRemaining > 0 && !isRefreshing && !isLoading && hasPreview;
+  // For Q&A mode, check scenario; otherwise check question. Advisors never have previews.
+  const hasPreview = isAdvisor ? false : (isQAMode && isCoach ? !!scenarioMessage : !!questionMessage);
+  const canRefresh = !isAdvisor && refreshesRemaining > 0 && !isRefreshing && !isLoading && hasPreview;
 
   return (
     <View style={{ flex: 1 }}>
@@ -190,8 +193,8 @@ export function ChatHeroEmptyState({
             </Text>
           </View>
 
-          {/* Q&A Mode badge */}
-          {isQAMode && (
+          {/* Q&A Mode badge (not shown for advisors — they're always in advisor mode) */}
+          {isQAMode && !isAdvisor && (
             <View
               style={{
                 flexDirection: 'row',
@@ -223,8 +226,59 @@ export function ChatHeroEmptyState({
           />
         )}
 
-        {/* Q&A Mode: Show AI-generated or fallback scene */}
-        {isQAMode && isCoach ? (
+        {/* Advisor mode: Show tagline, specialties, and prompt */}
+        {isAdvisor ? (
+          <View style={{ marginBottom: 20 }}>
+            {/* Tagline */}
+            {persona.tagline && (
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.7)',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  marginBottom: 12,
+                  fontStyle: 'italic',
+                }}
+              >
+                {persona.tagline}
+              </Text>
+            )}
+
+            {/* Specialty areas */}
+            {persona.specialtyAreas.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                {persona.specialtyAreas.map((area) => (
+                  <View
+                    key={area}
+                    style={{
+                      backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: 'rgba(139, 92, 246, 0.3)',
+                    }}
+                  >
+                    <Text style={{ color: '#c4b5fd', fontSize: 12, fontWeight: '500' }}>
+                      {area}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <Text
+              style={{
+                color: '#fff',
+                fontSize: 17,
+                fontWeight: '600',
+                lineHeight: 24,
+              }}
+            >
+              What would you like advice on?
+            </Text>
+          </View>
+        ) : isQAMode && isCoach ? (
           isLoading && !scenarioMessage ? (
             /* Loading skeleton for scenario */
             <View style={{ marginBottom: 20 }}>
@@ -330,8 +384,8 @@ export function ChatHeroEmptyState({
           </Text>
         ) : null}
 
-        {/* New Question/Scenario button */}
-        <Pressable
+        {/* New Question/Scenario button (hidden for advisors) */}
+        {!isAdvisor && <Pressable
           onPress={isQAMode && isCoach ? onRefreshScenario : onRefreshQuestion}
           disabled={!canRefresh}
           style={{
@@ -362,26 +416,26 @@ export function ChatHeroEmptyState({
               )}
             </>
           )}
-        </Pressable>
+        </Pressable>}
 
         {/* Start CTA button */}
         <Pressable
           onPress={onStartChat}
-          disabled={isStarting || (isLoading && !hasPreview)}
+          disabled={isStarting || (!isAdvisor && isLoading && !hasPreview)}
           style={{
             paddingVertical: 16,
             borderRadius: 16,
             backgroundColor: accentColor,
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: (isStarting || (isLoading && !hasPreview)) ? 0.5 : 1,
+            opacity: (isStarting || (!isAdvisor && isLoading && !hasPreview)) ? 0.5 : 1,
           }}
         >
           {isStarting ? (
             <ActivityIndicator color="#0f0f12" />
           ) : (
             <Text style={{ color: '#0f0f12', fontWeight: '700', fontSize: 18 }}>
-              {isCoach ? (isQAMode ? 'You Start' : 'Start Practice') : 'Start Challenge'}
+              {isAdvisor ? 'Ask Your Question' : isCoach ? (isQAMode ? 'You Start' : 'Start Practice') : 'Start Challenge'}
             </Text>
           )}
         </Pressable>

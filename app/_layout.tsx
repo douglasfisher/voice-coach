@@ -14,10 +14,14 @@ import { FeedbackModal } from '../components/feedback/FeedbackModal';
 import '../global.css';
 
 export default function RootLayout() {
-  const { initialize, isLoading: _isLoading, isInitialized } = useAuthStore();
-  const { fetchPersonas } = usePersonaStore();
+  const initialize = useAuthStore((s) => s.initialize);
+  const isInitialized = useAuthStore((s) => s.isInitialized);
+  const fetchPersonas = usePersonaStore((s) => s.fetchPersonas);
   const pathname = usePathname();
-  const { onScreenshotDetected, isOverlayVisible, isModalVisible, closeModal } = useFeedbackStore();
+  const onScreenshotDetected = useFeedbackStore((s) => s.onScreenshotDetected);
+  const isOverlayVisible = useFeedbackStore((s) => s.isOverlayVisible);
+  const isModalVisible = useFeedbackStore((s) => s.isModalVisible);
+  const closeModal = useFeedbackStore((s) => s.closeModal);
 
   useEffect(() => {
     initialize();

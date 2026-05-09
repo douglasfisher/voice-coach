@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ScrollView, View, Text, Pressable, ActivityIndicator, TextInput } from 'react-native';
-import { Sparkles, ChevronDown, ChevronRight, RotateCcw, Layers } from 'lucide-react-native';
+import { Sparkles, ChevronDown, ChevronRight, RotateCcw, Layers, SplitSquareVertical } from 'lucide-react-native';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { TraitTokenBadges, TRAIT_TOKENS } from '../shared/TraitTokenBadges';
 import { AvatarPreviewHeader } from './AvatarPreviewHeader';
@@ -153,7 +153,8 @@ export function WizardStepPrompt() {
     isGeneratingSection,
   } = useWizardStore();
 
-  // Auto-trigger AI generation on mount if all sections are empty
+  // Auto-trigger AI generation on mount ONLY if all sections are empty
+  // AND no existing system_prompt exists (older personas have a prompt but no sections)
   const hasTriggered = useRef(false);
   useEffect(() => {
     if (hasTriggered.current) return;
@@ -161,6 +162,8 @@ export function WizardStepPrompt() {
       (key) => !(promptSections[key] || '').trim()
     );
     if (!allEmpty) return;
+    // Don't auto-generate if persona already has a system prompt (edit mode)
+    if (formData.system_prompt.trim().length > 0) return;
 
     hasTriggered.current = true;
     (async () => {
@@ -339,7 +342,177 @@ export function WizardStepPrompt() {
         </>
       )}
 
+      {/* Mode-Specific Prompt Overrides */}
+      <ModePromptsSection />
+
       <View style={{ height: 40 }} />
     </ScrollView>
+  );
+}
+
+// =============================================================================
+// MODE PROMPTS SECTION
+// =============================================================================
+
+const MODE_PROMPT_FIELDS = [
+  {
+    key: 'qa_roleplay' as const,
+    label: 'Q&A Roleplay',
+    description: 'Used when this persona is in Q&A / question_mode. Leave empty to use the main system prompt.',
+    placeholder: 'Full in-character roleplay prompt for Q&A mode...',
+  },
+  {
+    key: 'coaching_chat' as const,
+    label: 'Coaching Chat',
+    description: 'Used when coaching (coach_leads, user_leads, turn_taking). Leave empty to use the main system prompt.',
+    placeholder: 'Coaching-focused prompt for guided sessions...',
+  },
+  {
+    key: 'feedback' as const,
+    label: 'Feedback Phase',
+    description: 'Used during the feedback/analysis phase. Leave empty to use the main system prompt.',
+    placeholder: 'Out-of-character feedback analysis prompt...',
+  },
+] as const;
+
+function ModePromptsSection() {
+  const { formData, updateFormField } = useWizardStore();
+  const [expanded, setExpanded] = useState(false);
+
+  const modePrompts = (formData.mode_prompts || {}) as Record<string, string>;
+  const filledCount = MODE_PROMPT_FIELDS.filter((f) => modePrompts[f.key]?.trim()).length;
+
+  const updateModePrompt = (key: string, value: string) => {
+    const updated = { ...modePrompts, [key]: value };
+    // Remove empty keys so we store null when all are empty
+    const cleaned = Object.fromEntries(
+      Object.entries(updated).filter(([, v]) => v.trim())
+    );
+    updateFormField(
+      'mode_prompts' as keyof typeof formData,
+      Object.keys(cleaned).length > 0 ? cleaned : null,
+    );
+  };
+
+  return (
+    <View
+      style={{
+        marginTop: 8,
+        marginBottom: 12,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1,
+        borderColor: filledCount > 0
+          ? 'rgba(59, 130, 246, 0.2)'
+          : 'rgba(255,255,255,0.08)',
+        overflow: 'hidden',
+      }}
+    >
+      <Pressable
+        onPress={() => setExpanded(!expanded)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: 14,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <SplitSquareVertical size={16} color={filledCount > 0 ? '#3b82f6' : 'rgba(255,255,255,0.5)'} />
+          <Text
+            style={{
+              color: filledCount > 0 ? '#3b82f6' : 'rgba(255,255,255,0.7)',
+              fontSize: 13,
+              fontWeight: '600',
+              marginLeft: 8,
+            }}
+          >
+            Mode-Specific Prompts
+          </Text>
+          {filledCount > 0 && (
+            <View
+              style={{
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                borderRadius: 10,
+                paddingHorizontal: 7,
+                paddingVertical: 2,
+                marginLeft: 8,
+              }}
+            >
+              <Text style={{ color: '#3b82f6', fontSize: 11, fontWeight: '600' }}>
+                {filledCount}/{MODE_PROMPT_FIELDS.length}
+              </Text>
+            </View>
+          )}
+        </View>
+        {expanded ? (
+          <ChevronDown size={16} color="rgba(255,255,255,0.5)" />
+        ) : (
+          <ChevronRight size={16} color="rgba(255,255,255,0.5)" />
+        )}
+      </Pressable>
+
+      {expanded && (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.35)',
+              fontSize: 12,
+              marginBottom: 14,
+              lineHeight: 18,
+            }}
+          >
+            Optional per-mode overrides. When set, these replace the main system prompt for that specific mode. Trait tokens (e.g. {'{{character_demeanor}}'}) work here too.
+          </Text>
+
+          {MODE_PROMPT_FIELDS.map((field) => (
+            <View key={field.key} style={{ marginBottom: 14 }}>
+              <Text
+                style={{
+                  color: modePrompts[field.key]?.trim()
+                    ? '#3b82f6'
+                    : 'rgba(255,255,255,0.6)',
+                  fontSize: 13,
+                  fontWeight: '600',
+                  marginBottom: 4,
+                }}
+              >
+                {field.label}
+              </Text>
+              <Text
+                style={{
+                  color: 'rgba(255,255,255,0.3)',
+                  fontSize: 11,
+                  marginBottom: 8,
+                }}
+              >
+                {field.description}
+              </Text>
+              <TextInput
+                value={modePrompts[field.key] || ''}
+                onChangeText={(text) => updateModePrompt(field.key, text)}
+                placeholder={field.placeholder}
+                placeholderTextColor="rgba(255,255,255,0.15)"
+                multiline
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.04)',
+                  borderWidth: 1,
+                  borderColor: modePrompts[field.key]?.trim()
+                    ? 'rgba(59, 130, 246, 0.2)'
+                    : 'rgba(255,255,255,0.08)',
+                  borderRadius: 8,
+                  padding: 12,
+                  color: '#fff',
+                  fontSize: 13,
+                  minHeight: 80,
+                  textAlignVertical: 'top',
+                  lineHeight: 20,
+                }}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
   );
 }

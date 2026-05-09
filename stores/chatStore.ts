@@ -2,10 +2,12 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { invokeChatFunction, isQuotaError, QuotaExceededError } from '../lib/chat-invoke';
 import { Conversation, Message } from '../types/database';
 import { InteractionMode, SessionPhase, SituationVariant, TraitSelection } from '../types/coaching';
 import { ChallengeStyle } from '../types/persona';
 import { useAuthStore } from './authStore';
+import { usePersonaStore } from './personaStore';
 
 interface SessionReport {
   tldr: string;
@@ -52,6 +54,15 @@ interface ChatState {
   isSending: boolean;
   isGeneratingReport: boolean;
   error: string | null;
+  /** Set when the chat fn returns 429 daily_token_limit_exceeded. Null
+   * otherwise. UI subscribes to surface a tier-aware upgrade prompt
+   * instead of a generic error toast. */
+  quotaError: {
+    tier: string;
+    limit: number;
+    used: number;
+    message: string;
+  } | null;
 
   // Preview state (question only, no intro)
   previewQuestion: string | null;
@@ -78,6 +89,7 @@ interface ChatState {
   // Screen filter preferences (persisted)
   coachesActiveDomain: string;
   challengersActiveFilter: ChallengeStyle | 'all';
+  advisorsActiveCategory: string;
 
   fetchConversations: (userId: string) => Promise<void>;
   fetchConversation: (id: string) => Promise<void>;
@@ -96,6 +108,7 @@ interface ChatState {
     topic?: string
   ) => Promise<string | null>;
   sendMessage: (content: string) => Promise<{ response: string } | null>;
+  sendIntakeResponse: (selectedLabels: string[], customText?: string, intakeRound?: number) => Promise<{ response: string } | null>;
   startChat: () => Promise<boolean>;
   startChatWithPreview: () => Promise<boolean>;
   generatePreview: () => Promise<void>;
@@ -106,7 +119,7 @@ interface ChatState {
   endConversation: () => Promise<void>;
   clearMessages: (conversationId: string) => Promise<void>;
   clearActiveConversation: () => void;
-  fetchDailyChallenges: () => Promise<void>;
+  fetchDailyChallenges: (force?: boolean) => Promise<void>;
   setActiveChallengeIndex: (index: number) => void;
   // Coaching-specific actions
   switchPhase: (phase: SessionPhase) => Promise<{ response: string } | null>;
@@ -120,9 +133,27 @@ interface ChatState {
   // Filter actions
   setCoachesActiveDomain: (domain: string) => void;
   setChallengersActiveFilter: (filter: ChallengeStyle | 'all') => void;
+  setAdvisorsActiveCategory: (category: string) => void;
+  // Quota
+  clearQuotaError: () => void;
+  // Logout cleanup
+  clearAllState: () => void;
 }
 
 const MAX_QUESTION_REFRESHES = 3;
+
+/** Build the partial state to set when a chat-fn 429 is caught.
+ * Centralises the shape so all 14 catch blocks stay one-line. */
+function quotaStateFrom(err: QuotaExceededError) {
+  return {
+    quotaError: {
+      tier: err.tier,
+      limit: err.limit,
+      used: err.used,
+      message: err.message,
+    },
+  };
+}
 
 /** Build promptTokens for scenario generation from traits + gender preferences */
 function buildScenarioPromptTokens(selectedTraits: TraitSelection): Record<string, string> {
@@ -152,6 +183,7 @@ export const useChatStore = create<ChatState>()(
   isSending: false,
   isGeneratingReport: false,
   error: null,
+  quotaError: null,
 
   // Preview state (question only, no intro)
   previewQuestion: null,
@@ -178,20 +210,26 @@ export const useChatStore = create<ChatState>()(
   // Screen filter preferences
   coachesActiveDomain: 'all',
   challengersActiveFilter: 'all',
+  advisorsActiveCategory: 'all',
 
   fetchConversations: async (userId) => {
     set({ isLoading: true, error: null });
     try {
       const { data, error } = await supabase
         .from('conversations')
-        .select('*')
+        .select('id, user_id, persona_id, status, topic, interaction_mode, created_at, ended_at, overall_score')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
-      set({ conversations: data ?? [] });
+      set({ conversations: (data ?? []) as unknown as Conversation[] });
     } catch (error) {
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
     } finally {
       set({ isLoading: false });
     }
@@ -207,6 +245,14 @@ export const useChatStore = create<ChatState>()(
         .single();
 
       if (error) throw error;
+
+      // Verify conversation belongs to the current user
+      const currentUserId = useAuthStore.getState().user?.id;
+      if (data.user_id !== currentUserId) {
+        set({ error: 'Unauthorized', isLoading: false });
+        return;
+      }
+
       set({ activeConversation: data });
 
       // Load saved trait selections for this conversation
@@ -232,7 +278,11 @@ export const useChatStore = create<ChatState>()(
 
       await get().fetchMessages(id);
     } catch (error) {
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
     } finally {
       set({ isLoading: false });
     }
@@ -241,16 +291,18 @@ export const useChatStore = create<ChatState>()(
   fetchMessages: async (conversationId) => {
     const { data, error } = await supabase
       .from('messages')
-      .select('*')
+      .select('id, conversation_id, role, content, audio_url, audio_duration_ms, sequence, response_time_ms, metadata, created_at')
       .eq('conversation_id', conversationId)
-      .order('sequence', { ascending: true });
+      .order('sequence', { ascending: false })
+      .limit(50);
 
     if (error) {
       set({ error: error.message });
       return;
     }
 
-    const messages: ChatMessage[] = (data ?? []).map((msg: Record<string, unknown>) => ({
+    // Reverse to display oldest-first (fetched newest-first for limit)
+    const messages: ChatMessage[] = (data ?? []).reverse().map((msg: Record<string, unknown>) => ({
       id: msg.id as string,
       conversation_id: msg.conversation_id as string,
       role: msg.role as 'user' | 'assistant' | 'system',
@@ -288,6 +340,10 @@ export const useChatStore = create<ChatState>()(
     const { globalInteractionMode, selectedTraits } = get();
     set({ isLoading: true, error: null });
     try {
+      // Check if this is an advisor persona
+      const persona = usePersonaStore.getState().getPersonaById(personaId);
+      const isAdvisor = persona?.personaType === 'advisor';
+
       const insertData: Record<string, unknown> = {
         user_id: userId,
         persona_id: personaId,
@@ -295,12 +351,15 @@ export const useChatStore = create<ChatState>()(
         status: 'active',
       };
 
-      // Apply global interaction mode if set to question mode
-      if (globalInteractionMode === 'question') {
+      // Advisors always use advisor_mode, regardless of global toggle
+      if (isAdvisor) {
+        insertData.interaction_mode = 'advisor_mode';
+      } else if (globalInteractionMode === 'question') {
+        // Apply global interaction mode if set to question mode (coaches only)
         insertData.interaction_mode = 'question_mode';
       }
 
-      // Add coaching fields if provided (these can override global mode)
+      // Add coaching fields if provided (these can override global mode, but not for advisors)
       if (coachingOptions) {
         if (coachingOptions.domainId) {
           insertData.domain_id = coachingOptions.domainId;
@@ -308,13 +367,15 @@ export const useChatStore = create<ChatState>()(
         if (coachingOptions.scenarioId) {
           insertData.scenario_id = coachingOptions.scenarioId;
         }
-        if (coachingOptions.interactionMode) {
+        if (coachingOptions.interactionMode && !isAdvisor) {
           insertData.interaction_mode = coachingOptions.interactionMode;
         }
         if (coachingOptions.scenarioVariant) {
           insertData.scenario_variant = coachingOptions.scenarioVariant;
         }
-        insertData.current_phase = 'roleplay';
+        if (!isAdvisor) {
+          insertData.current_phase = 'roleplay';
+        }
       }
 
       const { data, error } = await supabase
@@ -344,7 +405,11 @@ export const useChatStore = create<ChatState>()(
       return data.id;
     } catch (error) {
       console.error('createConversation error:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isLoading: false });
@@ -385,7 +450,11 @@ export const useChatStore = create<ChatState>()(
       return data.id;
     } catch (error) {
       console.error('startChallengeChat error:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isLoading: false });
@@ -395,6 +464,12 @@ export const useChatStore = create<ChatState>()(
   sendMessage: async (content) => {
     const { activeConversation, messages, coachingOptions, currentPhase, selectedTraits } = get();
     if (!activeConversation) return null;
+
+    const trimmed = content.trim();
+    if (!trimmed || trimmed.length > 5000) {
+      set({ error: trimmed ? 'Message is too long (max 5000 characters)' : 'Message cannot be empty' });
+      return null;
+    }
 
     set({ isSending: true, error: null });
     try {
@@ -438,15 +513,11 @@ export const useChatStore = create<ChatState>()(
 
       // Add prompt tokens from trait selections
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
       // Call Edge Function for AI response
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: requestBody,
       });
 
@@ -459,6 +530,74 @@ export const useChatStore = create<ChatState>()(
         response: data.response,
       };
     } catch (error) {
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
+      return null;
+    } finally {
+      set({ isSending: false });
+    }
+  },
+
+  sendIntakeResponse: async (selectedLabels, customText, intakeRound = 1) => {
+    const { activeConversation, messages } = get();
+    if (!activeConversation) return null;
+
+    // Format a readable user message from selections
+    let displayMessage = '';
+    if (selectedLabels.length > 0) {
+      displayMessage = selectedLabels.join(' + ');
+    }
+    if (customText) {
+      displayMessage = displayMessage
+        ? `${displayMessage} + ${customText}`
+        : customText;
+    }
+
+    if (!displayMessage) return null;
+
+    set({ isSending: true, error: null });
+    try {
+      const sequence = messages.length + 1;
+
+      // Add optimistic user message
+      const userMessage: ChatMessage = {
+        id: `temp-${Date.now()}`,
+        conversation_id: activeConversation.id,
+        role: 'user',
+        content: displayMessage,
+        audio_url: null,
+        audio_duration_ms: null,
+        sequence,
+        response_time_ms: null,
+        created_at: new Date().toISOString(),
+      };
+
+      set({ messages: [...messages, userMessage] });
+
+      // Call edge function with intake selections
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          conversationId: activeConversation.id,
+          userMessage: displayMessage,
+          personaId: activeConversation.persona_id,
+          intakeSelections: {
+            selectedOptions: selectedLabels,
+            customText,
+            intakeRound,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      // Refresh messages from DB
+      await get().fetchMessages(activeConversation.id);
+
+      return { response: data.response };
+    } catch (error) {
       set({ error: (error as Error).message });
       return null;
     } finally {
@@ -469,12 +608,6 @@ export const useChatStore = create<ChatState>()(
   startChat: async () => {
     const { activeConversation, coachingOptions, selectedTraits } = get();
     if (!activeConversation) return false;
-
-    console.log('Starting chat with:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      coachingOptions,
-    });
 
     set({ isSending: true, error: null });
     try {
@@ -497,14 +630,10 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
-      const { error } = await supabase.functions.invoke('chat', {
+      const { error } = await invokeChatFunction<any>({
         body: requestBody,
       });
 
@@ -515,7 +644,11 @@ export const useChatStore = create<ChatState>()(
       return true;
     } catch (error) {
       console.error('Start chat failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return false;
     } finally {
       set({ isSending: false });
@@ -526,18 +659,16 @@ export const useChatStore = create<ChatState>()(
     const { activeConversation, globalInteractionMode, selectedTraits } = get();
     if (!activeConversation) return;
 
-    const isQAMode = globalInteractionMode === 'question';
+    // Advisors don't use previews — no scenarios, no greeting previews
+    const persona = usePersonaStore.getState().getPersonaById(activeConversation.persona_id);
+    if (persona?.personaType === 'advisor') return;
 
-    console.log('Generating preview for:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      isQAMode,
-    });
+    const isQAMode = globalInteractionMode === 'question';
 
     set({ isGeneratingPreview: true, error: null });
     try {
       if (isQAMode) {
-        const { data, error } = await supabase.functions.invoke('chat', {
+        const { data, error } = await invokeChatFunction<any>({
           body: {
             personaId: activeConversation.persona_id,
             generateScenario: true,
@@ -551,7 +682,7 @@ export const useChatStore = create<ChatState>()(
           scenarioRefreshCount: 0,
         });
       } else {
-        const { data, error } = await supabase.functions.invoke('chat', {
+        const { data, error } = await invokeChatFunction<any>({
           body: {
             conversationId: activeConversation.id,
             personaId: activeConversation.persona_id,
@@ -567,7 +698,11 @@ export const useChatStore = create<ChatState>()(
       }
     } catch (error) {
       console.error('Generate preview failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
     } finally {
       set({ isGeneratingPreview: false });
     }
@@ -578,14 +713,9 @@ export const useChatStore = create<ChatState>()(
     if (!activeConversation) return false;
     if (questionRefreshCount >= MAX_QUESTION_REFRESHES) return false;
 
-    console.log('Regenerating question:', {
-      conversationId: activeConversation.id,
-      refreshCount: questionRefreshCount + 1,
-    });
-
     set({ isGeneratingPreview: true, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: {
           conversationId: activeConversation.id,
           personaId: activeConversation.persona_id,
@@ -601,7 +731,11 @@ export const useChatStore = create<ChatState>()(
       return true;
     } catch (error) {
       console.error('Regenerate question failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return false;
     } finally {
       set({ isGeneratingPreview: false });
@@ -613,14 +747,9 @@ export const useChatStore = create<ChatState>()(
     if (!activeConversation) return false;
     if (scenarioRefreshCount >= MAX_QUESTION_REFRESHES) return false;
 
-    console.log('Regenerating scenario:', {
-      personaId: activeConversation.persona_id,
-      refreshCount: scenarioRefreshCount + 1,
-    });
-
     set({ isGeneratingPreview: true, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: {
           personaId: activeConversation.persona_id,
           generateScenario: true,
@@ -636,7 +765,11 @@ export const useChatStore = create<ChatState>()(
       return true;
     } catch (error) {
       console.error('Regenerate scenario failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return false;
     } finally {
       set({ isGeneratingPreview: false });
@@ -649,14 +782,13 @@ export const useChatStore = create<ChatState>()(
 
     // For Q&A mode, we need a scenario; for practice mode, we need a question
     if (!activeConversation) return false;
+
+    // Advisors should never use the preview path
+    const persona = usePersonaStore.getState().getPersonaById(activeConversation.persona_id);
+    if (persona?.personaType === 'advisor') return false;
+
     if (isQAMode && !previewScenario) return false;
     if (!isQAMode && !previewQuestion) return false;
-
-    console.log('Starting chat with preview:', {
-      conversationId: activeConversation.id,
-      personaId: activeConversation.persona_id,
-      isQAMode,
-    });
 
     set({ isSending: true, error: null });
     try {
@@ -700,7 +832,11 @@ export const useChatStore = create<ChatState>()(
       return true;
     } catch (error) {
       console.error('Start chat with preview failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return false;
     } finally {
       set({ isSending: false });
@@ -719,16 +855,21 @@ export const useChatStore = create<ChatState>()(
   generateReport: async (conversationId: string) => {
     set({ isGeneratingReport: true, error: null });
     try {
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: { conversationId, generateReport: true },
       });
 
       if (error) {
         // Extract the actual error body from the edge function response
+        // (supabase-js attaches the original Response on `.context` for
+        // FunctionsHttpError; for QuotaExceededError we re-throw so the
+        // catch path's isQuotaError branch handles it).
+        if (isQuotaError(error)) throw error;
+        const ctx = (error as unknown as { context?: Response }).context;
         let detail = error.message;
-        if (error.context && typeof error.context.json === 'function') {
+        if (ctx && typeof ctx.json === 'function') {
           try {
-            const body = await error.context.json();
+            const body = await ctx.clone().json();
             detail = body?.error || JSON.stringify(body);
           } catch { /* use default message */ }
         }
@@ -737,7 +878,11 @@ export const useChatStore = create<ChatState>()(
       return data.report as SessionReport;
     } catch (error) {
       console.error('Generate report failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isGeneratingReport: false });
@@ -784,7 +929,11 @@ export const useChatStore = create<ChatState>()(
       set({ messages: [] });
     } catch (error) {
       console.error('Clear messages error:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
     }
   },
 
@@ -821,14 +970,10 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: requestBody,
       });
 
@@ -841,7 +986,11 @@ export const useChatStore = create<ChatState>()(
       return { response: data.response || data.message };
     } catch (error) {
       console.error('Switch phase failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isSending: false });
@@ -865,14 +1014,10 @@ export const useChatStore = create<ChatState>()(
       }
 
       if (Object.keys(selectedTraits).length > 0) {
-        const promptTokens: Record<string, string> = {};
-        for (const [slug, selection] of Object.entries(selectedTraits)) {
-          promptTokens[slug] = selection.promptModifier;
-        }
-        requestBody.promptTokens = promptTokens;
+        requestBody.promptTokens = buildScenarioPromptTokens(selectedTraits);
       }
 
-      const { data, error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await invokeChatFunction<any>({
         body: requestBody,
       });
 
@@ -883,7 +1028,11 @@ export const useChatStore = create<ChatState>()(
       return { response: data.response };
     } catch (error) {
       console.error('Quick feedback failed:', error);
-      set({ error: (error as Error).message });
+      if (isQuotaError(error)) {
+        set(quotaStateFrom(error));
+      } else {
+        set({ error: (error as Error).message });
+      }
       return null;
     } finally {
       set({ isSending: false });
@@ -920,15 +1069,48 @@ export const useChatStore = create<ChatState>()(
     set({ challengersActiveFilter: filter });
   },
 
+  setAdvisorsActiveCategory: (category) => {
+    set({ advisorsActiveCategory: category });
+  },
+
+  clearQuotaError: () => {
+    set({ quotaError: null });
+  },
+
+  clearAllState: () => {
+    set({
+      conversations: [],
+      activeConversation: null,
+      messages: [],
+      completedConversations: [],
+      isLoading: false,
+      isSending: false,
+      isGeneratingReport: false,
+      error: null,
+      quotaError: null,
+      previewQuestion: null,
+      previewScenario: null,
+      questionRefreshCount: 0,
+      scenarioRefreshCount: 0,
+      isGeneratingPreview: false,
+      dailyChallenges: [],
+      activeChallengeIndex: 0,
+      isLoadingChallenge: false,
+      currentPhase: 'roleplay',
+      coachingOptions: null,
+      selectedTraits: {},
+    });
+  },
+
   setActiveChallengeIndex: (index) => {
     set({ activeChallengeIndex: index });
   },
 
-  fetchDailyChallenges: async () => {
+  fetchDailyChallenges: async (force?: boolean) => {
     const { dailyChallenges } = get();
 
-    // Check if we already have today's challenges
-    if (dailyChallenges.length > 0) {
+    // Check if we already have today's challenges (skip if force refresh)
+    if (!force && dailyChallenges.length > 0) {
       const generatedDate = new Date(dailyChallenges[0].generatedAt).toDateString();
       const today = new Date().toDateString();
       if (generatedDate === today) {
@@ -945,7 +1127,7 @@ export const useChatStore = create<ChatState>()(
       } | null = null;
 
       for (let attempt = 0; attempt < 2; attempt++) {
-        const result = await supabase.functions.invoke('chat', {
+        const result = await invokeChatFunction<any>({
           body: { generateChallengeBatch: true },
         });
 
@@ -997,6 +1179,7 @@ export const useChatStore = create<ChatState>()(
         selectedTraits: state.selectedTraits,
         coachesActiveDomain: state.coachesActiveDomain,
         challengersActiveFilter: state.challengersActiveFilter,
+        advisorsActiveCategory: state.advisorsActiveCategory,
       }),
     },
   ),

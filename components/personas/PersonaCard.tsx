@@ -1,3 +1,4 @@
+import React from 'react';
 import { View, Text, Image, Pressable, ImageSourcePropType, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Zap, Brain, Heart, Scale, Eye } from 'lucide-react-native';
@@ -86,7 +87,7 @@ const CARD_SCALES = {
   },
 } as const;
 
-export function PersonaCard({ persona, onPress, selected = false, variant = 'default', featured, size = 'lg', height }: PersonaCardProps) {
+export const PersonaCard = React.memo(function PersonaCard({ persona, onPress, selected = false, variant = 'default', featured, size = 'lg', height }: PersonaCardProps) {
   const theme = STYLE_THEMES[persona.challengeStyle];
   const StyleIcon = theme.Icon;
   const { value: unifiedGradient, isLoading: isGradientLoading } = useAppSetting('unified_card_gradient');
@@ -248,4 +249,4 @@ export function PersonaCard({ persona, onPress, selected = false, variant = 'def
       </View>
     </Pressable>
   );
-}
+});

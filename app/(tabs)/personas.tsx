@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl, D
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles } from 'lucide-react-native';
+import { Sparkles, Settings } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
@@ -39,8 +39,10 @@ export default function PersonasScreen() {
   const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
   const { personas, isLoading } = usePersonas();
-  const { user } = useAuthStore();
-  const { createConversation, challengersActiveFilter, setChallengersActiveFilter } = useChatStore();
+  const user = useAuthStore((s) => s.user);
+  const createConversation = useChatStore((s) => s.createConversation);
+  const challengersActiveFilter = useChatStore((s) => s.challengersActiveFilter);
+  const setChallengersActiveFilter = useChatStore((s) => s.setChallengersActiveFilter);
   const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
   const isSnapMode = fullscreenCardMode === true;
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
@@ -56,7 +58,7 @@ export default function PersonasScreen() {
   }));
 
   // Filter to only show challengers (not coaches)
-  const challengers = personas.filter(p => p.personaType === 'challenger');
+  const challengers = useMemo(() => personas.filter(p => p.personaType === 'challenger'), [personas]);
 
   // Auto-open persona modal when navigated with openPersonaId param
   useEffect(() => {
@@ -142,6 +144,20 @@ export default function PersonasScreen() {
                 Choose your intellectual sparring partner
               </Text>
             </View>
+            <Pressable
+              onPress={() => router.push('/(tabs)/profile')}
+              hitSlop={8}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Settings size={20} color="#9A9A9E" />
+            </Pressable>
           </View>
         </View>
 
@@ -214,6 +230,11 @@ export default function PersonasScreen() {
               />
             </View>
           )}
+          getItemLayout={(_data, index) => ({
+            length: snapCardHeight,
+            offset: snapCardHeight * index,
+            index,
+          })}
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: headerHeight,
@@ -222,12 +243,20 @@ export default function PersonasScreen() {
           snapToInterval={snapCardHeight}
           snapToAlignment="start"
           decelerationRate="fast"
+          windowSize={5}
+          maxToRenderPerBatch={3}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#F59E0B" progressViewOffset={headerHeight} />}
           ListEmptyComponent={
             <View style={{ paddingVertical: 80, alignItems: 'center' }}>
               <Text style={{ color: '#6E6E73' }}>No challengers match this filter</Text>
+            </View>
+          }
+          ListFooterComponent={
+            <View style={{ height: headerHeight + 40, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 40, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 10 }} />
+              <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 15 }}>You've seen them all</Text>
             </View>
           }
         />
@@ -302,6 +331,7 @@ export default function PersonasScreen() {
         visible={selectedPersona !== null}
         onClose={() => setSelectedPersona(null)}
         onChallenge={handleChallenge}
+        onPersonaUpdated={(p) => setSelectedPersona(p)}
       />
 
       {isCreating && (

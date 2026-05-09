@@ -3,15 +3,13 @@ import { useAnalysisStore, useAuthStore } from '../stores';
 import { calculateOverallTrend, getRecommendedFocusAreas } from '../lib/analysis';
 
 export function useAnalysis() {
-  const { user } = useAuthStore();
-  const {
-    patterns,
-    snapshots,
-    latestSnapshot,
-    isLoading,
-    error,
-    fetchUserAnalytics,
-  } = useAnalysisStore();
+  const user = useAuthStore((s) => s.user);
+  const patterns = useAnalysisStore((s) => s.patterns);
+  const snapshots = useAnalysisStore((s) => s.snapshots);
+  const latestSnapshot = useAnalysisStore((s) => s.latestSnapshot);
+  const isLoading = useAnalysisStore((s) => s.isLoading);
+  const error = useAnalysisStore((s) => s.error);
+  const fetchUserAnalytics = useAnalysisStore((s) => s.fetchUserAnalytics);
 
   useEffect(() => {
     if (user?.id) {
@@ -35,7 +33,8 @@ export function useAnalysis() {
 }
 
 export function useGrowthScores() {
-  const { latestSnapshot, snapshots } = useAnalysisStore();
+  const latestSnapshot = useAnalysisStore((s) => s.latestSnapshot);
+  const snapshots = useAnalysisStore((s) => s.snapshots);
 
   if (!latestSnapshot) {
     return {

@@ -6,7 +6,38 @@ export type ChallengeStyle =
   | 'logical_surgeon'
   | 'perspective_shifter';
 
-export type PersonaType = 'challenger' | 'coach';
+export type PersonaType = 'challenger' | 'coach' | 'advisor';
+
+export type AdvisoryStyle =
+  | 'research_based'
+  | 'experiential'
+  | 'strategic'
+  | 'empathetic'
+  | 'practical'
+  | 'analytical';
+
+export const ADVISORY_STYLE_LABELS: Record<string, string> = {
+  'research_based': 'Research-Based',
+  'experiential': 'Experiential',
+  'strategic': 'Strategic Thinker',
+  'empathetic': 'Empathetic Guide',
+  'practical': 'Practical Expert',
+  'analytical': 'Analytical Mind',
+  // Also map coaching_style values used by advisors
+  'expert_advisor': 'Expert Advisor',
+  'supportive_guide': 'Supportive Guide',
+};
+
+export const ADVISORY_STYLE_DESCRIPTIONS: Record<string, string> = {
+  'research_based': 'Evidence-backed expert insights',
+  'experiential': 'Wisdom from real-world experience',
+  'strategic': 'Strategic frameworks and planning',
+  'empathetic': 'Understanding first, advising second',
+  'practical': 'Actionable, no-nonsense guidance',
+  'analytical': 'Data-driven analysis and logic',
+  'expert_advisor': 'Deep expertise and strategic guidance',
+  'supportive_guide': 'Supportive, empowering guidance',
+};
 
 export interface VoiceConfig {
   provider: 'elevenlabs' | 'playht' | 'azure';
@@ -48,6 +79,8 @@ export interface PersonaDisplay {
   coachingStyle: CoachingStyle | null;
   defaultInteractionMode: InteractionMode;
   feedbackStyle: FeedbackStyle;
+  gender: 'male' | 'female';
+  advisorCategoryId: string | null;
 }
 
 export const CHALLENGE_STYLE_LABELS: Record<ChallengeStyle, string> = {

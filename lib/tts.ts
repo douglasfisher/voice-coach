@@ -1,72 +1,64 @@
 import { Audio } from 'expo-av';
 import { supabase } from './supabase';
+import { useAuthStore } from '../stores/authStore';
 import { VoiceConfig } from '../types/persona';
 
-const ELEVENLABS_API_KEY = process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY;
-
+/**
+ * Generate speech via the `tts` edge function.
+ *
+ * Replaces the previous direct call to api.elevenlabs.io which leaked
+ * the provider API key in the bundle. The edge function:
+ *   - Authenticates with the SECRET ElevenLabs key (never exposed)
+ *   - Uploads the audio to the tts-audio bucket
+ *   - Records ai_usage so spoken-response spend is visible alongside
+ *     Groq + Runware in the admin dashboard
+ *   - Returns a public URL — same return shape as before, so callers
+ *     don't need to change.
+ *
+ * Optional context (conversationId, personaId) flows through to the
+ * usage record so per-persona / per-conversation cost analysis works.
+ */
 export async function generateSpeech(
   text: string,
-  voiceConfig: VoiceConfig
+  voiceConfig: VoiceConfig,
+  context?: { conversationId?: string | null; personaId?: string | null },
 ): Promise<string | null> {
-  if (!ELEVENLABS_API_KEY) {
-    console.warn('ElevenLabs API key not configured');
-    return null;
-  }
+  if (!text.trim()) return null;
 
   try {
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceConfig.voiceId}`,
-      {
-        method: 'POST',
-        headers: {
-          'xi-api-key': ELEVENLABS_API_KEY,
-          'Content-Type': 'application/json',
+    const userId = useAuthStore.getState().user?.id ?? null;
+    const { data, error } = await supabase.functions.invoke('tts', {
+      body: {
+        text,
+        voiceId: voiceConfig.voiceId,
+        // Forward the full persona VoiceConfig so voice_speed,
+        // voice_stability, etc. all flow through. Edge function honours
+        // what ElevenLabs supports (stability, similarity_boost, style,
+        // speed) and ignores pitch (kept in the contract so the
+        // persona's voice_pitch column matches for future providers).
+        voiceConfig: {
+          stability: voiceConfig.stability,
+          similarityBoost: voiceConfig.similarityBoost ?? 0.75,
+          style: voiceConfig.style ?? 0.5,
+          speed: voiceConfig.speed,
+          pitch: voiceConfig.pitch,
         },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_turbo_v2_5',
-          voice_settings: {
-            stability: voiceConfig.stability,
-            similarity_boost: voiceConfig.similarityBoost ?? 0.75,
-            style: voiceConfig.style ?? 0.5,
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`TTS request failed: ${response.statusText}`);
-    }
-
-    const audioBlob = await response.blob();
-    const audioUrl = await uploadAudioToStorage(audioBlob);
-
-    return audioUrl;
-  } catch (error) {
-    console.error('Error generating speech:', error);
-    return null;
-  }
-}
-
-async function uploadAudioToStorage(blob: Blob): Promise<string> {
-  const fileName = `audio/${Date.now()}-${Math.random().toString(36).substring(7)}.mp3`;
-
-  const { data, error } = await supabase.storage
-    .from('tts-audio')
-    .upload(fileName, blob, {
-      contentType: 'audio/mpeg',
-      upsert: false,
+        userId,
+        conversationId: context?.conversationId ?? null,
+        personaId: context?.personaId ?? null,
+      },
     });
 
-  if (error) {
-    throw new Error(`Failed to upload audio: ${error.message}`);
+    if (error) {
+      console.error('TTS function error:', error.message);
+      return null;
+    }
+    const url = (data as { url?: string } | null)?.url;
+    return url ?? null;
+  } catch (err) {
+    console.error('Error generating speech:', err);
+    return null;
   }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from('tts-audio').getPublicUrl(data.path);
-
-  return publicUrl;
 }
 
 export class TTSPlayer {

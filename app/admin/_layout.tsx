@@ -9,25 +9,24 @@ import { useState, useCallback } from 'react';
 import { View, ActivityIndicator, Text, Pressable } from 'react-native';
 import { Stack, Redirect, router, usePathname } from 'expo-router';
 import {
-  ArrowLeft,
+  ChevronLeft,
   Menu,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../stores/authStore';
 import { AdminSidePanel } from '../../components/admin/AdminSidePanel';
 
-function BackToAppButton() {
+function BackButton() {
   return (
     <Pressable
-      onPress={() => router.replace('/(tabs)')}
+      onPress={() => router.back()}
+      hitSlop={12}
       style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        height: '100%',
-        paddingHorizontal: 16,
+        justifyContent: 'center',
+        paddingLeft: 8,
+        paddingRight: 12,
       }}
     >
-      <ArrowLeft size={20} color="#F59E0B" />
-      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 6 }}>App</Text>
+      <ChevronLeft size={24} color="#F59E0B" />
     </Pressable>
   );
 }
@@ -42,8 +41,7 @@ function BackToPersonasButton() {
         marginLeft: 16,
       }}
     >
-      <ArrowLeft size={20} color="#F59E0B" />
-      <Text style={{ color: '#F59E0B', fontSize: 15, marginLeft: 6 }}>Personas</Text>
+      <ChevronLeft size={24} color="#F59E0B" />
     </Pressable>
   );
 }
@@ -69,7 +67,8 @@ function MenuButton({ onPress }: { onPress: () => void }) {
 }
 
 export default function AdminLayout() {
-  const { profile, isLoading } = useAuthStore();
+  const profile = useAuthStore((s) => s.profile);
+  const isLoading = useAuthStore((s) => s.isLoading);
   const [panelOpen, setPanelOpen] = useState(false);
   const pathname = usePathname();
 
@@ -106,7 +105,7 @@ export default function AdminLayout() {
           headerRightContainerStyle: {
             justifyContent: 'center',
           },
-          headerLeft: () => <BackToAppButton />,
+          headerLeft: () => <BackButton />,
           headerRight: () => <MenuButton onPress={openPanel} />,
           contentStyle: {
             backgroundColor: '#0a0a0f',
@@ -144,6 +143,10 @@ export default function AdminLayout() {
         <Stack.Screen
           name="settings"
           options={{ headerTitle: 'App Settings' }}
+        />
+        <Stack.Screen
+          name="avatars"
+          options={{ headerTitle: 'Avatar Studio' }}
         />
         <Stack.Screen
           name="persona/[id]"

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { View, Text } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { PersonaDisplay } from '../../types/persona';
@@ -45,24 +46,17 @@ export function FocusModeChat({
   isQAMode,
   topPadding = 16,
 }: FocusModeChatProps) {
-  // Derive the key messages
-  const openingMessage = messages.length > 0 ? messages[0] : null;
-
-  // Find last assistant message (excluding the opening if it's assistant/system)
-  const lastAssistant = [...messages]
-    .reverse()
-    .find(
-      (m) =>
-        m.role === 'assistant' && m.id !== openingMessage?.id
+  // Derive the key messages — memoized to avoid re-reversing on every render
+  const { openingMessage, lastAssistant, lastUser, exchangeNumber } = useMemo(() => {
+    const opening = messages.length > 0 ? messages[0] : null;
+    const reversed = [...messages].reverse();
+    const assistant = reversed.find(
+      (m) => m.role === 'assistant' && m.id !== opening?.id
     ) || null;
-
-  // Find last user message
-  const lastUser = [...messages]
-    .reverse()
-    .find((m) => m.role === 'user') || null;
-
-  // Count user messages for exchange number
-  const exchangeNumber = messages.filter((m) => m.role === 'user').length;
+    const user = reversed.find((m) => m.role === 'user') || null;
+    const exchanges = messages.filter((m) => m.role === 'user').length;
+    return { openingMessage: opening, lastAssistant: assistant, lastUser: user, exchangeNumber: exchanges };
+  }, [messages]);
 
   // Only opening message — show expanded header, no bubbles
   if (messages.length <= 1) {

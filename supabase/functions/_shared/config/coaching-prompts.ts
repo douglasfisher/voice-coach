@@ -19,7 +19,7 @@ export type CoachingStyle =
   | 'expert_advisor'
   | 'confidence_builder';
 
-export type InteractionMode = 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
+export type InteractionMode = 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode' | 'advisor_mode';
 
 export type FeedbackStyle = 'sandwich' | 'direct' | 'question_based' | 'observational';
 

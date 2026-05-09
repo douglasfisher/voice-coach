@@ -68,6 +68,9 @@ export interface ResolvedAIConfig {
   // Coaching prompts from DB
   coaching_prompts?: DBCoachingPrompts;
 
+  // Emotional progression
+  emotional_progression_active: boolean;
+
   // Response style
   response_style: AIResponseStyle;
 
@@ -80,7 +83,7 @@ export interface CoachingContext {
   scenarioContext?: string;
   scenarioVariant?: { name: string; context: string };
   userGoal?: string;
-  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
+  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode' | 'advisor_mode';
   currentPhase?: 'roleplay' | 'feedback';
   coachingStyle?: string;
   feedbackStyle?: string;
@@ -190,7 +193,7 @@ export async function resolveAIConfig(
   if (personaId) {
     const { data: persona, error: personaError } = await supabase
       .from('personas')
-      .select('ai_config, system_prompt, persona_type, coaching_style, feedback_style, default_interaction_mode, emotional_progression_enabled')
+      .select('ai_config, system_prompt, mode_prompts, persona_type, coaching_style, feedback_style, default_interaction_mode, emotional_progression_enabled, age_range')
       .eq('id', personaId)
       .single();
 
@@ -243,6 +246,11 @@ export async function resolveAIConfig(
 
       personaEmotionalProgressionEnabled = !!persona.emotional_progression_enabled;
 
+      // Replace age_range token if persona has one set
+      if (persona.age_range) {
+        personaPrompt = personaPrompt.replaceAll('{{age_range}}', persona.age_range);
+      }
+
       // Replace prompt tokens (e.g., {{character_demeanor}} → trait text)
       for (const [key, value] of Object.entries(mergedTokens)) {
         personaPrompt = personaPrompt.replaceAll(`{{${key}}}`, value || '');
@@ -250,12 +258,39 @@ export async function resolveAIConfig(
       // Clean up any unreplaced tokens (no trait selected = remove placeholder)
       personaPrompt = personaPrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
-      // Extract coaching-specific persona fields
+      // Resolve mode-specific prompt override if available
+      const modePrompts = persona.mode_prompts as Record<string, string> | null;
+      if (modePrompts && coaching) {
+        let modeKey: string | null = null;
+        if (coaching.currentPhase === 'feedback') {
+          modeKey = 'feedback';
+        } else if (coaching.interactionMode === 'question_mode') {
+          modeKey = 'qa_roleplay';
+        } else if (coaching.interactionMode) {
+          modeKey = 'coaching_chat';
+        }
+
+        if (modeKey && modePrompts[modeKey]) {
+          let modePrompt = modePrompts[modeKey];
+          // Apply same token replacement to mode prompt
+          if (persona.age_range) {
+            modePrompt = modePrompt.replaceAll('{{age_range}}', persona.age_range);
+          }
+          for (const [key, value] of Object.entries(mergedTokens)) {
+            modePrompt = modePrompt.replaceAll(`{{${key}}}`, value || '');
+          }
+          modePrompt = modePrompt.replace(/\{\{[a-z_]+\}\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
+          personaPrompt = modePrompt;
+        }
+      }
+
+      // Extract coaching-specific persona fields (coaches only, not advisors)
       if (persona.persona_type === 'coach') {
         personaCoachingStyle = persona.coaching_style as CoachingStyle || 'supportive_guide';
         personaFeedbackStyle = (persona.feedback_style as FeedbackStyle) || 'sandwich';
         personaInteractionMode = (persona.default_interaction_mode as InteractionMode) || 'coach_leads';
       }
+      // Advisors use their system_prompt directly — no coaching prompt stacking
 
       // Get cost from ai_models table if persona has a specific model
       const personaModel = personaConfig.model as string;
@@ -304,6 +339,7 @@ export async function resolveAIConfig(
 
   // 5. Build the full system prompt with modifiers
   let fullSystemPrompt: string;
+  let emotionalProgressionActive = false;
 
   // Check if this is a coaching task and we have coaching context
   const isCoachingTask = task === 'coaching' || task === 'coaching_feedback';
@@ -313,7 +349,6 @@ export async function resolveAIConfig(
     // Resolve emotional progression if applicable
     const effectivePhase = (coaching.currentPhase as SessionPhase) || 'roleplay';
     let emotionalProgression: string | undefined;
-
     if (
       personaEmotionalProgressionEnabled &&
       effectivePhase === 'roleplay' &&
@@ -325,6 +360,7 @@ export async function resolveAIConfig(
       emotionalProgression = dbEmotionalProgressions.template
         .replace('{{starting_stage}}', demeanor.starting_stage)
         .replace('{{stages}}', demeanor.stages);
+      emotionalProgressionActive = true;
     }
 
     // Build coaching-specific prompt
@@ -358,6 +394,7 @@ export async function resolveAIConfig(
     report_system_prompt: dbReportPrompt,
     scene_template: dbSceneTemplate,
     coaching_prompts: dbCoachingPrompts,
+    emotional_progression_active: emotionalProgressionActive,
     response_style: responseStyle,
     cost_per_million_input: costConfig.input,
     cost_per_million_output: costConfig.output,

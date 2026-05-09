@@ -114,8 +114,8 @@ interface TimingMetrics {
 
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getPersonaById } = usePersonaStore();
-  const { profile } = useAuthStore();
+  const getPersonaById = usePersonaStore((s) => s.getPersonaById);
+  const profile = useAuthStore((s) => s.profile);
 
   const [report, setReport] = useState<SessionReport | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -126,7 +126,7 @@ export default function ReportScreen() {
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const { generateReport } = useChatStore();
+  const generateReport = useChatStore((s) => s.generateReport);
 
   useEffect(() => {
     loadReport();

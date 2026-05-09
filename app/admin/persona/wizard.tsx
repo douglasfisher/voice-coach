@@ -1,14 +1,14 @@
 /**
- * Persona Creation Wizard
+ * Persona Creation/Edit Wizard
  *
- * Step-by-step guided flow for creating new personas.
- * Starts with AI avatar generation, then configures all persona fields.
+ * Step-by-step guided flow for creating or editing personas.
+ * When an `id` query param is provided, loads existing persona data.
  */
 
 import { useEffect } from 'react';
-import { View, Alert } from 'react-native';
+import { View, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useWizardStore } from '../../../stores/wizardStore';
 import { useAdminPersonaStore } from '../../../stores/adminPersonaStore';
 import { WizardStep } from '../../../types/wizard';
@@ -42,6 +42,8 @@ function StepContent({ step }: { step: WizardStep }) {
 const SKIPPABLE_STEPS = new Set<WizardStep>([0, 3, 4]);
 
 export default function PersonaWizardScreen() {
+  const { id } = useLocalSearchParams<{ id?: string }>();
+
   const {
     currentStep,
     nextStep,
@@ -50,14 +52,31 @@ export default function PersonaWizardScreen() {
     formData,
     savePersona,
     reset,
+    loadPersona,
+    editingPersonaId,
+    isLoadingPersona,
   } = useWizardStore();
 
   const { isSaving } = useAdminPersonaStore();
+  const navigation = useNavigation();
 
-  // Reset wizard on mount
+  // Load persona for editing or reset for creation
   useEffect(() => {
-    reset();
-  }, [reset]);
+    if (id) {
+      loadPersona(id);
+    } else {
+      reset();
+    }
+  }, [id, loadPersona, reset]);
+
+  // Update header title when editing an existing persona
+  useEffect(() => {
+    if (editingPersonaId && formData.name) {
+      navigation.setOptions({ headerTitle: `Edit: ${formData.name}` });
+    } else if (!editingPersonaId) {
+      navigation.setOptions({ headerTitle: 'Create Persona' });
+    }
+  }, [editingPersonaId, formData.name, navigation]);
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -69,13 +88,22 @@ export default function PersonaWizardScreen() {
     if (error) {
       Alert.alert('Error', error.message);
     } else {
+      const action = editingPersonaId ? 'Updated' : 'Created';
       Alert.alert(
-        'Persona Created',
-        `${formData.name} has been created successfully.`,
+        `Persona ${action}`,
+        `${formData.name} has been ${action.toLowerCase()} successfully.`,
         [{ text: 'OK', onPress: () => { reset(); router.replace('/admin/personas'); } }],
       );
     }
   };
+
+  if (isLoadingPersona) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f', alignItems: 'center', justifyContent: 'center' }} edges={['bottom']}>
+        <ActivityIndicator size="large" color="#F59E0B" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0a0a0f' }} edges={['bottom']}>
@@ -93,6 +121,7 @@ export default function PersonaWizardScreen() {
         onSave={handleSave}
         isSaving={isSaving}
         canSkip={SKIPPABLE_STEPS.has(currentStep)}
+        isEditing={!!editingPersonaId}
       />
     </SafeAreaView>
   );

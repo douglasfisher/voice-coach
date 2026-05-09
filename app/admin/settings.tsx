@@ -40,6 +40,7 @@ import { useAdminPersonaStore } from '../../stores/adminPersonaStore';
 import { useAuthStore } from '../../stores/authStore';
 import { AppSettingsMap } from '../../types/admin';
 import { supabase } from '../../lib/supabase';
+import { useChatStore } from '../../stores/chatStore';
 
 // Simplified AI model for the dropdown
 interface AIModelOption {
@@ -143,13 +144,28 @@ function RefreshChallengesButton() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const { error } = await supabase.functions.invoke('chat', {
+      const { data, error } = await supabase.functions.invoke('chat', {
         body: { generateChallengeBatch: true, refreshChallengeBatch: true },
       });
       if (error) throw error;
-      Alert.alert('Success', 'Daily challenges have been refreshed.');
-    } catch (err) {
-      Alert.alert('Error', 'Failed to refresh challenges. Please try again.');
+      const challenges = data?.challenges || [];
+      // Directly update the store with the fresh batch (avoids a redundant refetch)
+      if (challenges.length > 0) {
+        useChatStore.setState({
+          dailyChallenges: challenges.map((c: any) => ({
+            question: c.question,
+            topic: c.topic,
+            personaId: c.personaId,
+            personaName: c.personaName,
+            generatedAt: data.generatedAt || new Date().toISOString(),
+          })),
+          activeChallengeIndex: 0,
+        });
+      }
+      Alert.alert('Success', `${challenges.length} daily challenges have been refreshed.`);
+    } catch (err: any) {
+      const msg = err?.message || err?.context?.body || 'Unknown error';
+      Alert.alert('Error', `Failed to refresh challenges: ${msg}`);
       console.error('Refresh challenges error:', err);
     } finally {
       setIsRefreshing(false);
@@ -197,7 +213,8 @@ export default function AdminSettingsScreen() {
   } = useAdminStatsStore();
 
   const { personas, fetchPersonas } = useAdminPersonaStore();
-  const { profile, signOut } = useAuthStore();
+  const profile = useAuthStore((s) => s.profile);
+  const signOut = useAuthStore((s) => s.signOut);
 
   const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);

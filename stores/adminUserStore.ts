@@ -66,24 +66,24 @@ export const useAdminUserStore = create<AdminUserState>((set, get) => ({
       // Get usage stats for each user
       const userIds = (profiles || []).map((p) => p.id);
 
-      // Get conversation counts
-      const { data: convCounts } = await supabase
-        .from('conversations')
-        .select('user_id')
-        .in('user_id', userIds);
+      // Get conversation counts and usage stats in parallel
+      const [convCountsResult, usageDataResult] = await Promise.all([
+        supabase
+          .from('conversations')
+          .select('user_id')
+          .in('user_id', userIds),
+        supabase
+          .from('ai_usage')
+          .select('user_id, total_tokens, estimated_cost_cents')
+          .in('user_id', userIds),
+      ]);
 
-      const convCountMap = (convCounts || []).reduce((acc, c) => {
+      const convCountMap = (convCountsResult.data || []).reduce((acc, c) => {
         acc[c.user_id] = (acc[c.user_id] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
-      // Get usage stats
-      const { data: usageData } = await supabase
-        .from('ai_usage')
-        .select('user_id, total_tokens, estimated_cost_cents')
-        .in('user_id', userIds);
-
-      const usageMap = (usageData || []).reduce((acc, u) => {
+      const usageMap = (usageDataResult.data || []).reduce((acc, u) => {
         if (!acc[u.user_id]) {
           acc[u.user_id] = { tokens: 0, cost: 0 };
         }
@@ -111,38 +111,37 @@ export const useAdminUserStore = create<AdminUserState>((set, get) => ({
   fetchUser: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Fetch profile, conversation count, message count, and usage in parallel
+      const [profileResult, convCountResult, msgCountResult, usageResult] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', id)
+          .single(),
+        supabase
+          .from('conversations')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', id),
+        supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', supabase.rpc('get_user_conversation_ids', { uid: id })),
+        supabase
+          .from('ai_usage')
+          .select('total_tokens, estimated_cost_cents')
+          .eq('user_id', id),
+      ]);
 
-      if (error) throw error;
+      if (profileResult.error) throw profileResult.error;
 
-      // Get detailed stats
-      const { count: conversationCount } = await supabase
-        .from('conversations')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', id);
-
-      const { count: messageCount } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('conversation_id', supabase.rpc('get_user_conversation_ids', { uid: id }));
-
-      const { data: usageData } = await supabase
-        .from('ai_usage')
-        .select('total_tokens, estimated_cost_cents')
-        .eq('user_id', id);
-
-      const totalTokens = (usageData || []).reduce((sum, u) => sum + u.total_tokens, 0);
-      const totalCost = (usageData || []).reduce((sum, u) => sum + u.estimated_cost_cents, 0);
+      const totalTokens = (usageResult.data || []).reduce((sum, u) => sum + u.total_tokens, 0);
+      const totalCost = (usageResult.data || []).reduce((sum, u) => sum + u.estimated_cost_cents, 0);
 
       set({
         selectedUser: {
-          ...profile,
-          conversation_count: conversationCount || 0,
-          message_count: messageCount || 0,
+          ...profileResult.data,
+          conversation_count: convCountResult.count || 0,
+          message_count: msgCountResult.count || 0,
           total_tokens_used: totalTokens,
           total_cost_cents: totalCost,
         },

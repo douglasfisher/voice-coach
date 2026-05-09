@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,12 @@ import {
   ImageSourcePropType,
   Alert,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,12 +33,15 @@ import {
   RotateCcw,
   LogOut,
 } from 'lucide-react-native';
+import { Volume2, VolumeX } from 'lucide-react-native';
 import { useConversation } from '../../../hooks/useConversation';
 import { useTTS } from '../../../hooks/useTTS';
+import { useNativeTTS } from '../../../hooks/useNativeTTS';
 import { useVoiceInput } from '../../../hooks/useVoiceInput';
 import { useTraits } from '../../../hooks/useTraits';
 import { useAuthStore } from '../../../stores/authStore';
 import { useChatStore } from '../../../stores/chatStore';
+import { useShallow } from 'zustand/react/shallow';
 import {
   PersonaHeader,
   MessageBubble,
@@ -42,8 +51,10 @@ import {
   EndChatModal,
   SessionTimer,
   ResetConfirmationModal,
-  FocusModeChat,
+  CollapsibleSceneHeader,
+  IntakeOptionsPanel,
 } from '../../../components/chat';
+import { IntakeQuestion } from '../../../types/coaching';
 import { useAppSetting } from '../../../hooks/useAppSetting';
 import { HeaderFade } from '../../../components/ui/HeaderFade';
 import { ChallengeStyle } from '../../../types/persona';
@@ -86,10 +97,41 @@ const STYLE_THEMES: Record<ChallengeStyle, {
   },
 };
 
+function FocusMessageWrapper({ isVisible, children }: { isVisible: boolean; children: React.ReactNode }) {
+  const opacity = useSharedValue(isVisible ? 1 : 0);
+  const maxHeight = useSharedValue(0);
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    opacity.value = withTiming(isVisible ? 1 : 0, { duration: 250 });
+  }, [isVisible]);
+
+  useEffect(() => {
+    if (!isMounted.current) {
+      // First mount: animate from 0 to full height
+      isMounted.current = true;
+      maxHeight.value = withTiming(1000, { duration: 1200, easing: Easing.out(Easing.cubic) });
+    }
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    maxHeight: maxHeight.value,
+    overflow: 'hidden' as const,
+  }));
+
+  return (
+    <Animated.View style={animatedStyle}>
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const flatListRef = useRef<FlatList>(null);
-  const { preferences, profile } = useAuthStore();
+  const preferences = useAuthStore((s) => s.preferences);
+  const profile = useAuthStore((s) => s.profile);
   const insets = useSafeAreaInsets();
 
   const {
@@ -104,6 +146,10 @@ export default function ChatScreen() {
   } = useConversation(id);
 
   const { play, stop, isPlaying, generateAndPlay, isLoading: _ttsLoading } = useTTS();
+
+  // Native TTS (free on-device speech)
+  const nativeTtsEnabled = preferences?.native_tts_enabled ?? false;
+  const { speak: nativeSpeak, stop: nativeStop, isMuted: nativeMuted, toggleMute: toggleNativeMute } = useNativeTTS(persona?.gender);
 
   // Voice input
   const voiceInputEnabled = preferences?.voice_input_enabled ?? false;
@@ -127,6 +173,7 @@ export default function ChatScreen() {
     fetchMessages: _fetchMessages,
     clearMessages,
     startChat,
+    sendIntakeResponse,
     generatePreview,
     regenerateQuestion,
     regenerateScenario,
@@ -142,27 +189,77 @@ export default function ChatScreen() {
     globalInteractionMode,
     selectedTraits,
     setTrait,
-  } = useChatStore();
+  } = useChatStore(useShallow((s) => ({
+    fetchMessages: s.fetchMessages,
+    clearMessages: s.clearMessages,
+    startChat: s.startChat,
+    sendIntakeResponse: s.sendIntakeResponse,
+    generatePreview: s.generatePreview,
+    regenerateQuestion: s.regenerateQuestion,
+    regenerateScenario: s.regenerateScenario,
+    startChatWithPreview: s.startChatWithPreview,
+    clearPreview: s.clearPreview,
+    generateReport: s.generateReport,
+    previewQuestion: s.previewQuestion,
+    previewScenario: s.previewScenario,
+    questionRefreshCount: s.questionRefreshCount,
+    scenarioRefreshCount: s.scenarioRefreshCount,
+    isGeneratingPreview: s.isGeneratingPreview,
+    isGeneratingReport: s.isGeneratingReport,
+    globalInteractionMode: s.globalInteractionMode,
+    selectedTraits: s.selectedTraits,
+    setTrait: s.setTrait,
+  })));
   const chatStarted = messages.length > 0;
+
+  // Derive advisor intake state from last assistant message metadata
+  const currentIntake = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === 'assistant' && msg.metadata?.intake) {
+        return {
+          intake: msg.metadata.intake as IntakeQuestion,
+          round: (msg.metadata.intakeRound as number) || 1,
+        };
+      }
+      // Stop looking once we hit a user message (only check the latest assistant msg)
+      if (msg.role === 'user') break;
+    }
+    return null;
+  }, [messages]);
+
+  const handleIntakeSubmit = useCallback(async (selectedLabels: string[], customText?: string) => {
+    const round = currentIntake?.round || 1;
+    const result = await sendIntakeResponse(selectedLabels, customText, round);
+
+    // Auto-play native TTS for advisor response
+    if (result?.response && nativeTtsEnabled) {
+      nativeSpeak(result.response);
+    }
+  }, [currentIntake?.round, sendIntakeResponse, nativeTtsEnabled, nativeSpeak]);
 
   // Focus mode setting
   const { value: focusModeEnabled } = useAppSetting('focus_mode_chat');
   const isFocusMode = focusModeEnabled === true;
 
   // Trait system
-  const personaType = persona?.personaType as 'coach' | 'challenger' | undefined;
-  const { categories: traitCategories, options: traitOptions } = useTraits(personaType, true);
+  const personaType = persona?.personaType as 'coach' | 'challenger' | 'advisor' | undefined;
+  // Advisors don't use traits — pass undefined to skip loading
+  const traitPersonaType = personaType === 'advisor' ? undefined : personaType;
+  const { categories: traitCategories, options: traitOptions } = useTraits(traitPersonaType, true);
 
   const theme = persona ? STYLE_THEMES[persona.challengeStyle] : null;
 
   // Navigate back to the source tab based on persona type
-  const goBackToSource = () => {
-    if (persona?.personaType === 'coach') {
+  const goBackToSource = useCallback(() => {
+    if (persona?.personaType === 'advisor') {
+      router.navigate('/(tabs)/advisors');
+    } else if (persona?.personaType === 'coach') {
       router.navigate('/(tabs)/coaches');
     } else {
       router.navigate('/(tabs)/personas');
     }
-  };
+  }, [persona?.personaType]);
 
   // Immersive mode: show full-bleed persona image with messages overlaid
   const immersiveModeEnabled = preferences?.immersive_chat_enabled ?? true;
@@ -176,15 +273,23 @@ export default function ChatScreen() {
     : null;
 
   const handleSend = async (content: string) => {
+    // Stop any native TTS when user sends a new message
+    nativeStop();
+
     const result = await send(content);
 
-    // Auto-play TTS for assistant response if enabled
+    // Auto-play ElevenLabs TTS for assistant response if enabled (premium)
     if (result?.response && preferences?.tts_enabled && persona?.voiceConfig) {
       generateAndPlay(result.response, persona.voiceConfig);
     }
+
+    // Auto-play native TTS for assistant response if enabled (free)
+    if (result?.response && nativeTtsEnabled) {
+      nativeSpeak(result.response);
+    }
   };
 
-  const handlePlayAudio = async (audioUrl: string | null, content: string) => {
+  const handlePlayAudio = useCallback(async (audioUrl: string | null, content: string) => {
     if (isPlaying) {
       await stop();
       return;
@@ -195,7 +300,7 @@ export default function ChatScreen() {
     } else if (persona?.voiceConfig) {
       await generateAndPlay(content, persona.voiceConfig);
     }
-  };
+  }, [isPlaying, stop, play, generateAndPlay, persona?.voiceConfig]);
 
   const handleEndConversation = () => {
     setShowEndModal(true);
@@ -284,16 +389,18 @@ export default function ChatScreen() {
 
   // Generate preview when conversation loads and chat hasn't started
   // For Q&A mode, generate scenario; for Practice mode, generate question
-  const isQAMode = globalInteractionMode === 'question';
+  // Advisors skip preview entirely
+  const isAdvisor = persona?.personaType === 'advisor';
+  const isQAMode = !isAdvisor && globalInteractionMode === 'question';
   const isCoach = persona?.personaType === 'coach';
   const hasPreview = isQAMode && isCoach ? !!previewScenario : !!previewQuestion;
 
   useEffect(() => {
-    if (conversation && !chatStarted && !hasPreview && !isGeneratingPreview) {
+    if (conversation && !chatStarted && !hasPreview && !isGeneratingPreview && !isAdvisor) {
       generatePreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversation?.id, chatStarted, hasPreview]);
+  }, [conversation?.id, chatStarted, hasPreview, isAdvisor]);
 
   // Clear preview when leaving the screen
   useEffect(() => {
@@ -301,6 +408,19 @@ export default function ChatScreen() {
       clearPreview();
     };
   }, [clearPreview]);
+
+  // Read initial AI message aloud when chat starts
+  const hasReadInitial = useRef(false);
+  useEffect(() => {
+    if (nativeTtsEnabled && !nativeMuted && messages.length > 0 && !hasReadInitial.current) {
+      // Find the first assistant or system message with content
+      const firstAiMsg = messages.find((m) => (m.role === 'assistant' || m.role === 'system') && m.content);
+      if (firstAiMsg) {
+        hasReadInitial.current = true;
+        nativeSpeak(firstAiMsg.content);
+      }
+    }
+  }, [messages.length, nativeTtsEnabled, nativeMuted, nativeSpeak]);
 
   // Track session start time when first message appears
   useEffect(() => {
@@ -316,13 +436,51 @@ export default function ChatScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, sessionStartTime]);
 
-  useEffect(() => {
-    if (messages.length > 0 && !isFocusMode) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
+  const userExchangeCount = useMemo(
+    () => messages.filter((m) => m.role === 'user').length,
+    [messages]
+  );
+
+  const renderMessage = useCallback(({ item, index }: { item: typeof messages[number]; index: number }) => {
+    // In focus mode, only show the last 2 messages (index 0 and 1 in inverted list)
+    const isVisible = !isFocusMode || index <= 1;
+
+    const bubble = (
+      <MessageBubble
+        content={item.content}
+        role={item.role as 'user' | 'assistant'}
+        persona={item.role === 'assistant' ? persona : undefined}
+        audioUrl={item.audio_url}
+        onPlayAudio={
+          item.role === 'assistant' && preferences?.tts_enabled
+            ? () => handlePlayAudio(item.audio_url, item.content)
+            : undefined
+        }
+        isPlaying={isPlaying}
+        timestamp={item.created_at}
+        responseTimeMs={item.response_time_ms}
+        immersiveMode={showImmersiveLayout}
+        metadata={item.metadata}
+        isAdmin={!!profile?.is_admin}
+      />
+    );
+
+    if (isFocusMode) {
+      return (
+        <FocusMessageWrapper isVisible={isVisible}>
+          {bubble}
+        </FocusMessageWrapper>
+      );
     }
-  }, [messages.length, isFocusMode]);
+
+    return bubble;
+  }, [persona, preferences?.tts_enabled, handlePlayAudio, isPlaying, showImmersiveLayout, profile?.is_admin, isFocusMode]);
+
+  const listFooter = useMemo(() => (
+    isSending ? <TypingIndicator persona={persona} /> : null
+  ), [isSending, persona]);
 
   if (isLoading && !conversation) {
     return (
@@ -462,55 +620,66 @@ export default function ChatScreen() {
 
         {/* Messages or Full-screen Hero */}
         {chatStarted ? (
-          isFocusMode ? (
-            <FocusModeChat
-              messages={messages}
-              persona={persona}
-              isSending={isSending}
-              immersiveMode={showImmersiveLayout}
-              isAdmin={!!profile?.is_admin}
-              preferences={preferences}
-              onPlayAudio={handlePlayAudio}
-              isPlaying={isPlaying}
-              isQAMode={isQAMode}
-              topPadding={showImmersiveLayout ? insets.top + 60 : 16}
-            />
-          ) : (
+          <>
+            {/* Focus mode: scene header + exchange counter above the list (not for advisors) */}
+            {isFocusMode && !isAdvisor && messages.length > 0 && (
+              <View style={{ paddingHorizontal: 16, paddingTop: showImmersiveLayout ? insets.top + 60 : 16 }}>
+                <CollapsibleSceneHeader
+                  message={messages[0]}
+                  persona={persona}
+                  immersiveMode={showImmersiveLayout}
+                  isQAMode={isQAMode}
+                />
+                {userExchangeCount > 0 && (
+                  <View
+                    style={{
+                      alignSelf: 'center',
+                      paddingHorizontal: 14,
+                      paddingVertical: 5,
+                      borderRadius: 12,
+                      backgroundColor: showImmersiveLayout
+                        ? 'rgba(0,0,0,0.4)'
+                        : 'rgba(255,255,255,0.06)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.08)',
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: 'rgba(255,255,255,0.4)',
+                        fontSize: 11,
+                        fontWeight: '600',
+                        letterSpacing: 0.5,
+                      }}
+                    >
+                      Exchange {userExchangeCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
             <FlatList
               ref={flatListRef}
-              data={messages}
+              data={invertedMessages}
+              inverted
               keyExtractor={(item) => item.id}
               contentContainerStyle={{
                 padding: 16,
-                paddingBottom: 8,
-                paddingTop: showImmersiveLayout ? insets.top + 60 : 16,
+                paddingTop: 8,
+                paddingBottom: isFocusMode
+                  ? 16
+                  : (showImmersiveLayout ? insets.top + 60 : 16),
               }}
               showsVerticalScrollIndicator={false}
               style={showImmersiveLayout ? { backgroundColor: 'transparent' } : undefined}
-              renderItem={({ item }) => (
-                <MessageBubble
-                  content={item.content}
-                  role={item.role as 'user' | 'assistant'}
-                  persona={item.role === 'assistant' ? persona : undefined}
-                  audioUrl={item.audio_url}
-                  onPlayAudio={
-                    item.role === 'assistant' && preferences?.tts_enabled
-                      ? () => handlePlayAudio(item.audio_url, item.content)
-                      : undefined
-                  }
-                  isPlaying={isPlaying}
-                  timestamp={item.created_at}
-                  responseTimeMs={item.response_time_ms}
-                  immersiveMode={showImmersiveLayout}
-                  metadata={item.metadata}
-                  isAdmin={!!profile?.is_admin}
-                />
-              )}
-              ListFooterComponent={
-                isSending ? <TypingIndicator persona={persona} /> : null
-              }
+              windowSize={11}
+              maxToRenderPerBatch={10}
+              initialNumToRender={15}
+              renderItem={renderMessage}
+              ListHeaderComponent={listFooter}
             />
-          )
+          </>
         ) : (
           <ChatHeroEmptyState
             persona={persona}
@@ -602,39 +771,73 @@ export default function ChatScreen() {
                   </Pressable>
                 </View>
 
-                {/* Right: Timer */}
-                {sessionStartTime && (
-                  <SessionTimer
-                    startTime={sessionStartTime}
-                    accentColor={theme?.accent}
-                    isImmersive={showImmersiveLayout}
-                  />
-                )}
+                {/* Right: Listen toggle & Timer */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  {nativeTtsEnabled && (
+                    <Pressable
+                      onPress={toggleNativeMute}
+                      style={{
+                        padding: 10,
+                        borderRadius: 20,
+                        backgroundColor: nativeMuted ? 'rgba(255,255,255,0.04)' : 'rgba(167,139,250,0.15)',
+                        borderWidth: 1,
+                        borderColor: nativeMuted ? 'rgba(255,255,255,0.1)' : 'rgba(167,139,250,0.3)',
+                      }}
+                    >
+                      {nativeMuted ? (
+                        <VolumeX size={18} color="rgba(255,255,255,0.4)" />
+                      ) : (
+                        <Volume2 size={18} color="#a78bfa" />
+                      )}
+                    </Pressable>
+                  )}
+                  {sessionStartTime && (
+                    <SessionTimer
+                      startTime={sessionStartTime}
+                      accentColor={theme?.accent}
+                      isImmersive={showImmersiveLayout}
+                    />
+                  )}
+                </View>
               </View>
             )}
 
-            {/* Chat Input */}
-            <ChatInput
-              onSend={handleSend}
-              disabled={isSending}
-              accentColor={theme?.accent}
-              voiceInputEnabled={voiceInputEnabled}
-              voiceState={voiceState}
-              transcript={voiceTranscript}
-              interimTranscript={interimTranscript}
-              audioLevel={audioLevel}
-              hasVoicePermission={hasVoicePermission}
-              onVoicePressIn={voiceHandlers.onPressIn}
-              onVoicePressOut={voiceHandlers.onPressOut}
-              onVoiceCancel={voiceHandlers.onCancel}
-              immersiveMode={showImmersiveLayout}
-              // Pass control props for voice mode
-              showControls={voiceInputEnabled}
-              onResetPress={handleResetPress}
-              onEndPress={handleEndConversation}
-              sessionStartTime={sessionStartTime}
-              themeAccent={theme?.accent}
-            />
+            {/* Chat Input or Intake Options */}
+            {currentIntake ? (
+              <IntakeOptionsPanel
+                intake={currentIntake.intake}
+                intakeRound={currentIntake.round}
+                onSubmit={handleIntakeSubmit}
+                disabled={isSending}
+                accentColor={theme?.accent}
+                immersiveMode={showImmersiveLayout}
+              />
+            ) : (
+              <ChatInput
+                onSend={handleSend}
+                disabled={isSending}
+                accentColor={theme?.accent}
+                voiceInputEnabled={voiceInputEnabled}
+                voiceState={voiceState}
+                transcript={voiceTranscript}
+                interimTranscript={interimTranscript}
+                audioLevel={audioLevel}
+                hasVoicePermission={hasVoicePermission}
+                onVoicePressIn={voiceHandlers.onPressIn}
+                onVoicePressOut={voiceHandlers.onPressOut}
+                onVoiceCancel={voiceHandlers.onCancel}
+                immersiveMode={showImmersiveLayout}
+                // Pass control props for voice mode
+                showControls={voiceInputEnabled}
+                onResetPress={handleResetPress}
+                onEndPress={handleEndConversation}
+                sessionStartTime={sessionStartTime}
+                themeAccent={theme?.accent}
+                nativeTtsEnabled={nativeTtsEnabled}
+                nativeMuted={nativeMuted}
+                onToggleNativeMute={toggleNativeMute}
+              />
+            )}
           </View>
         ) : conversation.status !== 'active' ? (
           <View

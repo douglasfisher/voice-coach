@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Line, Circle, Text as SvgText, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
@@ -19,11 +19,71 @@ const GRAPH_WIDTH = SCREEN_WIDTH - 80;
 const GRAPH_HEIGHT = 160;
 const PADDING = { top: 20, right: 20, bottom: 35, left: 45 };
 
-export function TrendGraph({ data, title = 'Progress Over Time' }: TrendGraphProps) {
-  const validData = data.filter((d) => d.score !== null) as {
+export const TrendGraph = React.memo(function TrendGraph({ data, title = 'Progress Over Time' }: TrendGraphProps) {
+  const validData = useMemo(() => data.filter((d) => d.score !== null) as {
     date: string;
     score: number;
-  }[];
+  }[], [data]);
+
+  const { smoothPath, areaPath, gridLines, trend, trendColor, dataPoints } = useMemo(() => {
+    if (validData.length < 2) {
+      return { smoothPath: '', areaPath: '', gridLines: [], trend: 'stable' as const, trendColor: '#fbbf24', dataPoints: [] };
+    }
+
+    const scores = validData.map((d) => d.score);
+    const minScore = Math.max(0, Math.min(...scores) - 10);
+    const maxScore = Math.min(100, Math.max(...scores) + 10);
+
+    const chartWidth = GRAPH_WIDTH - PADDING.left - PADDING.right;
+    const chartHeight = GRAPH_HEIGHT - PADDING.top - PADDING.bottom;
+
+    const xScale = (index: number) =>
+      PADDING.left + (index / (validData.length - 1)) * chartWidth;
+
+    const yScale = (value: number) =>
+      PADDING.top + chartHeight - ((value - minScore) / (maxScore - minScore)) * chartHeight;
+
+    // Create smooth curve path using bezier curves
+    let sp = '';
+    if (validData.length >= 2) {
+      const points = validData.map((d, i) => ({
+        x: xScale(i),
+        y: yScale(d.score),
+      }));
+
+      sp = `M ${points[0].x} ${points[0].y}`;
+
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const curr = points[i];
+        const cpx = (prev.x + curr.x) / 2;
+        sp += ` Q ${cpx} ${prev.y} ${cpx} ${(prev.y + curr.y) / 2}`;
+        sp += ` Q ${cpx} ${curr.y} ${curr.x} ${curr.y}`;
+      }
+    }
+
+    // Create area fill path
+    const ap = `${sp} L ${xScale(validData.length - 1)} ${PADDING.top + chartHeight} L ${PADDING.left} ${PADDING.top + chartHeight} Z`;
+
+    // Grid lines
+    const gl = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+      const value = minScore + (maxScore - minScore) * (1 - ratio);
+      const y = PADDING.top + chartHeight * ratio;
+      return { value: Math.round(value), y };
+    });
+
+    // Calculate trend
+    const t = scores[scores.length - 1] > scores[0] ? 'improving' : scores[scores.length - 1] < scores[0] ? 'declining' : 'stable';
+    const tc = t === 'improving' ? '#4ade80' : t === 'declining' ? '#f87171' : '#fbbf24';
+
+    // Data point positions
+    const dp = validData.map((d, i) => ({
+      x: xScale(i),
+      y: yScale(d.score),
+    }));
+
+    return { smoothPath: sp, areaPath: ap, gridLines: gl, trend: t, trendColor: tc, dataPoints: dp };
+  }, [validData]);
 
   if (validData.length < 2) {
     return (
@@ -85,58 +145,6 @@ export function TrendGraph({ data, title = 'Progress Over Time' }: TrendGraphPro
       </View>
     );
   }
-
-  const scores = validData.map((d) => d.score);
-  const minScore = Math.max(0, Math.min(...scores) - 10);
-  const maxScore = Math.min(100, Math.max(...scores) + 10);
-
-  const chartWidth = GRAPH_WIDTH - PADDING.left - PADDING.right;
-  const chartHeight = GRAPH_HEIGHT - PADDING.top - PADDING.bottom;
-
-  const xScale = (index: number) =>
-    PADDING.left + (index / (validData.length - 1)) * chartWidth;
-
-  const yScale = (value: number) =>
-    PADDING.top + chartHeight - ((value - minScore) / (maxScore - minScore)) * chartHeight;
-
-  // Create smooth curve path using bezier curves
-  const createSmoothPath = () => {
-    if (validData.length < 2) return '';
-
-    const points = validData.map((d, i) => ({
-      x: xScale(i),
-      y: yScale(d.score),
-    }));
-
-    let path = `M ${points[0].x} ${points[0].y}`;
-
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const cpx = (prev.x + curr.x) / 2;
-      path += ` Q ${cpx} ${prev.y} ${cpx} ${(prev.y + curr.y) / 2}`;
-      path += ` Q ${cpx} ${curr.y} ${curr.x} ${curr.y}`;
-    }
-
-    return path;
-  };
-
-  // Create area fill path
-  const createAreaPath = () => {
-    const linePath = createSmoothPath();
-    return `${linePath} L ${xScale(validData.length - 1)} ${PADDING.top + chartHeight} L ${PADDING.left} ${PADDING.top + chartHeight} Z`;
-  };
-
-  // Grid lines
-  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-    const value = minScore + (maxScore - minScore) * (1 - ratio);
-    const y = PADDING.top + chartHeight * ratio;
-    return { value: Math.round(value), y };
-  });
-
-  // Calculate trend
-  const trend = scores[scores.length - 1] > scores[0] ? 'improving' : scores[scores.length - 1] < scores[0] ? 'declining' : 'stable';
-  const trendColor = trend === 'improving' ? '#4ade80' : trend === 'declining' ? '#f87171' : '#fbbf24';
 
   return (
     <View
@@ -225,13 +233,13 @@ export function TrendGraph({ data, title = 'Progress Over Time' }: TrendGraphPro
 
           {/* Area fill */}
           <Path
-            d={createAreaPath()}
+            d={areaPath}
             fill="url(#areaGradient)"
           />
 
           {/* Line path */}
           <Path
-            d={createSmoothPath()}
+            d={smoothPath}
             fill="none"
             stroke="#F59E0B"
             strokeWidth={3}
@@ -240,20 +248,20 @@ export function TrendGraph({ data, title = 'Progress Over Time' }: TrendGraphPro
           />
 
           {/* Data points */}
-          {validData.map((d, i) => (
+          {dataPoints.map((pt, i) => (
             <React.Fragment key={i}>
               {/* Outer glow */}
               <Circle
-                cx={xScale(i)}
-                cy={yScale(d.score)}
+                cx={pt.x}
+                cy={pt.y}
                 r={8}
                 fill="#F59E0B"
                 fillOpacity={0.2}
               />
               {/* Inner point */}
               <Circle
-                cx={xScale(i)}
-                cy={yScale(d.score)}
+                cx={pt.x}
+                cy={pt.y}
                 r={5}
                 fill="#F59E0B"
                 stroke="#0a0a0f"
@@ -285,7 +293,7 @@ export function TrendGraph({ data, title = 'Progress Over Time' }: TrendGraphPro
       </LinearGradient>
     </View>
   );
-}
+});
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);

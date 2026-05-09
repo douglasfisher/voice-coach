@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl, D
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GraduationCap } from 'lucide-react-native';
+import { GraduationCap, Settings } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { usePersonas } from '../../hooks/usePersonas';
@@ -40,8 +40,10 @@ export default function CoachesScreen() {
   const { openPersonaId } = useLocalSearchParams<{ openPersonaId?: string }>();
 
   const { personas, isLoading: personasLoading } = usePersonas();
-  const { user } = useAuthStore();
-  const { createConversation, coachesActiveDomain, setCoachesActiveDomain } = useChatStore();
+  const user = useAuthStore((s) => s.user);
+  const createConversation = useChatStore((s) => s.createConversation);
+  const coachesActiveDomain = useChatStore((s) => s.coachesActiveDomain);
+  const setCoachesActiveDomain = useChatStore((s) => s.setCoachesActiveDomain);
   const { value: fullscreenCardMode } = useAppSetting('fullscreen_card_mode');
   const isSnapMode = fullscreenCardMode === true;
   const { scrollHandler, headerAnimatedStyle } = useScrollHideAnimation(headerHeight, isSnapMode);
@@ -81,7 +83,7 @@ export default function CoachesScreen() {
   }, []);
 
   // Filter to only show coaches
-  const coaches = personas.filter(p => p.personaType === 'coach');
+  const coaches = useMemo(() => personas.filter(p => p.personaType === 'coach'), [personas]);
 
   // Auto-open persona modal when navigated with openPersonaId param
   useEffect(() => {
@@ -169,16 +171,32 @@ export default function CoachesScreen() {
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 16, paddingTop: HEADER_TOP_PADDING, paddingBottom: 8 }}>
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <GraduationCap size={24} color="#10b981" />
-              <Text className="text-text-primary text-2xl font-bold ml-2">
-                Coaches
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <GraduationCap size={24} color="#10b981" />
+                <Text className="text-text-primary text-2xl font-bold ml-2">
+                  Coaches
+                </Text>
+              </View>
+              <Text className="text-text-secondary mt-1">
+                Practice real-world conversations
               </Text>
             </View>
-            <Text className="text-text-secondary mt-1">
-              Practice real-world conversations
-            </Text>
+            <Pressable
+              onPress={() => router.push('/(tabs)/profile')}
+              hitSlop={8}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.08)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Settings size={20} color="#9A9A9E" />
+            </Pressable>
           </View>
         </View>
 
@@ -275,6 +293,11 @@ export default function CoachesScreen() {
               />
             </View>
           )}
+          getItemLayout={(_data, index) => ({
+            length: snapCardHeight,
+            offset: snapCardHeight * index,
+            index,
+          })}
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingTop: headerHeight,
@@ -283,12 +306,20 @@ export default function CoachesScreen() {
           snapToInterval={snapCardHeight}
           snapToAlignment="start"
           decelerationRate="fast"
+          windowSize={5}
+          maxToRenderPerBatch={3}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#10b981" progressViewOffset={headerHeight} />}
           ListEmptyComponent={
             <View style={{ paddingVertical: 80, alignItems: 'center' }}>
               <Text style={{ color: '#6E6E73' }}>No coaches available in this category</Text>
+            </View>
+          }
+          ListFooterComponent={
+            <View style={{ height: headerHeight + 40, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 40, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 10 }} />
+              <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 15 }}>You've seen them all</Text>
             </View>
           }
         />
@@ -363,6 +394,7 @@ export default function CoachesScreen() {
         visible={selectedPersona !== null}
         onClose={() => setSelectedPersona(null)}
         onChallenge={handleChallenge}
+        onPersonaUpdated={(p) => setSelectedPersona(p)}
       />
 
       {isCreating && (

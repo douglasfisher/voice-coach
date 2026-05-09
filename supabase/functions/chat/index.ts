@@ -10,14 +10,37 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-resolver.ts';
 import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
 import { recordAIUsage, calculateAICost } from '../_shared/cost-calculator.ts';
+import { checkDailyQuota, quotaExceededResponse } from '../_shared/quota.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_USER_MESSAGE_LENGTH = 10_000;
+const MAX_PROMPT_TOKEN_LENGTH = 200;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+/** Validate UUID format */
+function isValidUUID(value: string | undefined | null): boolean {
+  return !!value && UUID_REGEX.test(value);
+}
+
+/** Sanitize prompt token values to prevent injection */
+function sanitizePromptTokens(tokens: Record<string, string>): Record<string, string> {
+  const sanitized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(tokens)) {
+    if (typeof value !== 'string') continue;
+    // Truncate to max length
+    let clean = value.slice(0, MAX_PROMPT_TOKEN_LENGTH);
+    // Strip instruction-like patterns
+    clean = clean.replace(/\b(ignore\s+(all|previous|above)|you\s+are\s+now|system\s*:\s*|<\/?system>|<\/?instruction>)\b/gi, '');
+    sanitized[key] = clean.trim();
+  }
+  return sanitized;
+}
 
 interface ChatRequest {
   conversationId?: string;
@@ -38,12 +61,18 @@ interface ChatRequest {
   settings?: { model?: string; temperature?: number; max_completion_tokens?: number };
   // Coaching-specific fields
   scenarioId?: string;
-  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode';
+  interactionMode?: 'coach_leads' | 'user_leads' | 'turn_taking' | 'question_mode' | 'advisor_mode';
   currentPhase?: 'roleplay' | 'feedback';
   scenarioVariant?: { name: string; context: string };
   requestQuickFeedback?: boolean;
   switchPhase?: 'roleplay' | 'feedback';
   promptTokens?: Record<string, string>;
+  // Advisor intake
+  intakeSelections?: {
+    selectedOptions: string[];
+    customText?: string;
+    intakeRound: number;
+  };
 }
 
 interface GroqMessage {
@@ -174,6 +203,56 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // =========================================================================
+    // AUTH: Extract and verify caller identity
+    // =========================================================================
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    let callerUserId: string | null = null;
+
+    if (token) {
+      const { data: { user: authUser } } = await supabase.auth.getUser(token);
+      callerUserId = authUser?.id ?? null;
+    }
+
+    const body = await req.json() as ChatRequest;
+
+    // =========================================================================
+    // INPUT VALIDATION
+    // =========================================================================
+    if (body.userMessage && body.userMessage.length > MAX_USER_MESSAGE_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: 'Message too long' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.conversationId && !isValidUUID(body.conversationId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid conversationId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.personaId && !isValidUUID(body.personaId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid personaId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (body.scenarioId && !isValidUUID(body.scenarioId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid scenarioId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Sanitize prompt tokens if present
+    if (body.promptTokens) {
+      body.promptTokens = sanitizePromptTokens(body.promptTokens);
+    }
+
     const {
       conversationId,
       userMessage,
@@ -199,13 +278,70 @@ serve(async (req) => {
       requestQuickFeedback,
       switchPhase,
       promptTokens,
-    } = await req.json() as ChatRequest;
+    } = body;
+
+    // =========================================================================
+    // CONVERSATION OWNERSHIP CHECK — verify caller owns the conversation
+    // =========================================================================
+    // Cache conversation metadata from ownership check to avoid duplicate queries
+    let cachedConvUserId: string | null = null;
+    let cachedConvInteractionMode: string | null = null;
+
+    if (conversationId) {
+      // Require a valid auth token for any conversation-scoped operation
+      if (!callerUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: convOwnership } = await supabase
+        .from('conversations')
+        .select('user_id, interaction_mode')
+        .eq('id', conversationId)
+        .single();
+
+      if (convOwnership && convOwnership.user_id !== callerUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      cachedConvUserId = convOwnership?.user_id || null;
+      cachedConvInteractionMode = convOwnership?.interaction_mode || null;
+    }
+
+    // =========================================================================
+    // Per-user daily token quota enforcement (P1).
+    //
+    // Runs once per request, gated on having a conversationId — that's
+    // every user-initiated path (chat, coaching, reports). Admin /
+    // system paths (action=complete, generateChallenge*, generateScenario
+    // pre-conversation) intentionally skip the check.
+    //
+    // Tier limits live in app_settings.ai_tier_limits and are tunable
+    // without a redeploy. enterprise/team are tracked but not enforced.
+    // =========================================================================
+    if (conversationId) {
+      const { data: convForQuota } = await supabase
+        .from('conversations')
+        .select('user_id')
+        .eq('id', conversationId)
+        .maybeSingle();
+      const quota = await checkDailyQuota(supabase, convForQuota?.user_id);
+      if (!quota.ok) {
+        return quotaExceededResponse(quota, corsHeaders);
+      }
+    }
 
     // =========================================================================
     // Generic completion — lightweight AI call, no conversation context
     // =========================================================================
     if (action === 'complete' && systemPrompt && userPrompt) {
       const model = settings?.model || 'llama-3.1-8b-instant';
+      const completeT0 = performance.now();
       const groqResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -233,7 +369,25 @@ serve(async (req) => {
       }
 
       const groqData = await groqResponse.json();
+      const completeLatency = Math.round(performance.now() - completeT0);
       const content = groqData.choices?.[0]?.message?.content || '';
+
+      // Track usage so admin AI calls show up in /admin/usage. user_id is
+      // null on admin-initiated completes (no end-user) — task_type
+      // 'complete' distinguishes these from regular chat traffic.
+      const promptTokens = groqData.usage?.prompt_tokens ?? 0;
+      const completionTokens = groqData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: null,
+        model,
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+        taskType: 'complete',
+        latencyMs: completeLatency,
+      });
 
       return new Response(JSON.stringify({ content }), {
         status: 200,
@@ -264,6 +418,7 @@ serve(async (req) => {
         personaId,
       });
 
+      const singleChallengeT0 = performance.now();
       const challengeResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -286,7 +441,25 @@ serve(async (req) => {
       }
 
       const challengeData = await challengeResponse.json();
+      const singleChallengeLatency = Math.round(
+        performance.now() - singleChallengeT0,
+      );
       const content = challengeData.choices[0]?.message?.content || '';
+
+      const challengePromptTokens = challengeData.usage?.prompt_tokens ?? 0;
+      const challengeCompletionTokens =
+        challengeData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: personaId ?? null,
+        model: config.model,
+        promptTokens: challengePromptTokens,
+        completionTokens: challengeCompletionTokens,
+        totalTokens: challengePromptTokens + challengeCompletionTokens,
+        taskType: 'daily_challenge',
+        latencyMs: singleChallengeLatency,
+      });
 
       let result: { question: string; topic: string };
       try {
@@ -307,6 +480,7 @@ serve(async (req) => {
 
     // Handle batch challenge generation (10 challenges per day)
     if (generateChallengeBatch) {
+      console.log('[challenges] Batch generation started, refresh:', !!refreshChallengeBatch);
       // Check if we already have today's batch (unless admin is forcing refresh)
       if (!refreshChallengeBatch) {
         const { data: existingBatch } = await supabase
@@ -336,6 +510,7 @@ serve(async (req) => {
         .eq('persona_type', 'coach')
         .eq('is_active', true);
 
+      console.log('[challenges] Found', allCoaches?.length || 0, 'active coaches');
       if (!allCoaches || allCoaches.length === 0) {
         return new Response(
           JSON.stringify({ error: 'No active coaches found' }),
@@ -343,43 +518,17 @@ serve(async (req) => {
         );
       }
 
-      // Group by domain and round-robin pick 10
-      const byDomain: Record<string, typeof allCoaches> = {};
-      for (const coach of allCoaches) {
-        const domain = coach.domain_id || 'unknown';
-        if (!byDomain[domain]) byDomain[domain] = [];
-        byDomain[domain].push(coach);
+      // Fisher-Yates shuffle all coaches, then pick 10
+      const shuffled = [...allCoaches];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      // Shuffle each domain's coaches
-      for (const domain of Object.keys(byDomain)) {
-        const arr = byDomain[domain];
-        for (let i = arr.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-      }
-
-      const domainKeys = Object.keys(byDomain);
-      const selectedPersonas: { id: string; name: string }[] = [];
-      let domainIdx = 0;
-      const domainPointers: Record<string, number> = {};
-      for (const d of domainKeys) domainPointers[d] = 0;
-
-      while (selectedPersonas.length < 10 && selectedPersonas.length < allCoaches.length) {
-        const domain = domainKeys[domainIdx % domainKeys.length];
-        const pointer = domainPointers[domain];
-        if (pointer < byDomain[domain].length) {
-          selectedPersonas.push({
-            id: byDomain[domain][pointer].id,
-            name: byDomain[domain][pointer].name,
-          });
-          domainPointers[domain]++;
-        }
-        domainIdx++;
-        // Safety: if we've gone through all domains without adding, break
-        if (domainIdx > domainKeys.length * allCoaches.length) break;
-      }
+      const selectedPersonas = shuffled.slice(0, 10).map((c) => ({
+        id: c.id,
+        name: c.name,
+      }));
 
       // Fetch challenge prompt
       const { data: challengeSettings } = await supabase
@@ -401,41 +550,75 @@ serve(async (req) => {
         task: 'challenge',
       });
 
-      const challengeResponse = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [
-            { role: 'system', content: challengePrompt },
-            { role: 'user', content: 'Generate 10 unique, thought-provoking questions for today. Each should cover a different topic area.' },
-          ],
-          temperature: 0.9,
-          max_tokens: 1500,
-        }),
-      });
-
-      if (!challengeResponse.ok) {
-        throw new Error(`Groq API error: ${challengeResponse.status}`);
-      }
-
-      const challengeData = await challengeResponse.json();
-      const content = challengeData.choices[0]?.message?.content || '';
-
       let challenges: { question: string; topic: string }[] = [];
       try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
-        challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
-      } catch {
-        // Fallback: single challenge
-        challenges = [{
-          question: "What belief do you hold that you've never seriously questioned?",
-          topic: 'Self-Reflection',
-        }];
+        console.log('[challenges] Calling Groq API with model:', config.model);
+        const batchChallengeT0 = performance.now();
+        const challengeResponse = await fetch(GROQ_API_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: config.model,
+            messages: [
+              { role: 'system', content: challengePrompt },
+              { role: 'user', content: 'Generate 10 unique, thought-provoking questions for today. Each should cover a different topic area.' },
+            ],
+            temperature: 0.9,
+            max_tokens: 1500,
+          }),
+        });
+
+        if (!challengeResponse.ok) {
+          const errBody = await challengeResponse.text();
+          console.error('[challenges] Groq API error:', challengeResponse.status, errBody);
+          return new Response(
+            JSON.stringify({ error: 'Challenge generation failed', details: `Groq API error: ${challengeResponse.status}` }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const challengeData = await challengeResponse.json();
+        const batchChallengeLatency = Math.round(
+          performance.now() - batchChallengeT0,
+        );
+        const content = challengeData.choices[0]?.message?.content || '';
+
+        // Track usage so the daily challenge batch shows up in /admin/usage.
+        const batchPromptTokens = challengeData.usage?.prompt_tokens ?? 0;
+        const batchCompletionTokens =
+          challengeData.usage?.completion_tokens ?? 0;
+        await recordAIUsage(supabase, {
+          userId: null,
+          conversationId: null,
+          personaId: null,
+          model: config.model,
+          promptTokens: batchPromptTokens,
+          completionTokens: batchCompletionTokens,
+          totalTokens: batchPromptTokens + batchCompletionTokens,
+          taskType: 'daily_challenge',
+          latencyMs: batchChallengeLatency,
+        });
+
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+          challenges = Array.isArray(parsed.challenges) ? parsed.challenges : [];
+        } catch {
+          challenges = [{
+            question: "What belief do you hold that you've never seriously questioned?",
+            topic: 'Self-Reflection',
+          }];
+        }
+        console.log('[challenges] Parsed', challenges.length, 'challenges from Groq response');
+      } catch (groqError) {
+        console.error('[challenges] Generation failed:', groqError);
+        return new Response(
+          JSON.stringify({ error: 'Challenge generation failed', details: String(groqError) }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       // Attach persona info to each challenge (round-robin assignment)
@@ -453,10 +636,16 @@ serve(async (req) => {
       };
 
       // Upsert into app_settings
-      await supabase
+      const { error: upsertError } = await supabase
         .from('app_settings')
         .update({ value: batch })
         .eq('key', 'daily_challenges_batch');
+
+      if (upsertError) {
+        console.error('[challenges] DB update failed:', upsertError);
+      } else {
+        console.log('[challenges] Batch saved successfully,', enrichedChallenges.length, 'challenges');
+      }
 
       return new Response(
         JSON.stringify(batch),
@@ -466,6 +655,20 @@ serve(async (req) => {
 
     // Handle scenario generation for Q&A mode (doesn't require conversationId)
     if (generateScenario) {
+      // Guard: advisors don't use scenarios
+      const { data: personaTypeCheck } = await supabase
+        .from('personas')
+        .select('persona_type')
+        .eq('id', personaId)
+        .single();
+
+      if (personaTypeCheck?.persona_type === 'advisor') {
+        return new Response(
+          JSON.stringify({ error: 'Advisors do not use scenario generation' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       // Fetch persona's qa_scenario_prompt and scene template
       const { data: persona, error: personaError } = await supabase
         .from('personas')
@@ -531,6 +734,7 @@ serve(async (req) => {
 
       const systemPrompt = sceneTemplate.replace('{{scenario_prompt}}', scenarioPrompt);
 
+      const scenarioT0 = performance.now();
       const scenarioResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -553,7 +757,23 @@ serve(async (req) => {
       }
 
       const scenarioData = await scenarioResponse.json();
+      const scenarioLatency = Math.round(performance.now() - scenarioT0);
       const scenario = scenarioData.choices[0]?.message?.content || '';
+
+      const scenarioPromptTokens = scenarioData.usage?.prompt_tokens ?? 0;
+      const scenarioCompletionTokens =
+        scenarioData.usage?.completion_tokens ?? 0;
+      await recordAIUsage(supabase, {
+        userId: null,
+        conversationId: null,
+        personaId: personaId ?? null,
+        model: scenarioConfig.model,
+        promptTokens: scenarioPromptTokens,
+        completionTokens: scenarioCompletionTokens,
+        totalTokens: scenarioPromptTokens + scenarioCompletionTokens,
+        taskType: 'scenario',
+        latencyMs: scenarioLatency,
+      });
 
       return new Response(
         JSON.stringify({ scenario }),
@@ -649,6 +869,7 @@ Generate a comprehensive session report.`;
 
       for (const model of modelsToTry) {
         try {
+          const reportT0 = performance.now();
           const reportGroqResponse = await fetch(GROQ_API_URL, {
             method: 'POST',
             headers: {
@@ -674,6 +895,11 @@ Generate a comprehensive session report.`;
           }
 
           reportGroqData = await reportGroqResponse.json();
+          // Captured at the loop's `reportT0` declaration above; this is
+          // the winning model's latency (loop breaks on success below).
+          (reportGroqData as { _latencyMs?: number })._latencyMs = Math.round(
+            performance.now() - reportT0,
+          );
           const reportContent = (reportGroqData as { choices: { message: { content: string } }[] }).choices[0]?.message?.content || '';
 
           const jsonMatch = reportContent.match(/\{[\s\S]*\}/);
@@ -760,6 +986,8 @@ Generate a comprehensive session report.`;
       }
 
       const groqUsage = (reportGroqData as { usage?: GroqUsage })?.usage;
+      const reportLatency = (reportGroqData as { _latencyMs?: number })
+        ?._latencyMs;
       if (groqUsage) {
         await recordAIUsage(supabase, {
           userId: conversation.user_id,
@@ -770,6 +998,7 @@ Generate a comprehensive session report.`;
           completionTokens: groqUsage.completion_tokens,
           totalTokens: groqUsage.total_tokens,
           taskType: 'report',
+          latencyMs: reportLatency,
         });
       }
 
@@ -819,19 +1048,9 @@ Generate a comprehensive session report.`;
       );
     }
 
-    // Fetch conversation to get stored interaction_mode
-    let conversationInteractionMode: string | null = null;
-    if (conversationId) {
-      const { data: convData } = await supabase
-        .from('conversations')
-        .select('interaction_mode')
-        .eq('id', conversationId)
-        .single();
-      conversationInteractionMode = convData?.interaction_mode || null;
-    }
-
     // Resolve effective interaction mode (request > conversation > scenario > persona default)
-    const effectiveInteractionMode = interactionMode || conversationInteractionMode;
+    // Uses cached data from ownership check to avoid duplicate query
+    const effectiveInteractionMode = interactionMode || cachedConvInteractionMode;
 
     // Fetch scenario context if this is a coaching session
     let coachingContext: CoachingContext | undefined;
@@ -901,8 +1120,12 @@ Generate a comprehensive session report.`;
       personaId,
     });
 
-    // Helper to call Groq using resolved config
-    async function callGroq(messages: GroqMessage[]) {
+    // Helper to call Groq using resolved config. Latency is captured by
+    // wrapping the call site with performance.now(); doing it inside the
+    // helper would force a return-shape change that ripples through
+    // every caller. responseFormat is optional and used for JSON-mode
+    // calls (emotional progression analysis).
+    async function callGroq(messages: GroqMessage[], responseFormat?: { type: string }) {
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -916,6 +1139,7 @@ Generate a comprehensive session report.`;
           top_p: config.top_p,
           max_tokens: config.max_completion_tokens,
           stop: config.stop,
+          ...(responseFormat ? { response_format: responseFormat } : {}),
         }),
       });
 
@@ -928,8 +1152,47 @@ Generate a comprehensive session report.`;
       return response.json();
     }
 
+    // Look up persona type for advisor-specific behavior
+    let cachedPersonaType: string | null = null;
+    {
+      const { data: ptData } = await supabase
+        .from('personas')
+        .select('persona_type')
+        .eq('id', personaId)
+        .single();
+      cachedPersonaType = ptData?.persona_type || null;
+    }
+
     // Helper to generate opening question
     async function generateQuestion() {
+      if (cachedPersonaType === 'advisor') {
+        // Advisors use JSON mode to return structured intake questions
+        const advisorPrompt = `Introduce yourself briefly (1 sentence) and ask a clarifying question to understand the user's situation. Be warm and professional. No roleplay — you are an advisor.
+
+You MUST respond in this exact JSON format:
+{
+  "message": "Your greeting and question text here",
+  "intake": {
+    "question": "Accessible label for the question",
+    "options": [
+      { "id": "snake_case_id", "label": "Human readable label" }
+    ],
+    "multiSelect": false
+  }
+}
+
+Rules for intake options:
+- Provide 3-6 options that cover common situations in your domain
+- Each option id should be snake_case, label should be short (2-5 words)
+- multiSelect should be false for the first question
+- Options should be specific enough to be useful but broad enough to cover most cases`;
+
+        return callGroq([
+          { role: 'system', content: config.full_system_prompt },
+          { role: 'user', content: advisorPrompt },
+        ], { type: 'json_object' });
+      }
+
       const questionPrompt = `Ask ONE thought-provoking opening question (1-2 sentences max). Be direct and intriguing. No introduction - just the question.`;
 
       return callGroq([
@@ -962,11 +1225,8 @@ Generate a comprehensive session report.`;
 
     // Handle greeting generation (save to DB)
     if (generateGreeting) {
-      const { data: conv } = await supabase
-        .from('conversations')
-        .select('user_id')
-        .eq('id', conversationId)
-        .single();
+      // Use cached conversation user_id from ownership check
+      const conv = cachedConvUserId ? { user_id: cachedConvUserId } : null;
 
       // For user_leads coaching mode, return scene context instead of AI greeting
       if (interactionMode === 'user_leads' && scenarioData) {
@@ -994,14 +1254,38 @@ Generate a comprehensive session report.`;
       }
 
       // Standard greeting generation for coach_leads or challengers
+      const greetingT0 = performance.now();
       const questionResponse = await generateQuestion();
-      const questionContent = questionResponse.choices[0]?.message?.content || '';
+      const greetingLatency = Math.round(performance.now() - greetingT0);
+      const rawGreetingContent = questionResponse.choices[0]?.message?.content || '';
+
+      // For advisors, parse JSON response to extract message + intake
+      let questionContent = rawGreetingContent;
+      let intakeData: Record<string, unknown> | undefined;
+
+      if (cachedPersonaType === 'advisor') {
+        try {
+          const parsed = JSON.parse(rawGreetingContent);
+          questionContent = parsed.message || rawGreetingContent;
+          if (parsed.intake) {
+            intakeData = { intake: parsed.intake, intakeRound: 1 };
+          }
+        } catch {
+          // Fallback: treat as plain text if JSON parse fails
+          questionContent = rawGreetingContent;
+        }
+      }
 
       const greetingTaskType = isCoachingTask ? 'coaching' : 'greeting';
       let greetingMetadata: Record<string, unknown> | undefined;
       if (questionResponse.usage) {
         const greetingCost = await calculateAICost(supabase, config.model, questionResponse.usage.prompt_tokens, questionResponse.usage.completion_tokens);
         greetingMetadata = { ai_usage: buildAIUsageMetadata(questionResponse.usage, config.model, greetingTaskType, greetingCost) };
+      }
+
+      // Merge intake data into metadata
+      if (intakeData) {
+        greetingMetadata = { ...greetingMetadata, ...intakeData };
       }
 
       await supabase.from('messages').insert({
@@ -1022,6 +1306,7 @@ Generate a comprehensive session report.`;
           completionTokens: questionResponse.usage.completion_tokens,
           totalTokens: questionResponse.usage.total_tokens,
           taskType: greetingTaskType,
+          latencyMs: greetingLatency,
         });
       }
 
@@ -1045,7 +1330,8 @@ Generate a comprehensive session report.`;
           .from('messages')
           .select('role, content')
           .eq('conversation_id', conversationId)
-          .order('sequence', { ascending: true });
+          .order('sequence', { ascending: true })
+          .limit(30);
 
         const history: GroqMessage[] = (messages || []).map((m) => ({
           role: m.role as 'user' | 'assistant',
@@ -1060,11 +1346,15 @@ Generate a comprehensive session report.`;
           promptTokens,
         });
 
+        const switchFeedbackT0 = performance.now();
         const feedbackResponse = await callGroq([
           { role: 'system', content: feedbackConfig.full_system_prompt },
           ...history,
           { role: 'user', content: 'Please give me feedback on how I did in that practice session.' },
         ]);
+        const switchFeedbackLatency = Math.round(
+          performance.now() - switchFeedbackT0,
+        );
 
         const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
         const nextSequence = (messages?.length || 0) + 1;
@@ -1085,14 +1375,8 @@ Generate a comprehensive session report.`;
 
         // Track feedback AI usage
         if (feedbackResponse.usage) {
-          const { data: conv } = await supabase
-            .from('conversations')
-            .select('user_id')
-            .eq('id', conversationId)
-            .single();
-
           await recordAIUsage(supabase, {
-            userId: conv?.user_id || null,
+            userId: cachedConvUserId,
             conversationId: conversationId,
             personaId: personaId,
             model: feedbackConfig.model,
@@ -1100,6 +1384,7 @@ Generate a comprehensive session report.`;
             completionTokens: feedbackResponse.usage.completion_tokens,
             totalTokens: feedbackResponse.usage.total_tokens,
             taskType: 'feedback',
+            latencyMs: switchFeedbackLatency,
           });
         }
 
@@ -1130,7 +1415,8 @@ Generate a comprehensive session report.`;
         .from('messages')
         .select('role, content')
         .eq('conversation_id', conversationId)
-        .order('sequence', { ascending: true });
+        .order('sequence', { ascending: true })
+        .limit(30);
 
       const history: GroqMessage[] = (messages || []).map((m) => ({
         role: m.role as 'user' | 'assistant',
@@ -1140,11 +1426,15 @@ Generate a comprehensive session report.`;
       const quickFeedbackPrompt = getQuickFeedbackPrompt(feedbackStyle, config.coaching_prompts);
       const nextSequence = (messages?.length || 0) + 1;
 
+      const quickFeedbackT0 = performance.now();
       const feedbackResponse = await callGroq([
         { role: 'system', content: config.full_system_prompt + '\n\n' + quickFeedbackPrompt },
         ...history,
         { role: 'user', content: 'Quick check - how am I doing?' },
       ]);
+      const quickFeedbackLatency = Math.round(
+        performance.now() - quickFeedbackT0,
+      );
 
       const feedbackMessage = feedbackResponse.choices[0]?.message?.content || '';
 
@@ -1164,14 +1454,8 @@ Generate a comprehensive session report.`;
 
       // Track quick feedback AI usage
       if (feedbackResponse.usage) {
-        const { data: conv } = await supabase
-          .from('conversations')
-          .select('user_id')
-          .eq('id', conversationId)
-          .single();
-
         await recordAIUsage(supabase, {
-          userId: conv?.user_id || null,
+          userId: cachedConvUserId,
           conversationId: conversationId,
           personaId: personaId,
           model: config.model,
@@ -1179,6 +1463,7 @@ Generate a comprehensive session report.`;
           completionTokens: feedbackResponse.usage.completion_tokens,
           totalTokens: feedbackResponse.usage.total_tokens,
           taskType: 'feedback',
+          latencyMs: quickFeedbackLatency,
         });
       }
 
@@ -1195,18 +1480,21 @@ Generate a comprehensive session report.`;
       .eq('conversation_id', conversationId)
       .order('sequence', { ascending: true });
 
-    const history: GroqMessage[] = (messages || []).map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
-
-    const nextSequence = (messages?.length || 0) + 1;
+    const allMessages = messages || [];
+    const nextSequence = allMessages.length + 1;
 
     // Calculate response time since last message
-    const lastMessage = messages?.[messages.length - 1];
+    const lastMessage = allMessages[allMessages.length - 1];
     const userResponseTimeMs = lastMessage?.created_at
       ? Date.now() - new Date(lastMessage.created_at).getTime()
       : null;
+
+    // Sliding window: send only last 20 messages to Groq to reduce token costs
+    const contextWindow = allMessages.slice(-20);
+    const history: GroqMessage[] = contextWindow.map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }));
 
     // Save user message with response time
     const userMessageCreatedAt = new Date().toISOString();
@@ -1219,26 +1507,130 @@ Generate a comprehensive session report.`;
       created_at: userMessageCreatedAt,
     });
 
-    // Generate response
-    const groqResponse = await callGroq([
-      { role: 'system', content: config.full_system_prompt },
-      ...history,
-      { role: 'user', content: userMessage! },
-    ]);
+    // Check if this is an advisor intake response
+    const isAdvisorIntake = cachedPersonaType === 'advisor' && body.intakeSelections;
 
-    let assistantMessage = groqResponse.choices[0]?.message?.content || '';
+    // Generate response — use JSON mode for advisor intake or emotional progression
+    const hasEmotionalProgression = config.emotional_progression_active;
+    const useJsonMode = isAdvisorIntake || hasEmotionalProgression;
 
-    // Parse and strip emotional state tag from AI response (e.g., [STATE:2:CAUTIOUSLY_CURIOUS])
+    // For advisor intake, add system instruction to continue or end intake
+    let intakeSystemSuffix = '';
+    if (isAdvisorIntake) {
+      const round = body.intakeSelections!.intakeRound;
+      const shouldEndIntake = round >= 3;
+
+      if (shouldEndIntake) {
+        // Round 3+: MUST stop asking MC questions and start giving advice
+        intakeSystemSuffix = `
+
+INTAKE COMPLETE (round ${round}). You now have enough context from the user's answers.
+
+You MUST now respond with initial advice. Do NOT include an "intake" field. Respond in JSON:
+{
+  "message": "Your response here"
+}
+
+Your response should:
+1. Briefly acknowledge what they've shared (1 sentence)
+2. Offer your initial perspective, insight, or advice (2-3 sentences)
+3. End with ONE open-ended follow-up question to go deeper (the user will type their answer from here)
+
+Do NOT ask another multiple-choice question. The intake phase is over. Transition to natural conversation.`;
+      } else {
+        // Round 1-2: can ask one more MC question
+        intakeSystemSuffix = `
+
+INTAKE ROUND: ${round} of 2-3. The user just answered a multiple-choice clarifying question.
+
+Respond in JSON. You may ask ONE more clarifying MC question to narrow down their situation:
+{
+  "message": "Brief acknowledgment of their answer + your follow-up",
+  "intake": {
+    "question": "Short question label",
+    "options": [
+      { "id": "snake_case_id", "label": "Human readable label" }
+    ],
+    "multiSelect": false
+  }
+}
+
+OR if you already have enough context, skip intake and start advising:
+{
+  "message": "Your acknowledgment + initial advice + open-ended follow-up question"
+}
+
+Rules:
+- "message" should acknowledge their choice warmly (not just repeat it)
+- If asking another MC question, make it dig deeper into their specific situation (not broad categories again)
+- 3-5 options max, specific and actionable
+- multiSelect: true only if multiple answers genuinely make sense`;
+      }
+    }
+
+    const systemPromptForCall = isAdvisorIntake
+      ? config.full_system_prompt + intakeSystemSuffix
+      : config.full_system_prompt;
+
+    const chatT0 = performance.now();
+    const groqResponse = await callGroq(
+      [
+        { role: 'system', content: systemPromptForCall },
+        ...history,
+        { role: 'user', content: userMessage! },
+      ],
+      useJsonMode ? { type: 'json_object' } : undefined
+    );
+    const chatLatency = Math.round(performance.now() - chatT0);
+
+    let assistantMessage = '';
     let messageMetadata: Record<string, unknown> | null = null;
-    const stateTagMatch = assistantMessage.match(/\[STATE:(\d+):([A-Z_]+)\]\s*$/);
-    if (stateTagMatch) {
-      assistantMessage = assistantMessage.replace(/\[STATE:\d+:[A-Z_]+\]\s*$/, '').trimEnd();
-      messageMetadata = {
-        emotional_stage: {
-          number: parseInt(stateTagMatch[1], 10),
-          name: stateTagMatch[2],
-        },
-      };
+
+    const rawContent = groqResponse.choices[0]?.message?.content || '';
+
+    if (isAdvisorIntake) {
+      // Parse advisor JSON response for intake continuation
+      try {
+        const parsed = JSON.parse(rawContent);
+        assistantMessage = parsed.message || rawContent;
+        if (parsed.intake) {
+          messageMetadata = {
+            intake: parsed.intake,
+            intakeRound: (body.intakeSelections!.intakeRound || 0) + 1,
+          };
+        }
+        // No intake = advisor is done with intake, transitioning to freeform
+      } catch {
+        assistantMessage = rawContent;
+      }
+    } else if (hasEmotionalProgression) {
+      try {
+        const parsed = JSON.parse(rawContent);
+        assistantMessage = parsed.message || rawContent;
+        if (parsed.emotional_state) {
+          messageMetadata = {
+            emotional_stage: {
+              number: parsed.emotional_state.stage,
+              name: parsed.emotional_state.name,
+            },
+          };
+        }
+      } catch {
+        // Fallback: treat as plain text, try regex strip
+        assistantMessage = rawContent;
+        const stateTagMatch = assistantMessage.match(/[\[\(]\s*STATE:(\d+):([A-Z_]+)\s*[\]\)]\s*$/);
+        if (stateTagMatch) {
+          assistantMessage = assistantMessage.replace(/[\[\(]\s*STATE:\d+:[A-Z_]+\s*[\]\)]\s*$/, '').trimEnd();
+          messageMetadata = {
+            emotional_stage: {
+              number: parseInt(stateTagMatch[1], 10),
+              name: stateTagMatch[2],
+            },
+          };
+        }
+      }
+    } else {
+      assistantMessage = rawContent;
     }
 
     // Add AI usage metadata to the message
@@ -1264,16 +1656,10 @@ Generate a comprehensive session report.`;
       ...(messageMetadata ? { metadata: messageMetadata } : {}),
     });
 
-    // Log usage
-    const { data: conversation } = await supabase
-      .from('conversations')
-      .select('user_id')
-      .eq('id', conversationId)
-      .single();
-
+    // Log usage (reuse cached conversation user_id from ownership check)
     if (groqResponse.usage) {
       await recordAIUsage(supabase, {
-        userId: conversation?.user_id || null,
+        userId: cachedConvUserId,
         conversationId: conversationId,
         personaId: personaId,
         model: config.model,
@@ -1281,6 +1667,7 @@ Generate a comprehensive session report.`;
         completionTokens: groqResponse.usage.completion_tokens,
         totalTokens: groqResponse.usage.total_tokens,
         taskType: chatTaskType,
+        latencyMs: chatLatency,
       });
     }
 
@@ -1292,7 +1679,7 @@ Generate a comprehensive session report.`;
   } catch (error) {
     console.error('Chat error:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'An error occurred processing your request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

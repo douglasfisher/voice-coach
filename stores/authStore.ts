@@ -5,47 +5,11 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { UserProfile, UserPreferences } from '../types/database';
 
-// Dev mode: set to true to use mock data without Supabase
-const DEV_MODE = false;
 
-const MOCK_USER: User = {
-  id: 'dev-user-123',
-  email: 'dev@dialectica.app',
-  app_metadata: {},
-  user_metadata: {},
-  aud: 'authenticated',
-  created_at: new Date().toISOString(),
-};
-
-const MOCK_PROFILE: UserProfile = {
-  id: 'dev-user-123',
-  display_name: 'Developer',
-  avatar_url: null,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  onboarding_completed: true,
-  current_level: 1,
-  total_sessions: 5,
-  streak_days: 3,
-  last_session_at: new Date().toISOString(),
-  is_admin: true,
-};
-
-const MOCK_PREFERENCES: UserPreferences = {
-  user_id: 'dev-user-123',
-  preferred_challenge_intensity: 5,
-  tts_enabled: false,
-  voice_input_enabled: false,
-  notification_daily_challenge: true,
-  notification_time: '09:00',
-  theme: 'dark',
-  preferred_persona_ids: null,
-  avoided_topics: null,
-  immersive_chat_enabled: true,
-  user_gender: null,
-  interested_in: null,
-  updated_at: new Date().toISOString(),
-};
+// Track auth subscription outside store to avoid serialization issues
+let _authSubscription: { unsubscribe: () => void } | null = null;
+// Guard against concurrent initialize() calls (e.g., from StrictMode double-mount)
+let _initializeInProgress = false;
 
 interface AuthState {
   session: Session | null;
@@ -80,17 +44,9 @@ export const useAuthStore = create<AuthState>()(
   isInitialized: false,
 
   initialize: async () => {
-    // Dev mode: use mock data
-    if (DEV_MODE) {
-      set({
-        user: MOCK_USER,
-        profile: MOCK_PROFILE,
-        preferences: MOCK_PREFERENCES,
-        isLoading: false,
-        isInitialized: true,
-      });
-      return;
-    }
+    // Prevent concurrent initialization (e.g., StrictMode double-mount)
+    if (_initializeInProgress) return;
+    _initializeInProgress = true;
 
     try {
       const {
@@ -116,7 +72,10 @@ export const useAuthStore = create<AuthState>()(
         set({ session: null, user: null, profile: null, preferences: null });
       }
 
-      supabase.auth.onAuthStateChange(async (event, session) => {
+      // Unsubscribe previous listener to prevent memory leaks on re-init
+      _authSubscription?.unsubscribe();
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         // Handle token refresh errors
         if (event === 'TOKEN_REFRESHED' && !session) {
           console.warn('Token refresh failed, signing out');
@@ -126,12 +85,18 @@ export const useAuthStore = create<AuthState>()(
 
         set({ session, user: session?.user ?? null });
         if (session) {
-          await get().fetchProfile();
+          // Skip profile fetch for INITIAL_SESSION — initialize() already fetched it above
+          if (event !== 'INITIAL_SESSION') {
+            await get().fetchProfile();
+          }
         } else {
           set({ profile: null, preferences: null });
         }
       });
+
+      _authSubscription = subscription;
     } finally {
+      _initializeInProgress = false;
       set({ isLoading: false, isInitialized: true });
     }
   },
@@ -139,8 +104,33 @@ export const useAuthStore = create<AuthState>()(
   signInWithEmail: async (email, password) => {
     set({ isLoading: true });
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { error };
+
+      // Safety net: if the auth listener was somehow destroyed, manually
+      // update the store and re-subscribe so the app picks up the session
+      if (!_authSubscription && data.session) {
+        set({ session: data.session, user: data.session.user });
+        await get().fetchProfile();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'TOKEN_REFRESHED' && !session) {
+            console.warn('Token refresh failed, signing out');
+            set({ session: null, user: null, profile: null, preferences: null });
+            return;
+          }
+          set({ session, user: session?.user ?? null });
+          if (session) {
+            if (event !== 'INITIAL_SESSION') {
+              await get().fetchProfile();
+            }
+          } else {
+            set({ profile: null, preferences: null });
+          }
+        });
+        _authSubscription = subscription;
+      }
+
       return { error: null };
     } catch (error) {
       return { error: error as Error };
@@ -192,8 +182,20 @@ export const useAuthStore = create<AuthState>()(
   signOut: async () => {
     set({ isLoading: true });
     try {
+      // Clear chat state to prevent data leakage between users
+      const { useChatStore } = require('./chatStore');
+      useChatStore.getState().clearAllState();
+
+      // Let signOut fire SIGNED_OUT event through the listener naturally
+      // (the listener already handles session=null by clearing profile/preferences)
       await supabase.auth.signOut();
       set({ session: null, user: null, profile: null, preferences: null });
+
+      // Reset isInitialized so initialize() can re-run on layout remount
+      set({ isInitialized: false });
+
+      // Clear persisted auth data from AsyncStorage
+      await AsyncStorage.multiRemove(['dialectica-auth', 'dialectica-preferences']);
     } finally {
       set({ isLoading: false });
     }
@@ -310,8 +312,12 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         // Persist profile and preferences locally so they survive app restarts
-        // even before the DB fetch completes
-        profile: state.profile,
+        // even before the DB fetch completes.
+        // SECURITY: Strip is_admin from persisted state to prevent device-level
+        // tampering. The real value is always fetched from DB on initialize().
+        profile: state.profile
+          ? { ...state.profile, is_admin: false }
+          : null,
         preferences: state.preferences,
       }),
     },
