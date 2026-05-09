@@ -34,19 +34,22 @@ function transformPersona(persona: Pick<Persona, 'id' | 'name' | 'tagline' | 'ch
     challengeStyle: persona.challenge_style as ChallengeStyle,
     specialtyAreas: persona.specialty_areas ?? [],
     culturalBackground: persona.cultural_background,
+    // Personality dimensions are nullable in the DB (set to null
+    // before the wizard fills them in). Default to 50/100 — neutral —
+    // so consumers never get NaN when computing comparisons.
     personality: {
-      warmth: persona.warmth,
-      directness: persona.directness,
-      patience: persona.patience,
-      humor: persona.humor,
-      formality: persona.formality,
+      warmth: persona.warmth ?? 50,
+      directness: persona.directness ?? 50,
+      patience: persona.patience ?? 50,
+      humor: persona.humor ?? 50,
+      formality: persona.formality ?? 50,
     },
     voiceConfig: {
       provider: persona.voice_provider as VoiceConfig['provider'],
       voiceId: persona.voice_id,
-      speed: persona.voice_speed,
-      pitch: persona.voice_pitch,
-      stability: persona.voice_stability,
+      speed: persona.voice_speed ?? 1,
+      pitch: persona.voice_pitch ?? 1,
+      stability: persona.voice_stability ?? 0.7,
     },
     // Coaching fields
     personaType: (persona.persona_type as PersonaType) || 'challenger',

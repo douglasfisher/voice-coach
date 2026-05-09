@@ -459,7 +459,7 @@ export default function ChatScreen() {
             : undefined
         }
         isPlaying={isPlaying}
-        timestamp={item.created_at}
+        timestamp={item.created_at ?? undefined}
         responseTimeMs={item.response_time_ms}
         immersiveMode={showImmersiveLayout}
         metadata={item.metadata}

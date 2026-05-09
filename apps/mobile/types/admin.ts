@@ -253,8 +253,20 @@ export interface AdminPersonaView extends Persona {
   total_tokens_used?: number;
 }
 
-export type PersonaFormData = Omit<Persona, 'id' | 'created_at'> & {
+/**
+ * Persona row used by the mobile admin wizard.
+ *
+ * `personas.ai_config` is JSONB so the generated Database types surface
+ * it as `Json | null` — too loose for the wizard which reads
+ * `ai_config.model` etc. Override the field to the typed shape from
+ * shared-types so wizard code keeps working without `as` casts at
+ * every property access.
+ */
+import type { PersonaAIConfig } from "@dialectica/shared-types";
+
+export type PersonaFormData = Omit<Persona, 'id' | 'created_at' | 'ai_config'> & {
   id?: string;
+  ai_config: PersonaAIConfig | null;
 };
 
 // =============================================================================

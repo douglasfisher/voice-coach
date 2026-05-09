@@ -14,7 +14,9 @@ interface ChatMessage {
   id: string;
   content: string;
   role: string;
-  created_at?: string;
+  // Match the DB shape (Postgres timestamp columns are nullable). The
+  // store passes the row through unchanged, so keep this string|null.
+  created_at?: string | null;
 }
 
 interface CollapsibleSceneHeaderProps {
