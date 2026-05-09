@@ -4,29 +4,55 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Dialectica is a React Native mobile coaching app built with Expo 54, TypeScript, and Supabase. Users practice interpersonal skills (dating, interviews, negotiations, etc.) through AI-powered roleplay conversations with 24+ coaching personas.
+Dialectica is a **pnpm monorepo** with two apps:
+- **`apps/mobile/`** — React Native + Expo 54 coaching app. Users practice interpersonal skills (dating, interviews, negotiations) through AI-powered roleplay with 24+ coaches/advisors/challengers.
+- **`apps/admin/`** — Next.js 16 web admin (port 4837). Edits personas, AI config, users, conversations, audit log. Replaces the deleted in-mobile admin screens.
+
+Plus two shared packages:
+- **`packages/db-types/`** — generated Supabase types (single source of truth).
+- **`packages/shared-types/`** — payload shapes the chat edge function emits (`AnalysisResult`, `SessionReport`, `TimingMetrics`, `PersonaAIConfig`).
+
+`supabase/` (functions + migrations) and `scripts/` (db.sh, migrate.sh) live at the repo root since they're shared infrastructure.
 
 ## Commands
 
-```bash
-# Development
-npm run dev:ios          # iOS simulator (creates "Dialectica Dev" iPhone 17 Pro)
-npm run fresh            # Fresh iOS build (reset simulator)
-npm run dev:android      # Android emulator
-npm start                # Expo dev server (web default)
+Run from the repo root unless noted.
 
-# Code quality
-npm run lint             # ESLint
-npm run typecheck        # tsc --noEmit
+```bash
+# Install (pnpm workspaces)
+pnpm install
+
+# Development
+pnpm dev:mobile          # Expo dev server (apps/mobile)
+pnpm dev:admin           # Next.js on http://localhost:4837 (apps/admin)
+# Or directly inside a workspace:
+cd apps/mobile && pnpm dev:ios     # iOS simulator
+cd apps/mobile && pnpm fresh       # Fresh iOS (reset simulator)
+
+# Code quality (all workspaces in parallel)
+pnpm typecheck
+pnpm lint
 
 # Build & deploy
-npm run build:ios        # EAS build for iOS
-npm run build:android    # EAS build for Android
-npm run submit:ios       # Submit to App Store
+pnpm build:mobile:ios    # EAS build for iOS (delegates to apps/mobile)
+pnpm build:admin         # next build (apps/admin)
 
-# Edge functions
-npx supabase functions deploy <function-name>  # Deploy edge function
-npx supabase secrets set KEY=value             # Set edge function secrets
+# Database (root scripts manage the shared Supabase project)
+pnpm db:tables
+pnpm db:query "SELECT count(*) FROM personas"
+pnpm db:describe personas
+pnpm migrate:status
+pnpm migrate:run
+
+# Generate DB types — single command updates both apps and the shared package
+pnpm gen:types
+
+# Edge functions (still run via the supabase CLI)
+pnpm deploy:chat
+pnpm deploy:tts
+pnpm deploy:runware
+# Or:
+supabase functions deploy <function-name> --no-verify-jwt --project-ref enatcutnrtuauykqyajc
 ```
 
 ## Architecture

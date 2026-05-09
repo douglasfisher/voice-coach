@@ -1,0 +1,44 @@
+# AWS Amplify Hosting build spec for the admin Next.js app.
+#
+# Connect this monorepo to an Amplify app, set:
+#   - "App root" = / (repo root)
+#   - "Build settings" = this file
+#   - "Environment variables" = set NEXT_PUBLIC_SUPABASE_URL,
+#       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY,
+#       ADMIN_ALLOWED_ORIGINS in the Amplify console (NOT here).
+#
+# We need pnpm at the repo root so the workspace install resolves
+# @dialectica/db-types and @dialectica/shared-types via the workspace
+# protocol. `pnpm --filter ... build` then runs Next's production
+# build inside apps/admin/.
+version: 1
+applications:
+  - appRoot: .
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            # Amplify build images ship with Node 20+ but no pnpm; install via corepack.
+            - corepack enable
+            - corepack prepare pnpm@9.15.0 --activate
+            - pnpm --version
+            # Install all workspaces so shared packages link before the build.
+            - pnpm install --frozen-lockfile
+        build:
+          commands:
+            - pnpm --filter @dialectica/admin build
+      artifacts:
+        # Next.js standalone output lives at apps/admin/.next; Amplify
+        # auto-detects Next.js when this path is the baseDirectory.
+        baseDirectory: apps/admin/.next
+        files:
+          - "**/*"
+      cache:
+        paths:
+          # pnpm content-addressable store + per-workspace node_modules
+          # so consecutive builds are fast.
+          - .pnpm-store/**/*
+          - node_modules/**/*
+          - apps/admin/node_modules/**/*
+          - apps/mobile/node_modules/**/*
+          - packages/*/node_modules/**/*

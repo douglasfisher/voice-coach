@@ -1,0 +1,67 @@
+name: admin-ci
+
+# Path-filtered: only runs when admin-relevant files change. Mobile-only
+# PRs skip this entirely. Shared packages trigger both workflows.
+on:
+  pull_request:
+    paths:
+      - "apps/admin/**"
+      - "packages/db-types/**"
+      - "packages/shared-types/**"
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/admin-ci.yml"
+  push:
+    branches: [feature/database-driven-ai-config]
+    paths:
+      - "apps/admin/**"
+      - "packages/db-types/**"
+      - "packages/shared-types/**"
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+
+# Cancel in-progress runs when a new commit lands on the same branch.
+# github.ref is a trusted context value (the canonical git ref),
+# not user-supplied input.
+concurrency:
+  group: admin-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck admin
+        run: pnpm --filter @dialectica/admin typecheck
+
+      - name: Lint admin
+        run: pnpm --filter @dialectica/admin lint
+
+      - name: Build admin
+        # Verifies Next.js can produce a production build — catches
+        # config / route issues that typecheck doesn't surface.
+        # Build needs Supabase env vars at compile time; provide
+        # placeholders so the build succeeds (NEXT_PUBLIC_* are baked
+        # into the bundle but using a fake value is fine for CI since
+        # we never deploy this build).
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+          SUPABASE_SECRET_KEY: sb_secret_ci_placeholder
+          ADMIN_ALLOWED_ORIGINS: http://localhost:4837
+        run: pnpm --filter @dialectica/admin build

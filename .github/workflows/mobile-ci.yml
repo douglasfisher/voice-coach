@@ -1,0 +1,54 @@
+name: mobile-ci
+
+# Path-filtered: only runs when mobile-relevant files change. Admin-only
+# PRs skip this entirely so we don't burn CI minutes on iOS deps for a
+# Next.js change.
+on:
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "packages/db-types/**"
+      - "packages/shared-types/**"
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/mobile-ci.yml"
+  push:
+    branches: [feature/database-driven-ai-config]
+    paths:
+      - "apps/mobile/**"
+      - "packages/db-types/**"
+      - "packages/shared-types/**"
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+
+# Cancel in-progress runs when a new commit lands on the same branch.
+# github.ref is a trusted context value (the canonical git ref),
+# not user-supplied input.
+concurrency:
+  group: mobile-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck mobile
+        run: pnpm --filter @dialectica/mobile typecheck
+
+      - name: Lint mobile
+        run: pnpm --filter @dialectica/mobile lint
