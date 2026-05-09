@@ -37,12 +37,17 @@ const STORAGE_BUCKET = 'tts-audio';
 interface TTSRequest {
   text: string;
   voiceId: string;
-  // Optional voice overrides. Matches the shape of types/persona.ts
-  // VoiceConfig so the mobile client doesn't have to flatten.
+  // Persona-level voice settings. Matches types/persona.ts VoiceConfig.
+  // ElevenLabs Turbo v2.5 honours: stability, similarity_boost, style,
+  // speed (0.7–1.2). pitch is accepted but not supported natively by
+  // ElevenLabs — kept in the contract so the persona's voice_pitch
+  // column flows through unchanged for any future provider that does.
   voiceConfig?: {
     stability?: number;
     similarityBoost?: number;
     style?: number;
+    speed?: number;
+    pitch?: number;
   };
   // Mobile sends the auth user_id so we attribute spend correctly.
   // Server doesn't trust this for authorisation — TTS is gated by
@@ -50,6 +55,15 @@ interface TTSRequest {
   userId?: string | null;
   conversationId?: string | null;
   personaId?: string | null;
+}
+
+/** Clamp speed into ElevenLabs' supported range. Outside-range values
+ * are silently corrected rather than rejected so a stale persona row
+ * doesn't break TTS. */
+function clampSpeed(v: number | undefined): number | undefined {
+  if (v === undefined) return undefined;
+  if (!Number.isFinite(v)) return undefined;
+  return Math.max(0.7, Math.min(1.2, v));
 }
 
 serve(async (req) => {
@@ -103,6 +117,11 @@ serve(async (req) => {
           stability: body.voiceConfig?.stability ?? 0.5,
           similarity_boost: body.voiceConfig?.similarityBoost ?? 0.75,
           style: body.voiceConfig?.style ?? 0.5,
+          // speed only included when explicitly set, so the ElevenLabs
+          // default behaviour is preserved when personas opt out.
+          ...(body.voiceConfig?.speed !== undefined
+            ? { speed: clampSpeed(body.voiceConfig.speed) }
+            : {}),
         },
       }),
     });

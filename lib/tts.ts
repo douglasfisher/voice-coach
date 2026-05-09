@@ -31,10 +31,17 @@ export async function generateSpeech(
       body: {
         text,
         voiceId: voiceConfig.voiceId,
+        // Forward the full persona VoiceConfig so voice_speed,
+        // voice_stability, etc. all flow through. Edge function honours
+        // what ElevenLabs supports (stability, similarity_boost, style,
+        // speed) and ignores pitch (kept in the contract so the
+        // persona's voice_pitch column matches for future providers).
         voiceConfig: {
           stability: voiceConfig.stability,
           similarityBoost: voiceConfig.similarityBoost ?? 0.75,
           style: voiceConfig.style ?? 0.5,
+          speed: voiceConfig.speed,
+          pitch: voiceConfig.pitch,
         },
         userId,
         conversationId: context?.conversationId ?? null,
