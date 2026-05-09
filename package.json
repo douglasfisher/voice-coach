@@ -1,0 +1,31 @@
+{
+  "name": "dialectica-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dialectica monorepo: Expo mobile app + Next.js admin web app + shared packages.",
+  "scripts": {
+    "dev:mobile": "pnpm --filter @dialectica/mobile dev",
+    "dev:admin": "pnpm --filter @dialectica/admin dev",
+    "build:admin": "pnpm --filter @dialectica/admin build",
+    "build:mobile:ios": "pnpm --filter @dialectica/mobile build:ios",
+    "lint": "pnpm -r --parallel lint",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "db:query": "./scripts/db.sh query",
+    "db:tables": "./scripts/db.sh tables",
+    "db:describe": "./scripts/db.sh describe",
+    "migrate:status": "./scripts/migrate.sh status",
+    "migrate:run": "./scripts/migrate.sh run",
+    "deploy:chat": "supabase functions deploy chat --no-verify-jwt --project-ref enatcutnrtuauykqyajc",
+    "deploy:tts": "supabase functions deploy tts --no-verify-jwt --project-ref enatcutnrtuauykqyajc",
+    "deploy:runware": "supabase functions deploy runware --no-verify-jwt --project-ref enatcutnrtuauykqyajc",
+    "gen:types": "supabase gen types typescript --project-id enatcutnrtuauykqyajc --schema public > apps/mobile/types/database.ts && supabase gen types typescript --project-id enatcutnrtuauykqyajc --schema public > apps/admin/src/types/database.ts"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
