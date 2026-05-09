@@ -28,6 +28,8 @@ import {
 } from "lucide-react"
 import type { ComponentType, ReactNode } from "react"
 
+import type { SessionReport, TimingMetrics as SharedTimingMetrics } from "@dialectica/shared-types"
+
 import {
   Card,
   CardContent,
@@ -36,25 +38,21 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-export type SessionReportPayload = {
-  tldr?: string
-  strengths?: string[]
-  weaknesses?: string[]
-  detailed_analysis?: string
-  overall_score?: number
-}
+/**
+ * Admin's SessionReport view tolerates missing fields because reports
+ * may be partially generated (e.g. user ended early). The chat fn
+ * always emits the full SessionReport shape from
+ * @dialectica/shared-types; we just relax it for rendering.
+ */
+export type SessionReportPayload = Partial<SessionReport>
 
-export type TimingMetrics = {
-  total_duration_ms?: number
-  exchange_count?: number
-  word_count_total?: number
-  user_word_count?: number
-  user_avg_response_ms?: number
-  ai_word_count?: number
-  ai_avg_response_ms?: number
-  assistant_avg_response_ms?: number
-}
+/** Re-exported to keep existing import sites working. The canonical
+ * shape lives in @dialectica/shared-types. */
+export type TimingMetrics = SharedTimingMetrics
 
+/** Admin-side helper — a slimmed message shape used by the report's
+ * derived performance/emotional-journey calculations. Stays local
+ * because it's not a wire-format type the chat fn emits. */
 export type ReportMessage = {
   role: string
   content: string

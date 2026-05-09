@@ -21,6 +21,10 @@ import {
 import { PageHeader } from "@/components/admin/page-header"
 import { requireAdminPage } from "@/lib/auth/require-admin"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import type {
+  AnalysisItemType,
+  AnalysisResult,
+} from "@dialectica/shared-types"
 import { ConversationTabs } from "./conversation-tabs"
 import type {
   ReportMessage,
@@ -557,28 +561,9 @@ export default async function ConversationViewPage({
   )
 }
 
-type AnalysisItemType =
-  | "fallacy"
-  | "bias"
-  | "gender_dynamic"
-  | "racial_assumption"
-  | "emotional"
-  | "strength"
-type AnalysisSeverity = "minor" | "moderate" | "significant"
-type AnalysisItem = {
-  type: AnalysisItemType
-  code: string
-  label: string
-  severity: AnalysisSeverity
-  excerpt: string
-  explanation: string
-  coaching: string
-}
-type AnalysisResult = {
-  items: AnalysisItem[]
-  overall_quality: number
-  encouragement: string
-}
+// AnalysisResult / AnalysisItem / AnalysisItemType / AnalysisSeverity now
+// live in @dialectica/shared-types so mobile and admin can't drift on the
+// shape the chat fn writes to messages.analysis.
 
 const ANALYSIS_LABELS: Record<AnalysisItemType, string> = {
   fallacy: "Logical fallacy",
