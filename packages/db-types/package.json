@@ -1,0 +1,14 @@
+{
+  "name": "@dialectica/db-types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generated Supabase Postgres types — single source of truth for both mobile and admin.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "gen": "supabase gen types typescript --project-id enatcutnrtuauykqyajc --schema public | sed -e '/^A new version of Supabase CLI/d' -e '/^We recommend updating regularly/d' > src/database.ts"
+  }
+}
