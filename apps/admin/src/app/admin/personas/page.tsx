@@ -23,6 +23,7 @@ import { requireAdminPage } from "@/lib/auth/require-admin"
 import { formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { PersonasFilterBar } from "./filter-bar"
+import { PersonaPrefsPersist } from "./prefs-persist"
 
 export const metadata = { title: "Personas · Dialectica Admin" }
 
@@ -133,6 +134,8 @@ export default async function PersonasPage({
           </div>
         }
       />
+
+      <PersonaPrefsPersist />
 
       <PersonasFilterBar
         initialQ={filters.q}
