@@ -6,6 +6,7 @@ import { ScrollHideContext } from '../../hooks/useScrollHideAnimation';
 import { AnimatedTabBar } from '../../components/navigation/AnimatedTabBar';
 import { QuotaErrorListener } from '../../components/chat/QuotaErrorListener';
 import { useAuthStore } from '../../stores/authStore';
+import { useFeature } from '../../stores/featuresStore';
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const color = focused ? '#F59E0B' : '#6E6E73';
@@ -33,6 +34,13 @@ export default function TabsLayout() {
   const session = useAuthStore((s) => s.session);
   const isInitialized = useAuthStore((s) => s.isInitialized);
   const tabBarProgress = useSharedValue(0);
+
+  // Tier-gated tab visibility. The chat / persona-list screens still
+  // exist in the route tree (deep links continue to work) but the
+  // tabbar entries are hidden when the user's tier disables them.
+  // The chat fn 403s if the user tries to start a session anyway.
+  const challengersEnabled = useFeature('challenger_personas_enabled');
+  const advisorsEnabled = useFeature('advisor_mode_enabled');
 
   if (!isInitialized) {
     return (
@@ -82,6 +90,9 @@ export default function TabsLayout() {
           options={{
             title: 'Challengers',
             tabBarIcon: ({ focused }) => <TabIcon name="personas" focused={focused} />,
+            // Hide from tabbar (route still resolves for deep links) when
+            // the user's tier doesn't include challenger personas.
+            href: challengersEnabled ? undefined : null,
           }}
         />
         <Tabs.Screen
@@ -98,6 +109,7 @@ export default function TabsLayout() {
             title: 'Advisors',
             tabBarIcon: ({ focused }) => <TabIcon name="advisors" focused={focused} />,
             tabBarActiveTintColor: '#8b5cf6',
+            href: advisorsEnabled ? undefined : null,
           }}
         />
         <Tabs.Screen

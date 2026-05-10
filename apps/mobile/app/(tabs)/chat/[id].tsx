@@ -41,6 +41,7 @@ import { useVoiceInput } from '../../../hooks/useVoiceInput';
 import { useTraits } from '../../../hooks/useTraits';
 import { useAuthStore } from '../../../stores/authStore';
 import { useChatStore } from '../../../stores/chatStore';
+import { useFeature } from '../../../stores/featuresStore';
 import { useShallow } from 'zustand/react/shallow';
 import {
   PersonaHeader,
@@ -151,8 +152,16 @@ export default function ChatScreen() {
   const nativeTtsEnabled = preferences?.native_tts_enabled ?? false;
   const { speak: nativeSpeak, stop: nativeStop, isMuted: nativeMuted, toggleMute: toggleNativeMute } = useNativeTTS(persona?.gender);
 
+  // Tier-gated voice. Both flags must be true: the user's preference
+  // (already in preferences.*_enabled) AND their tier's feature value.
+  // Hide the controls entirely when the tier doesn't allow it; the
+  // server also refuses 403 as a defence-in-depth.
+  const tierVoiceOutput = useFeature('voice_output_enabled');
+  const tierVoiceInput = useFeature('voice_input_enabled');
+
   // Voice input
-  const voiceInputEnabled = preferences?.voice_input_enabled ?? false;
+  const voiceInputEnabled =
+    (preferences?.voice_input_enabled ?? false) && tierVoiceInput;
   const {
     state: voiceState,
     transcript: voiceTranscript,
@@ -279,7 +288,7 @@ export default function ChatScreen() {
     const result = await send(content);
 
     // Auto-play ElevenLabs TTS for assistant response if enabled (premium)
-    if (result?.response && preferences?.tts_enabled && persona?.voiceConfig) {
+    if (result?.response && preferences?.tts_enabled && tierVoiceOutput && persona?.voiceConfig) {
       generateAndPlay(result.response, persona.voiceConfig);
     }
 
@@ -454,7 +463,7 @@ export default function ChatScreen() {
         persona={item.role === 'assistant' ? persona : undefined}
         audioUrl={item.audio_url}
         onPlayAudio={
-          item.role === 'assistant' && preferences?.tts_enabled
+          item.role === 'assistant' && preferences?.tts_enabled && tierVoiceOutput
             ? () => handlePlayAudio(item.audio_url, item.content)
             : undefined
         }
@@ -476,7 +485,7 @@ export default function ChatScreen() {
     }
 
     return bubble;
-  }, [persona, preferences?.tts_enabled, handlePlayAudio, isPlaying, showImmersiveLayout, profile?.is_admin, isFocusMode]);
+  }, [persona, preferences?.tts_enabled, tierVoiceOutput, handlePlayAudio, isPlaying, showImmersiveLayout, profile?.is_admin, isFocusMode]);
 
   const listFooter = useMemo(() => (
     isSending ? <TypingIndicator persona={persona} /> : null

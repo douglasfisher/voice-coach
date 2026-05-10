@@ -47,6 +47,7 @@ function countWords(text: string): number {
 }
 import { supabase } from '../../../../lib/supabase';
 import { usePersonaStore, useAuthStore, useChatStore } from '../../../../stores';
+import { useFeature } from '../../../../stores/featuresStore';
 import { PersonaDisplay } from '../../../../types/persona';
 import { SessionStats, PerformanceAnalysis, AIStats, EmotionalJourney } from '../../../../components/report';
 
@@ -116,6 +117,14 @@ export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const getPersonaById = usePersonaStore((s) => s.getPersonaById);
   const profile = useAuthStore((s) => s.profile);
+
+  // Tier-gated report sections. Admins always see everything regardless
+  // of their tier so they can debug what users on lower tiers are
+  // missing.
+  const performanceAnalysisEnabled = useFeature('performance_analysis_enabled');
+  const emotionalJourneyEnabled = useFeature('emotional_journey_view_enabled');
+  const detailedAnalysisEnabled = useFeature('detailed_analysis_enabled');
+  const isAdmin = !!profile?.is_admin;
 
   const [report, setReport] = useState<SessionReport | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -554,11 +563,15 @@ export default function ReportScreen() {
         {/* Session Stats */}
         {timingMetrics && <SessionStats timingMetrics={timingMetrics} />}
 
-        {/* Performance Analysis */}
-        {messages.length > 2 && <PerformanceAnalysis messages={messages} />}
+        {/* Performance Analysis — gated by tier */}
+        {messages.length > 2 && (performanceAnalysisEnabled || isAdmin) && (
+          <PerformanceAnalysis messages={messages} />
+        )}
 
-        {/* Emotional Journey (Admin only) */}
-        {profile?.is_admin && <EmotionalJourney messages={messages} />}
+        {/* Emotional Journey — gated by tier (or admin) */}
+        {(emotionalJourneyEnabled || isAdmin) && (
+          <EmotionalJourney messages={messages} />
+        )}
 
         {/* Strengths */}
         <View
@@ -642,7 +655,8 @@ export default function ReportScreen() {
           ))}
         </View>
 
-        {/* Detailed Analysis (Expandable) */}
+        {/* Detailed Analysis (Expandable) — gated by tier; admins always see */}
+        {(detailedAnalysisEnabled || isAdmin) && (
         <Pressable
           onPress={() => setShowAnalysis(!showAnalysis)}
           style={{
@@ -687,6 +701,7 @@ export default function ReportScreen() {
             </Text>
           )}
         </Pressable>
+        )}
 
         {/* Transcript (Expandable) */}
         <Pressable
