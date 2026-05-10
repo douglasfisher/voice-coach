@@ -38,6 +38,7 @@ export function LoginForm({
       autoComplete="on"
       className="space-y-4"
       id="login-form"
+      name="login"
     >
       <input type="hidden" name="next" value={next ?? ""} />
       <div className="space-y-2">
