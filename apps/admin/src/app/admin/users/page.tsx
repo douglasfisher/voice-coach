@@ -17,6 +17,7 @@ import type { Database } from "@/types/database"
 import { UsersFilterBar } from "./filter-bar"
 import { InviteUserDialog } from "./invite-dialog"
 import { SortHeader } from "./sort-header"
+import { StreakDots } from "./streak-dots"
 
 export const metadata = { title: "Users · Dialectica Admin" }
 export const dynamic = "force-dynamic"
@@ -39,6 +40,7 @@ type Joined = "all" | "7d" | "30d" | "90d"
 type Inactive = "all" | "30d" | "60d" | "90d" | "never"
 type SortField = "joined" | "last_signin" | "sessions" | "streak" | "last_session"
 type SortDir = "asc" | "desc"
+type StreakWindow = 7 | 14 | 30
 
 type Filters = {
   q: string
@@ -49,6 +51,7 @@ type Filters = {
   inactive: Inactive
   sort: SortField
   dir: SortDir
+  window: StreakWindow
   page: number
 }
 
@@ -64,6 +67,7 @@ function parseFilters(
   const inactive = get("inactive")
   const sort = get("sort")
   const dir = get("dir")
+  const windowRaw = get("window")
   const pageRaw = Number(get("page") ?? 1)
   return {
     q: (get("q") ?? "").trim(),
@@ -98,6 +102,7 @@ function parseFilters(
         ? sort
         : "joined",
     dir: dir === "asc" ? "asc" : "desc",
+    window: windowRaw === "7" ? 7 : windowRaw === "30" ? 30 : 14,
     page: Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1,
   }
 }
@@ -164,6 +169,53 @@ async function loadUsers(filters: Filters) {
   return { rows: (data ?? []) as UserRow[], total: count ?? 0 }
 }
 
+/**
+ * Load per-day activity (= any ai_usage row that day) for the visible
+ * users over the chosen window. One supplementary query, scoped by
+ * the user IDs on this page so we never pull the global table.
+ *
+ * Returns Map<userId, Set<YYYY-MM-DD>>. Missing userIds (the user has
+ * no ai_usage in the window) are simply absent from the map; the
+ * StreakDots component renders an empty row of hollow dots in that
+ * case.
+ */
+async function loadActivityWindow(
+  userIds: string[],
+  windowDays: number
+): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>()
+  if (userIds.length === 0) return out
+
+  const supabase = await createSupabaseServerClient()
+  const since = new Date(
+    Date.now() - windowDays * 24 * 60 * 60 * 1000
+  ).toISOString()
+
+  const { data, error } = await supabase
+    .from("ai_usage")
+    .select("user_id, created_at")
+    .in("user_id", userIds)
+    .gte("created_at", since)
+
+  if (error) {
+    // Non-fatal — the dots just render hollow.
+    console.error("[users] loadActivityWindow failed", error)
+    return out
+  }
+
+  for (const row of data ?? []) {
+    if (!row.user_id || !row.created_at) continue
+    const day = row.created_at.slice(0, 10)
+    let set = out.get(row.user_id)
+    if (!set) {
+      set = new Set()
+      out.set(row.user_id, set)
+    }
+    set.add(day)
+  }
+  return out
+}
+
 export default async function UsersPage({
   searchParams,
 }: {
@@ -172,6 +224,14 @@ export default async function UsersPage({
   const sp = await searchParams
   const filters = parseFilters(sp)
   const { rows, total } = await loadUsers(filters)
+
+  // Capture wall-clock now in this loader (an async, non-render
+  // function) so the page render body stays pure for React Compiler.
+  const today = new Date()
+  const userIds = rows
+    .map((r) => r.id)
+    .filter((id): id is string => Boolean(id))
+  const activityByUser = await loadActivityWindow(userIds, filters.window)
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const start = total === 0 ? 0 : (filters.page - 1) * PAGE_SIZE + 1
@@ -199,6 +259,7 @@ export default async function UsersPage({
         initialStatus={filters.status}
         initialJoined={filters.joined}
         initialInactive={filters.inactive}
+        initialWindow={String(filters.window) as "7" | "14" | "30"}
       />
 
       <div className="rounded-lg border">
@@ -218,16 +279,10 @@ export default async function UsersPage({
                   Sessions
                 </SortHeader>
               </TableHead>
-              <TableHead className="text-right">
-                <SortHeader
-                  field="streak"
-                  currentSort={filters.sort}
-                  currentDir={filters.dir}
-                  searchParams={flatSp}
-                  align="right"
-                >
-                  Streak
-                </SortHeader>
+              <TableHead>
+                <span title={`Activity over the last ${filters.window} days. Filled dot = at least one AI call that day.`}>
+                  Activity ({filters.window}d)
+                </span>
               </TableHead>
               <TableHead>
                 <SortHeader
@@ -292,8 +347,12 @@ export default async function UsersPage({
                   <TableCell className="text-right tabular-nums">
                     {u.total_sessions ?? 0}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {u.streak_days ?? 0}
+                  <TableCell>
+                    <StreakDots
+                      days={filters.window}
+                      activeDates={u.id ? activityByUser.get(u.id) ?? null : null}
+                      today={today}
+                    />
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {formatRelative(u.last_sign_in_at)}
@@ -370,6 +429,7 @@ function Pager({
     if (filters.inactive !== "all") sp.set("inactive", filters.inactive)
     if (filters.sort !== "joined") sp.set("sort", filters.sort)
     if (filters.dir !== "desc") sp.set("dir", filters.dir)
+    if (filters.window !== 14) sp.set("window", String(filters.window))
     if (page !== 1) sp.set("page", String(page))
     const qs = sp.toString()
     return qs ? `/admin/users?${qs}` : "/admin/users"

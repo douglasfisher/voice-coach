@@ -25,6 +25,7 @@ type Tier =
 type Status = "all" | "active" | "suspended"
 type Joined = "all" | "7d" | "30d" | "90d"
 type Inactive = "all" | "30d" | "60d" | "90d" | "never"
+type StreakWindow = "7" | "14" | "30"
 
 /**
  * Live filter bar for /admin/users. Same pattern as
@@ -43,6 +44,7 @@ export function UsersFilterBar({
   initialStatus,
   initialJoined,
   initialInactive,
+  initialWindow,
 }: {
   initialQ: string
   initialRole: Role
@@ -50,6 +52,7 @@ export function UsersFilterBar({
   initialStatus: Status
   initialJoined: Joined
   initialInactive: Inactive
+  initialWindow: StreakWindow
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -67,6 +70,7 @@ export function UsersFilterBar({
       status: Status
       joined: Joined
       inactive: Inactive
+      window: StreakWindow
     }>) => {
       const sp = new URLSearchParams(params?.toString() ?? "")
       sp.delete("page")
@@ -77,6 +81,7 @@ export function UsersFilterBar({
       const nextStatus = next.status ?? initialStatus
       const nextJoined = next.joined ?? initialJoined
       const nextInactive = next.inactive ?? initialInactive
+      const nextWindow = next.window ?? initialWindow
 
       if (nextQ) sp.set("q", nextQ)
       else sp.delete("q")
@@ -90,6 +95,9 @@ export function UsersFilterBar({
       else sp.delete("joined")
       if (nextInactive !== "all") sp.set("inactive", nextInactive)
       else sp.delete("inactive")
+      // Default 14d — only emit when divergent.
+      if (nextWindow !== "14") sp.set("window", nextWindow)
+      else sp.delete("window")
 
       const qs = sp.toString()
       const href = qs ? `${pathname}?${qs}` : pathname
@@ -106,6 +114,7 @@ export function UsersFilterBar({
       initialStatus,
       initialJoined,
       initialInactive,
+      initialWindow,
     ]
   )
 
@@ -203,6 +212,19 @@ export function UsersFilterBar({
           <SelectItem value="60d">Inactive 60+ days</SelectItem>
           <SelectItem value="90d">Inactive 90+ days</SelectItem>
           <SelectItem value="never">Never signed in</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select
+        value={initialWindow}
+        onValueChange={(v) => pushFilters({ window: v as StreakWindow })}
+      >
+        <SelectTrigger className="w-32">
+          <SelectValue placeholder="Streak" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="7">Streak: 7d</SelectItem>
+          <SelectItem value="14">Streak: 14d</SelectItem>
+          <SelectItem value="30">Streak: 30d</SelectItem>
         </SelectContent>
       </Select>
     </div>

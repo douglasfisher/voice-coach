@@ -30,6 +30,9 @@ export function SortHeader({
   // admin typically wants first).
   const nextDir: "asc" | "desc" = active && currentDir === "desc" ? "asc" : "desc"
 
+  // Preserve every other filter param (q, role, tier, status, joined,
+  // inactive, window) so the sort link doesn't quietly drop them.
+  // Drop sort/dir/page since we're rewriting them here.
   const sp = new URLSearchParams()
   for (const [k, v] of Object.entries(searchParams)) {
     if (v && k !== "sort" && k !== "dir" && k !== "page") sp.set(k, v)
