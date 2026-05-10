@@ -763,6 +763,45 @@ export type Database = {
           },
         ]
       }
+      feature_flags: {
+        Row: {
+          created_at: string
+          default_value: Json
+          deprecated: boolean
+          description: string
+          feature_group: string
+          key: string
+          kind: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_value: Json
+          deprecated?: boolean
+          description: string
+          feature_group: string
+          key: string
+          kind: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_value?: Json
+          deprecated?: boolean
+          description?: string
+          feature_group?: string
+          key?: string
+          kind?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       growth_projections: {
         Row: {
           confidence_level: number | null
@@ -1200,6 +1239,80 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tier_features: {
+        Row: {
+          feature_key: string
+          tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          feature_key: string
+          tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          feature_key?: string
+          tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tier_features_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      tier_metadata: {
+        Row: {
+          annual_price_cents: number | null
+          badge_color: string | null
+          created_at: string
+          display_name: string
+          is_visible_in_pricing: boolean
+          marketing_description: string | null
+          monthly_price_cents: number | null
+          short_description: string | null
+          sort_order: number
+          tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at: string
+        }
+        Insert: {
+          annual_price_cents?: number | null
+          badge_color?: string | null
+          created_at?: string
+          display_name: string
+          is_visible_in_pricing?: boolean
+          marketing_description?: string | null
+          monthly_price_cents?: number | null
+          short_description?: string | null
+          sort_order?: number
+          tier: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+        }
+        Update: {
+          annual_price_cents?: number | null
+          badge_color?: string | null
+          created_at?: string
+          display_name?: string
+          is_visible_in_pricing?: boolean
+          marketing_description?: string | null
+          monthly_price_cents?: number | null
+          short_description?: string | null
+          sort_order?: number
+          tier?: Database["public"]["Enums"]["subscription_tier"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       trait_categories: {
         Row: {
