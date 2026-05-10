@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   UserCog,
-  Sparkles,
   Settings2,
   CreditCard,
   Activity,
@@ -55,7 +54,6 @@ const groups: { label: string; items: NavItem[] }[] = [
     label: "AI",
     items: [
       { href: "/admin/personas", label: "Personas", icon: UserCog },
-      { href: "/admin/advisors", label: "Advisors", icon: Sparkles },
       { href: "/admin/ai-config", label: "AI config", icon: Settings2 },
       { href: "/admin/avatars", label: "Avatars", icon: ImageIcon },
     ],

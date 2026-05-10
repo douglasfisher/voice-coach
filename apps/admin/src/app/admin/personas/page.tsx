@@ -1,17 +1,9 @@
 import Link from "next/link"
-import { LayoutGrid, List, Palette, Plus, Search } from "lucide-react"
+import { LayoutGrid, List, Palette, Plus } from "lucide-react"
 
 import { PageHeader } from "@/components/admin/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -22,7 +14,6 @@ import {
 } from "@/components/ui/table"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { loadPersonaLookups } from "@/lib/personas/lookups"
-import { PERSONA_TYPES } from "@/lib/personas/constants"
 import { PersonaAvatar } from "@/components/admin/personas/persona-avatar"
 import { PersonaCard } from "@/components/admin/personas/persona-card"
 import { PersonalityBars } from "@/components/admin/personas/personality-bars"
@@ -31,6 +22,7 @@ import { ActiveToggle } from "@/components/admin/personas/active-toggle"
 import { requireAdminPage } from "@/lib/auth/require-admin"
 import { formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { PersonasFilterBar } from "./filter-bar"
 
 export const metadata = { title: "Personas · Dialectica Admin" }
 
@@ -142,58 +134,13 @@ export default async function PersonasPage({
         }
       />
 
-      <form className="my-4 flex flex-wrap items-center gap-2">
-        <input type="hidden" name="view" value={filters.view} />
-        <input type="hidden" name="theme" value={filters.theme} />
-        <div className="relative min-w-64 flex-1">
-          <Search className="text-muted-foreground absolute top-1/2 left-2 size-4 -translate-y-1/2" />
-          <Input
-            name="q"
-            defaultValue={filters.q}
-            placeholder="Search by name…"
-            className="pl-8"
-          />
-        </div>
-        <Select name="type" defaultValue={filters.type}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            {PERSONA_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select name="domain" defaultValue={filters.domain}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Domain" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All domains</SelectItem>
-            {lookups.domains.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select name="status" defaultValue={filters.status}>
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="all">Show all</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button type="submit" variant="secondary">
-          Apply
-        </Button>
-      </form>
+      <PersonasFilterBar
+        initialQ={filters.q}
+        initialType={filters.type}
+        initialDomain={filters.domain}
+        initialStatus={filters.status}
+        domainOptions={lookups.domains.map((d) => ({ id: d.id, name: d.name }))}
+      />
 
       {filters.view === "grid" ? (
         rows.length === 0 ? (
