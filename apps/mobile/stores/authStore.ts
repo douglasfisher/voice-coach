@@ -277,6 +277,19 @@ export const useAuthStore = create<AuthState>()(
       profile: profileResult.data,
       preferences: preferencesResult.data,
     });
+
+    // Load the user's resolved feature matrix for their tier. Done
+    // here because it's the single place where we know auth + profile
+    // are both in hand. The store dedupes via TTL so this is cheap on
+    // re-runs.
+    try {
+      const { useFeaturesStore } = await import('./featuresStore');
+      await useFeaturesStore
+        .getState()
+        .loadFor(profileResult.data?.subscription_tier ?? 'free');
+    } catch (err) {
+      console.error('[authStore] features load failed', err);
+    }
   },
 
   updateProfile: async (updates) => {
