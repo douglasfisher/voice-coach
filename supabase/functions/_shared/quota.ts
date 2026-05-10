@@ -2,13 +2,11 @@
  * Per-user daily token quota enforcement.
  *
  * Runs once per AI request in the chat edge function. Reads the user's
- * tier from user_profiles and the tier's daily limit from
- * app_settings.ai_tier_limits, sums their last 24h ai_usage tokens, and
- * returns whether they're over.
+ * tier from user_profiles and the daily_tokens feature value from the
+ * tier_features matrix (resolved via _shared/features.ts).
  *
- * Tiers with `enforce=false` (enterprise, team) are tracked but never
- * blocked — those plans are negotiated and we'd rather warn than 429
- * during a live demo.
+ * `null` daily_tokens = unlimited — used for enterprise/team where we
+ * track usage but never block. Other tiers all have a numeric cap.
  *
  * Anonymous calls (no userId) bypass the check entirely — chat function
  * still records the row, but admin-initiated complete() calls aren't
@@ -16,6 +14,7 @@
  */
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getQuota } from './features.ts';
 
 export type QuotaResult =
   | { ok: true }
@@ -27,38 +26,21 @@ export type QuotaResult =
       used: number;
     };
 
-type TierLimits = Record<
-  string,
-  { daily_tokens: number; enforce: boolean }
->;
-
-const FALLBACK_LIMITS: TierLimits = {
-  free: { daily_tokens: 10000, enforce: true },
-  freemium: { daily_tokens: 50000, enforce: true },
-  basic: { daily_tokens: 200000, enforce: true },
-  pro: { daily_tokens: 1000000, enforce: true },
-  enterprise: { daily_tokens: 5000000, enforce: false },
-  team: { daily_tokens: 5000000, enforce: false },
-};
-
 export async function checkDailyQuota(
   supabase: SupabaseClient,
   userId: string | null | undefined,
 ): Promise<QuotaResult> {
   if (!userId) return { ok: true };
 
-  // Run profile + limits + usage sum in parallel.
+  // Run profile + usage sum in parallel; the feature-resolver call
+  // hits its own cache so it's effectively free after the first
+  // request per minute.
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const [profileQ, limitsQ, usageQ] = await Promise.all([
+  const [profileQ, usageQ] = await Promise.all([
     supabase
       .from('user_profiles')
       .select('subscription_tier')
       .eq('id', userId)
-      .maybeSingle(),
-    supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'ai_tier_limits')
       .maybeSingle(),
     supabase
       .from('ai_usage')
@@ -70,22 +52,27 @@ export async function checkDailyQuota(
   const tier =
     (profileQ.data?.subscription_tier as string | undefined) ?? 'free';
 
-  const limitsRaw =
-    (limitsQ.data?.value as TierLimits | undefined) ?? FALLBACK_LIMITS;
-  const limit = limitsRaw[tier] ?? FALLBACK_LIMITS[tier] ?? FALLBACK_LIMITS.free;
+  const limit = await getQuota(supabase, tier, 'daily_tokens');
 
-  // No data means this user has zero usage in the last 24h.
+  // null = unlimited (enterprise/team or admin-tweaked). Track but
+  // don't enforce.
+  if (limit === null) return { ok: true };
+
+  // Defensive: getQuota returns Infinity if the catalogue key is
+  // missing entirely. Treat that as "no enforcement" too.
+  if (!Number.isFinite(limit)) return { ok: true };
+
   const used = (usageQ.data ?? []).reduce(
     (sum, row) => sum + (row.total_tokens ?? 0),
     0,
   );
 
-  if (limit.enforce && used >= limit.daily_tokens) {
+  if (used >= limit) {
     return {
       ok: false,
       reason: 'over_limit',
       tier,
-      limit: limit.daily_tokens,
+      limit,
       used,
     };
   }

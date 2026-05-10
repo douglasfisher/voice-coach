@@ -24,6 +24,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { recordAIUsage } from '../_shared/cost-calculator.ts';
+import { isFeatureEnabled } from '../_shared/features.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -100,6 +101,37 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+
+  // Tier capability gate. Voice output is the standard-tier minimum
+  // per the May 2026 competitive analysis. Refuse early if the user's
+  // tier doesn't enable voice_output_enabled. Anonymous calls (no
+  // userId — admin-initiated previews) skip the check.
+  if (body.userId) {
+    const { data: tierData } = await supabase
+      .from('user_profiles')
+      .select('subscription_tier, disabled')
+      .eq('id', body.userId)
+      .maybeSingle();
+    if (tierData?.disabled) {
+      return new Response(
+        JSON.stringify({ error: 'account_suspended' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const tier = tierData?.subscription_tier ?? 'free';
+    const allowed = await isFeatureEnabled(supabase, tier, 'voice_output_enabled');
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'feature_not_in_tier',
+          feature: 'voice_output_enabled',
+          tier,
+          message: 'Voice playback is not available on your plan. Upgrade to unlock.',
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+  }
 
   try {
     // 1. Generate audio

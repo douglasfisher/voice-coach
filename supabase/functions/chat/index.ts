@@ -11,6 +11,7 @@ import { resolveAIConfig, CoachingContext } from '../_shared/config/ai-config-re
 import { generateSceneContext, getQuickFeedbackPrompt } from '../_shared/config/coaching-prompts.ts';
 import { recordAIUsage, calculateAICost } from '../_shared/cost-calculator.ts';
 import { checkDailyQuota, quotaExceededResponse } from '../_shared/quota.ts';
+import { isFeatureEnabled } from '../_shared/features.ts';
 import { processSessionGamification } from '../_shared/gamification/index.ts';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -324,21 +325,25 @@ serve(async (req) => {
     // Tier limits live in app_settings.ai_tier_limits and are tunable
     // without a redeploy. enterprise/team are tracked but not enforced.
     // =========================================================================
+    // The conversation's owner. Captured here once and reused later for
+    // the persona-capability gate so we don't re-query.
+    let conversationUserId: string | null = null;
     if (conversationId) {
       const { data: convForQuota } = await supabase
         .from('conversations')
         .select('user_id')
         .eq('id', conversationId)
         .maybeSingle();
+      conversationUserId = convForQuota?.user_id ?? null;
 
       // Suspended-account gate. Mobile checks user_profiles.disabled
       // at session bootstrap and signs out, but a stale token cached
       // on a device could still make it here — defense in depth.
-      if (convForQuota?.user_id) {
+      if (conversationUserId) {
         const { data: profileForGate } = await supabase
           .from('user_profiles')
           .select('disabled')
-          .eq('id', convForQuota.user_id)
+          .eq('id', conversationUserId)
           .maybeSingle();
         if (profileForGate?.disabled) {
           return new Response(
@@ -351,7 +356,7 @@ serve(async (req) => {
         }
       }
 
-      const quota = await checkDailyQuota(supabase, convForQuota?.user_id);
+      const quota = await checkDailyQuota(supabase, conversationUserId);
       if (!quota.ok) {
         return quotaExceededResponse(quota, corsHeaders);
       }
@@ -1182,6 +1187,45 @@ Generate a comprehensive session report.`;
         .eq('id', personaId)
         .single();
       cachedPersonaType = ptData?.persona_type || null;
+    }
+
+    // Tier capability gate. Refuses access to advisor / challenger
+    // personas if the user's tier doesn't enable them. Skipped on
+    // anonymous / admin paths (no conversationUserId). Resolved
+    // features are cached at the resolver layer so this is effectively
+    // free after the first request per minute.
+    if (conversationUserId && cachedPersonaType) {
+      const { data: tierData } = await supabase
+        .from('user_profiles')
+        .select('subscription_tier')
+        .eq('id', conversationUserId)
+        .maybeSingle();
+      const tier = tierData?.subscription_tier ?? 'free';
+
+      let requiredFeature: string | null = null;
+      if (cachedPersonaType === 'advisor') {
+        requiredFeature = 'advisor_mode_enabled';
+      } else if (cachedPersonaType === 'challenger') {
+        requiredFeature = 'challenger_personas_enabled';
+      }
+
+      if (requiredFeature) {
+        const enabled = await isFeatureEnabled(supabase, tier, requiredFeature);
+        if (!enabled) {
+          return new Response(
+            JSON.stringify({
+              error: 'feature_not_in_tier',
+              feature: requiredFeature,
+              tier,
+              message: `${cachedPersonaType === 'advisor' ? 'Advisor' : 'Challenger'} personas are not available on your plan. Upgrade to unlock.`,
+            }),
+            {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            },
+          );
+        }
+      }
     }
 
     // Helper to generate opening question
