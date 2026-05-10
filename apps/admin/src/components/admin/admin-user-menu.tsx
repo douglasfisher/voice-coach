@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -42,16 +43,21 @@ export function AdminUserMenu({
         }
       />
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex items-center justify-between">
-          <span className="truncate text-sm">{email}</span>
-          <Badge
-            variant={role === "superadmin" ? "default" : "secondary"}
-            className="ml-2"
-          >
-            <ShieldCheck className="mr-1 size-3" />
-            {role}
-          </Badge>
-        </DropdownMenuLabel>
+        {/* DropdownMenuLabel is a Base UI Menu.GroupLabel under the hood
+            and panics outside a Menu.Group. Wrap in DropdownMenuGroup
+            so the role+email header renders cleanly. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex items-center justify-between">
+            <span className="truncate text-sm">{email}</span>
+            <Badge
+              variant={role === "superadmin" ? "default" : "secondary"}
+              className="ml-2"
+            >
+              <ShieldCheck className="mr-1 size-3" />
+              {role}
+            </Badge>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <form action={signOutAction}>
           <DropdownMenuItem
