@@ -5,9 +5,9 @@ export const metadata = { title: "Sign in · Dialectica Admin" }
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>
+  searchParams: Promise<{ next?: string; error?: string }>
 }) {
-  const { next } = await searchParams
+  const { next, error } = await searchParams
   return (
     <main className="flex min-h-svh items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-8">
@@ -24,7 +24,7 @@ export default async function LoginPage({
             </p>
           </div>
         </div>
-        <LoginForm next={next} />
+        <LoginForm next={next} error={error} />
       </div>
     </main>
   )
